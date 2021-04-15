@@ -45,10 +45,6 @@ requirements:
     - fftw 3.3.8.* [not win]
     - llvm-openmp [osx]
 
-#test:
-#  imports:
-#    - tttrlib
-
 about:
   home: https://github.com/fluorescence-tools/tttrlib
   license: {{ data.get('license') }}
