@@ -26,6 +26,7 @@ requirements:
     - python {{ python }}
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
+    - pathlib2 [py27]
     - cmake >=3.13
     - numpy
     - swig
