@@ -1,4 +1,6 @@
 {% set data = load_setup_py_data(setup_file='../setup.py', from_recipe_dir=True) %}
+{% set PY_VER_MAJOR = PY_VER[0] %}
+{% set PY_VER_MINOR = PY_VER[2] %}
 
 package:
   name: {{ data.get('name')|lower }}
@@ -10,7 +12,8 @@ source:
 
 build:
     number: 0
-    string: py{{ python }}
+    string: py{{ PY_VER_MAJOR }}{{ PY_VER_MINOR }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}
+    detect_binary_files_with_prefix: True [not win]
 
 requirements:
   host:
@@ -20,31 +23,25 @@ requirements:
     - git
     - pathlib2 [py27]
   build:
+    - python {{ python }}
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - cmake >=3.13
-    - python {{ python }}
     - numpy
     - swig
-    - boost 1.67.0.* [py < 38]
-    - boost 1.71.0.* [py >= 38]
-    - hdf5 1.10.2.* [py < 38 and not linux64]
-    - hdf5 1.10.4.* [py >= 38 or linux64]
-    - fftw 3.3.4.* [win]
-    - fftw 3.3.8.* [not win]
+    - boost
+    - hdf5
+    - fftw
     - llvm-openmp [osx]
   run:
     - python {{ python }}
     - numpy
-    - boost 1.67.0.* [py < 38]
-    - boost 1.71.0.* [py >= 38]
-    - libboost 1.71.0.* [py >= 38]
-    - libboost 1.67.0.* [py < 38]
-    - hdf5 1.10.2.* [py < 38 and not linux64]
-    - hdf5 1.10.4.* [py >= 38 or linux64]
-    - fftw 3.3.4.* [win]
-    - fftw 3.3.8.* [not win]
+    - {{ pin_compatible('boost', max_pin='x.x.x') }}
+    - {{ pin_compatible('hdf5', max_pin='x.x.x') }}
+    - {{ pin_compatible('fftw', max_pin='x.x') }}
     - llvm-openmp [osx]
+
+  run:
 
 about:
   home: https://github.com/fluorescence-tools/tttrlib
