@@ -29,7 +29,7 @@ build:linux:
   script:
     - echo "I am the build stage."
     - source activate base
-    - conda install mamba boa conda-verify conda-forge
+    - conda install mamba boa conda-verify -c conda-forge
     - |
       conda config --add channels salilab
       conda config --add channels conda-forge
