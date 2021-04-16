@@ -13,7 +13,6 @@ source:
 build:
     number: 0
     string: py{{ PY_VER_MAJOR }}{{ PY_VER_MINOR }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}
-    detect_binary_files_with_prefix: True [not win]
 
 requirements:
   host:
@@ -36,7 +35,7 @@ requirements:
     - llvm-openmp [osx]
   run:
     - python {{ python }}
-    - numpy
+    - {{ pin_compatible('numpy') }}
     - {{ pin_compatible('boost', max_pin='x.x.x') }}
     - {{ pin_compatible('hdf5', max_pin='x.x.x') }}
     - {{ pin_compatible('fftw', max_pin='x.x') }}
