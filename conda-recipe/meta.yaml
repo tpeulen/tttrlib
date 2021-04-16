@@ -12,7 +12,7 @@ source:
 
 build:
     number: 0
-    string: py{{ PY_VER_MAJOR }}boost{{ boost }}{{ PY_VER_MINOR }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}
+    string: py{{ PY_VER_MAJOR }}{{ PY_VER_MINOR }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}
 
 requirements:
   host:
