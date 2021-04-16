@@ -18,65 +18,63 @@ workflow:
         DEPLOY_VARIABLE: "main"  # Override globally-defined DEPLOY_VARIABLE
     - when: always               # Run the pipeline in other cases
 
-build:linux:
-  stage: build
-  tags:
-    - linux
-  image: continuumio/miniconda3:latest
-  before_script:
-    - apt update -yq && apt -yq install build-essential
-  script:
-    - echo "I am the build stage."
-    - source activate
-    - conda install mamba boa conda-verify -c conda-forge
-    - |
-      conda config --add channels salilab
-      conda config --add channels conda-forge
-      conda config --add channels tpeulen
-      conda config --add channels tpeulen/label/nightly
-    - conda mambabuild conda-recipe --output-folder bld-dir
-  artifacts:
-    expire_in: 7 days
-    paths:
-      - bld-dir/
+image: continuumio/miniconda3:latest
+  build:linux:
+    stage: build
+    tags:
+      - linux
+    before_script:
+      - apt update -yq && apt -yq install build-essential
+    script:
+      - echo "I am the build stage."
+      - source activate
+      - conda install mamba boa conda-verify -c conda-forge
+      - |
+        conda config --add channels salilab
+        conda config --add channels conda-forge
+        conda config --add channels tpeulen
+        conda config --add channels tpeulen/label/nightly
+      - conda mambabuild conda-recipe --output-folder bld-dir
+    artifacts:
+      expire_in: 7 days
+      paths:
+        - bld-dir/
 
-test:linux:
-  variables:
-    MINICONDA_OS: "Linux"
-  stage: test
-  tags:
-    - linux
-  image: continuumio/miniconda3:latest
-  script:
-    - echo "I am a test stage."
-    - source activate base
-    - conda config --set always_yes yes --set changeps1 no
-    - conda install mamba -c conda-forge
-    - |
-      conda config --add channels salilab
-      conda config --add channels conda-forge
-      conda config --add channels tpeulen
-      conda config --add channels tpeulen/label/nightly
-    - git clone https://gitlab.peulen.xyz/tpeulen/tttr-data --depth 1
-    - conda create -n test
-    - mamba install tttrlib -c file://bld-dir
-    - mamba install nose scipy
-    - |
-      cd test
-      nosetests
+  test:linux:
+    variables:
+      MINICONDA_OS: "Linux"
+    stage: test
+    tags:
+      - linux
+    script:
+      - echo "I am a test stage job for debian, running on docker"
+      - source activate base
+      - conda config --set always_yes yes --set changeps1 no
+      - conda install mamba -c conda-forge
+      - |
+        conda config --add channels salilab
+        conda config --add channels conda-forge
+        conda config --add channels tpeulen
+        conda config --add channels tpeulen/label/nightly
+        conda config --add channels "file://`pwd`/bld-dir"
+      - git clone https://gitlab.peulen.xyz/tpeulen/tttr-data --depth 1
+      - mamba create -n test python tttrlib nose scipy
+      - conda activate test
+      - |
+        cd test
+        nosetests
 
-deploy:
-  stage: deploy
-  image: continuumio/miniconda3:latest
-  tags:
-    - linux
-  dependencies:
-    - build:linux
-  script:
-    - echo "I am a depolyment stage job for debian, running on docker using continuumio/miniconda3:latest image"
-    - source activate
-    - conda install anaconda-client
-    - anaconda -t ${ANACONDA_API_TOKEN} upload -l ${DEPLOY_VARIABLE} -u ${CONDA_USER} --force bld-dir/linux-64/*.tar.bz2
+  deploy:
+    stage: deploy
+    tags:
+      - linux
+    dependencies:
+      - build:linux
+    script:
+      - echo "I am a depolyment stage job for debian, running on docker using continuumio/miniconda3:latest image"
+      - source activate
+      - conda install anaconda-client
+      - anaconda -t ${ANACONDA_API_TOKEN} upload -l ${DEPLOY_VARIABLE} -u ${CONDA_USER} --force bld-dir/linux-64/*.tar.bz2
 
 
 # Downstream projects
