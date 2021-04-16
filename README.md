@@ -120,8 +120,9 @@ are not supported.
 The API of tttrlib as well as some use cases are documented 
 on its [web page](https://fluorescence-tools.github.io/tttrlib) 
 
-Note, tttrlib is highly experimental library in current development. In 
-case you notice unusual behaviour do not hesitate to contact the authors. 
+tttrlib is in an early development stage. The API can change in future 
+releases. Hence, when you notice a unusual behavior please do not hesitate 
+to contact the authors. 
     
 ## License
 
