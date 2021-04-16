@@ -27,6 +27,7 @@ build:linux:
     - apt update -yq && apt -yq install build-essential
   script:
     - echo "I am the build stage."
+    - source activate
     - conda activate base
     - conda install mamba boa conda-verify -c conda-forge
     - |
@@ -47,10 +48,9 @@ test:linux:
   tags:
     - linux
   image: continuumio/miniconda3:latest
-  before_script:
-    - apt update -yq && apt -yq install build-essential
   script:
     - echo "I am the test stage."
+    - source activate
     - conda activate base
     - conda install mamba git git-lfs -c conda-forge
     - |
