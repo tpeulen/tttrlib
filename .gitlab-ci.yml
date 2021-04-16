@@ -37,24 +37,28 @@ build:linux:
       - bld-dir/
 
 test:linux:
-  image: continuumio/miniconda3:latest
-  stage: test
-  tags:
-    - linux
-  variables:
-    MINICONDA_OS: "Linux"
-  script:
-    - echo "I am a test stage job."
-    - source activate base
+  image: ubuntu:18.04
+  before_script:
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt update -yq
+    - apt install -yq procps wget git git-lfs
+    # Download and install miniconda
+    - wget https://repo.continuum.io/miniconda/Miniconda3-$MINICONDA_VERSION-$MINICONDA_OS-x86_64.sh -O miniconda.sh
+    - bash miniconda.sh -b -p $HOME/miniconda
+    - export PATH="$HOME/miniconda/bin:$PATH"
+    # setup conda to always accept commands
     - conda config --set always_yes yes --set changeps1 no
-    - conda install mamba git git-lfs -c conda-forge
+  script:
+    - echo "I am a test stage."
+    - source activate base
+    - conda install mamba conda-verify -c conda-forge
     - |
       conda config --add channels salilab
       conda config --add channels "file://`pwd`/bld-dir"
-    - git clone https://gitlab.peulen.xyz/tpeulen/tttr-data --depth 1
     - mamba create -n test python=3.8
     - conda activate test
     - mamba install tttrlib nose scipy
+    - git clone https://gitlab.peulen.xyz/tpeulen/tttr-data --depth 1
     - |
       cd test
       nosetests
