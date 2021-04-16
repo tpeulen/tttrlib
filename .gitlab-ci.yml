@@ -46,22 +46,13 @@ test:linux:
   stage: test
   tags:
     - linux
-  image: ubuntu:latest
+  image: continuumio/miniconda3:latest
   before_script:
-    - export DEBIAN_FRONTEND=noninteractive
-    - apt update -yq
-    - apt install -yq procps wget git git-lfs
-    # Download and install miniconda
-    - wget https://repo.continuum.io/miniconda/Miniconda3-$MINICONDA_VERSION-$MINICONDA_OS-x86_64.sh -O miniconda.sh
-    - bash miniconda.sh -b -p $HOME/miniconda
-    - export PATH="$HOME/miniconda/bin:$PATH"
-    # setup conda to always accept commands
-    - conda config --set always_yes yes --set changeps1 no
+    - apt update -yq && apt -yq install build-essential
   script:
-    - echo "I am a test stage job for debian, running on docker"
-    - source activate base
-    - conda install mamba conda-verify -c conda-forge
-    - mamba update -y -n base -c defaults --all
+    - echo "I am the test stage."
+    - source activate
+    - conda install mamba git git-lfs -c conda-forge
     - |
       conda config --add channels salilab
       conda config --add channels conda-forge
@@ -69,8 +60,7 @@ test:linux:
       conda config --add channels tpeulen/label/nightly
       conda config --add channels "file://`pwd`/bld-dir"
     - git clone https://gitlab.peulen.xyz/tpeulen/tttr-data --depth 1
-    - mamba create -n test python=3.7 tttrlib nose scipy
-    - conda activate test
+    - mamba install tttrlib nose scipy
     - |
       cd test
       nosetests
