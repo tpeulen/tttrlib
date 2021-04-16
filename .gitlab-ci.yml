@@ -18,9 +18,9 @@ workflow:
         DEPLOY_VARIABLE: "main"  # Override globally-defined DEPLOY_VARIABLE
     - when: always               # Run the pipeline in other cases
 
-image: continuumio/miniconda3:latest
 
 build:linux:
+  image: continuumio/miniconda3:latest
   stage: build
   tags:
     - linux
@@ -41,32 +41,34 @@ build:linux:
     paths:
       - bld-dir/
 
-test:linux:
-  variables:
-    MINICONDA_OS: "Linux"
-  stage: test
-  tags:
-    - linux
-  script:
-    - echo "I am a test stage job for debian, running on docker"
-    - source activate base
-    - conda config --set always_yes yes --set changeps1 no
-    - conda install mamba -c conda-forge
-    - |
-      conda config --add channels salilab
-      conda config --add channels conda-forge
-      conda config --add channels tpeulen
-      conda config --add channels tpeulen/label/nightly
-      conda config --add channels "file://`pwd`/bld-dir"
-    - git clone https://gitlab.peulen.xyz/tpeulen/tttr-data --depth 1
-    - mamba create -n test python
-    - mamba install tttrlib nose scipy
-    - conda activate test
-    - |
-      cd test
-      nosetests
+# test:linux:
+#   image: continuumio/miniconda3:latest
+#   variables:
+#     MINICONDA_OS: "Linux"
+#   stage: test
+#   tags:
+#     - linux
+#   script:
+#     - echo "I am a test stage job for debian, running on docker"
+#     - source activate base
+#     - conda config --set always_yes yes --set changeps1 no
+#     - conda install mamba -c conda-forge
+#     - |
+#       conda config --add channels salilab
+#       conda config --add channels conda-forge
+#       conda config --add channels tpeulen
+#       conda config --add channels tpeulen/label/nightly
+#       conda config --add channels "file://`pwd`/bld-dir"
+#     - git clone https://gitlab.peulen.xyz/tpeulen/tttr-data --depth 1
+#     - mamba create -n test python
+#     - mamba install tttrlib nose scipy
+#     - conda activate test
+#     - |
+#       cd test
+#       nosetests
 
 deploy:
+  image: continuumio/miniconda3:latest
   stage: deploy
   tags:
     - linux
