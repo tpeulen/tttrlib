@@ -58,7 +58,7 @@ test:linux:
       conda config --add channels tpeulen
       conda config --add channels tpeulen/label/nightly
     - git clone https://gitlab.peulen.xyz/tpeulen/tttr-data --depth 1
-    - conda create -n test
+    - conda create -n test python
     - conda activate test
     - mamba install tttrlib -c bld-dir
     - mamba install nose scipy
