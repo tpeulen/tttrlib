@@ -27,7 +27,7 @@ build:linux:
     - apt update -yq && apt -yq install build-essential
   script:
     - echo "I am the build stage."
-    - source activate
+    - conda activate base
     - conda install mamba boa conda-verify -c conda-forge
     - |
       conda config --add channels salilab
@@ -51,7 +51,7 @@ test:linux:
     - apt update -yq && apt -yq install build-essential
   script:
     - echo "I am the test stage."
-    - source activate
+    - conda activate base
     - conda install mamba git git-lfs -c conda-forge
     - |
       conda config --add channels salilab
