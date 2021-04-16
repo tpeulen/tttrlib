@@ -48,7 +48,7 @@ test:linux:
     - linux
   image: continuumio/miniconda3:latest
   script:
-    - echo "I am a test stage job for debian, running on docker"
+    - echo "I am a test stage."
     - source activate base
     - conda config --set always_yes yes --set changeps1 no
     - conda install mamba -c conda-forge
