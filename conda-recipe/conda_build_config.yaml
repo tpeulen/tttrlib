@@ -1,7 +1,9 @@
 python:
-  - 3.9
+  - 2.7
+  - 3.7
+  - 3.8
 # boost versions that are build as libboost in default conda
 boost: 
-  # - 1.67.0
+  - 1.67.0
   - 1.71.0
-  # - 1.73.0
+  - 1.73.0
