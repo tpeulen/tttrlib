@@ -57,7 +57,6 @@ test:linux:
       conda config --add channels conda-forge
       conda config --add channels tpeulen
       conda config --add channels tpeulen/label/nightly
-      conda config --add channels "file://`pwd`/bld-dir"
     - git clone https://gitlab.peulen.xyz/tpeulen/tttr-data --depth 1
     - conda create -n test
     - conda activate test
