@@ -27,7 +27,7 @@ requirements:
     - pathlib2 [py27]
     - numpy
     - swig
-    - boost {{ boost }}
+    - boost
     - hdf5
     - fftw
     - llvm-openmp [osx]
