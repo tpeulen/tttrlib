@@ -16,7 +16,7 @@ build:
 
 requirements:
   host:
-    - python {{ python }}
+    - python
     - numpy
     - setuptools
     - git
@@ -41,13 +41,15 @@ requirements:
     - {{ pin_compatible('fftw', max_pin='x.x') }}
     - llvm-openmp [osx]
 
-test:
-  requires:
-    - nose
-    - scipy
-  commands:
-    - cd test
-    - nosetests
+# test:
+#   imports:
+#     - tttrlib
+#   requires:
+#     - nose
+#     - scipy
+#   commands:
+#     - cd test
+#     - nosetests
 
 about:
   home: https://github.com/fluorescence-tools/tttrlib
