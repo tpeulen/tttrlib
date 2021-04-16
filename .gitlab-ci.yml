@@ -28,7 +28,6 @@ build:linux:
   script:
     - echo "I am the build stage."
     - source activate
-    - conda activate base
     - conda install mamba boa conda-verify -c conda-forge
     - |
       conda config --add channels salilab
@@ -49,10 +48,10 @@ test:linux:
     - linux
   image: continuumio/miniconda3:latest
   script:
-    - echo "I am the test stage."
-    - source activate
-    - conda activate base
-    - conda install mamba git git-lfs -c conda-forge
+    - echo "I am a test stage job for debian, running on docker"
+    - source activate base
+    - conda config --set always_yes yes --set changeps1 no
+    - conda install mamba -c conda-forge
     - |
       conda config --add channels salilab
       conda config --add channels conda-forge
@@ -60,7 +59,10 @@ test:linux:
       conda config --add channels tpeulen/label/nightly
       conda config --add channels "file://`pwd`/bld-dir"
     - git clone https://gitlab.peulen.xyz/tpeulen/tttr-data --depth 1
-    - mamba install tttrlib nose scipy
+    - conda create -n test
+    - conda activate test
+    - mamba install tttrlib -c bld-dir
+    - mamba install nose scipy
     - |
       cd test
       nosetests
