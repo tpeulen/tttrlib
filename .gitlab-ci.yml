@@ -29,7 +29,7 @@ build:linux:
   script:
     - echo "I am the build stage."
     - source activate base
-    - conda install mamba boa conda-verify -c conda-forge
+    - conda install mamba boa conda-verify cmake -c conda-forge
     - |
       conda config --add channels salilab
       conda config --add channels tpeulen
@@ -51,7 +51,7 @@ test:linux:
     - echo "I am a test stage job."
     - source activate base
     - conda config --set always_yes yes --set changeps1 no
-    - conda install mamba git git-lfs cmake -c conda-forge
+    - conda install mamba git git-lfs -c conda-forge
     - |
       conda config --add channels salilab
       conda config --add channels tpeulen
