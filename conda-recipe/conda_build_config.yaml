@@ -1,5 +1,5 @@
 python:
-  - 2.7
+  # - 2.7
   - 3.7
   - 3.8
 # boost versions that are build as libboost in default conda
