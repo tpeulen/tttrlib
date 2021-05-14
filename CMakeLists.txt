@@ -14,8 +14,9 @@ MESSAGE(STATUS "CMAKE_MODULE_PATH='${CMAKE_MODULE_PATH}'")
 ################################################################################
 option(INSTALL "Install the library and the include files" ON)
 OPTION(BUILD_PYTHON_INTERFACE "Build Python interface" ON)
-OPTION(INSTALL "Install the library and the include files" ON)
+OPTION(BUILD_PYTHON_DOCS "Build documentation of SWIG Python interface" ON)
 OPTION(BUILD_R_INTERFACE "Build R interface" OFF)
+OPTION(INSTALL "Install the library and the include files" ON)
 
 #######################################
 # Compiler flags
