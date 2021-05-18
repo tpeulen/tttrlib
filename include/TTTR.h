@@ -1,17 +1,3 @@
-/****************************************************************************
- * Copyright (C) 2019 by Thomas-Otavio Peulen                               *
- *                                                                          *
- * This file is part of the library tttrlib.                                *
- *                                                                          *
- *   tttrlib is free software: you can redistribute it and/or modify it     *
- *   under the terms of the MIT License.                                    *
- *                                                                          *
- *   tttrlib is distributed in the hope that it will be useful,             *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of         *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                   *
- *                                                                          *
- ****************************************************************************/
-
 #define _CRT_SECURE_NO_DEPRECATE
 
 #ifndef TTTRLIB_TTTR_H
@@ -29,11 +15,11 @@
 #include <memory>       /* shared_ptr */
 #include <stdlib.h>     /* malloc, calloc, realloc, exit, free */
 #include <numeric>
+#include <filesystem>
 
 #include "omp.h"
-#include <boost/filesystem.hpp>
+//#include <boost/filesystem.hpp>
 #include <boost/bimap.hpp>
-#include <boost/filesystem.hpp>
 
 #include "hdf5.h"
 

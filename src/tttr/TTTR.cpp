@@ -1,4 +1,4 @@
-#include "include/TTTR.h"
+#include "TTTR.h"
 #include "TTTRRange.h"
 #include "TTTRHeader.h"
 
@@ -257,8 +257,8 @@ int TTTR::read_file(
         std::clog << "-- Container type: " << container_type << std::endl;
 #endif
         // clean up filename
-        boost::filesystem::path p = fn;
-        filename = boost::filesystem::canonical(boost::filesystem::absolute(p)).generic_string();
+        std::filesystem::path p = fn;
+        filename = std::filesystem::canonical(std::filesystem::absolute(p)).generic_string();
         fn = filename.c_str();
         if (container_type == PHOTON_HDF_CONTAINER) {
             read_hdf_file(fn);

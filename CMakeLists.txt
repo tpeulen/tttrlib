@@ -1,6 +1,6 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.13)
 ENABLE_LANGUAGE(CXX)
-SET(CMAKE_CXX_STANDARD 11)
+SET(CMAKE_CXX_STANDARD 17)
 SET(PROJECT_NAME tttrlib)
 PROJECT(${PROJECT_NAME})
 
@@ -12,7 +12,7 @@ MESSAGE(STATUS "CMAKE_MODULE_PATH='${CMAKE_MODULE_PATH}'")
 ################################################################################
 # BUILD OPTIONS
 ################################################################################
-option(INSTALL "Install the library and the include files" ON)
+OPTION(INSTALL "Install the library and the include files" ON)
 OPTION(BUILD_PYTHON_INTERFACE "Build Python interface" ON)
 OPTION(BUILD_PYTHON_DOCS "Build documentation of SWIG Python interface" ON)
 OPTION(BUILD_R_INTERFACE "Build R interface" OFF)
@@ -78,8 +78,7 @@ FIND_PACKAGE(Conda)
 FIND_PACKAGE(CondaBoost)
 FIND_PACKAGE(Boost 1.36 REQUIRED COMPONENTS filesystem iostreams locale)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
-LINK_LIBRARIES(${Boost_LIBRARIES})
-MESSAGE(${Boost_INCLUDE_DIRS})
+LINK_LIBRARIES(Boost::filesystem Boost::iostreams Boost::locale)
 
 ## FFTW
 ##############
