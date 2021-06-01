@@ -33,6 +33,7 @@ requirements:
     - hdf5 {{ hdf5 }}
   host:
     - python
+    - numpy
     - boost
     - hdf5
     - fftw

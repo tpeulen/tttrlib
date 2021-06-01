@@ -8,6 +8,7 @@ temp/
 __pycache__
 .vscode/
 tttr-data
+.idea/
 
 # Documentation and tools
 doc/_*
