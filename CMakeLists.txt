@@ -78,7 +78,7 @@ FIND_PACKAGE(Conda)
 FIND_PACKAGE(CondaBoost)
 FIND_PACKAGE(Boost 1.36 REQUIRED COMPONENTS filesystem iostreams locale)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
-LINK_LIBRARIES(Boost::iostreams Boost::locale Boost::filesystem)
+LINK_LIBRARIES(${Boost_LIBRARIES})
 
 ## FFTW
 ##############
