@@ -9,6 +9,8 @@ __pycache__
 .vscode/
 tttr-data
 .idea/
+cmake/
+tools/
 
 # Documentation and tools
 doc/_*

@@ -15,11 +15,11 @@
 #include <memory>       /* shared_ptr */
 #include <stdlib.h>     /* malloc, calloc, realloc, exit, free */
 #include <numeric>
-#include <filesystem>
 
 #include "omp.h"
-//#include <boost/filesystem.hpp>
+// std::filesystem is not in osx 10.14
 #include <boost/bimap.hpp>
+#include <boost/filesystem.hpp>
 
 #include "hdf5.h"
 
