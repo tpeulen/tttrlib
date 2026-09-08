@@ -66,6 +66,41 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
+- **T-20260909-01 · [tttrlib] `fconv_per_cs_ad` needs a variant that writes K columns instead of summing them**
+  - Status: 🆕 open
+  - Owner: —
+  - Opened: 2026-09-09 · Picked: — · Done: —
+  - Why: `TcspcDecay::set_emit_basis` builds the per-species basis by calling
+    the kernel once per species with `numexp = 1`. That is below
+    `FCONV_AD_BLOCK_MIN`, so every one of those calls takes the **serial**
+    recursion while the summed call for the curve takes the 8-way blocked
+    body. The basis therefore costs **7.5x the curve** (0.257 ms against
+    0.040 ms at K = 33 over 1 563 channels) when it should cost about the
+    same. Measured twice, independently: cost per species-channel is 7.05 ns
+    at one species and 0.68-0.99 ns inside a block, an 8x cliff at exactly
+    the blocking threshold.
+  - Why it matters now: a consumer fitting eight histograms with 115
+    parameters measured that a faster forward model cannot rescue a fit whose
+    cost is derivatives, and that the basis IS the Jacobian with respect to
+    the amplitudes -- so `emit_basis` is the path by which the C++ side wins,
+    and it is currently paying an 8x penalty for the way it is assembled.
+  - Done when: a kernel writes the K unit-amplitude columns in one blocked
+    pass (`fit[b * n_points + i]` per lane rather than `acc` into one buffer),
+    `TcspcDecay` uses it, and the basis costs roughly what the curve costs.
+    The curve itself must stay **bitwise** unchanged -- the amplitude is
+    folded inside the blocked recursion and post-multiplied in the
+    per-species path, so forming the curve from the basis instead moves it by
+    5.65e-16 and would mean requesting a diagnostic changes a fit.
+  - Touching: `modules/spectroscopy/decay/include/DecayConvolution.h` in
+    tttrlib, then re-vendoring `include/internal/DecayConvolution.h` in
+    imp.bff (`test/decay/test_decay_convolution_copy_is_identical.py` pins the
+    copy byte-identical), and the basis loop in `src/TcspcDecay.cpp`.
+  - Note for the picker: as of 2026-09-09 that upstream header has
+    **uncommitted** edits from someone else (accumulate-vs-overwrite
+    documentation), so coordinate before copying anything down.
+  - Progress: —
+
+
 - **T-20260908-02 · [tttrlib] Compress the embedded instrument file in a `.pto` — decide the mappability trade**
   - Status: 🆕 open
   - Owner: —
@@ -5640,6 +5675,13 @@ one supersedes.
     whether the leaf tie divergence scales with dimension: it does not — tied
     MST weights *fall* with d (28/19/14/12/8 at d=2/3/5/8/16) and both methods
     hold ARI ≥ 0.99; fragmentation of the partition drives it, not dimension.
+    **Correction 2026-09-09, self-inflicted:** the reason given for exposing
+    persistence — that it separates a population from the leftover overlap —
+    was the reporter's hypothesis restated as fact in four files without being
+    measured. It is false; a merged mixture is one density mode and tops the
+    persistence ranking. Documentation corrected, the negative result and the
+    real discriminator (cluster children in the condensed tree, 12/12) both
+    pinned in `TestWhatPersistenceDoesAndDoesNotSay`.
 
 - **T-20260907-05 · [imp.bff] Parameterise the Alexa488–pAcF ketoxime label (linker `P1R`) so the ten T4L anisotropy sites can be simulated (PRD-116 → PRD-136)**
   - Status: ✅ done (no work needed)
