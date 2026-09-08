@@ -5372,9 +5372,70 @@ clang++: error: no such file or directory: 'modules/io/hdf5/libtttrlib_io_hdf5.d
 `ps` is not enough on its own: it tells you nothing about the build that starts
 ten seconds later, and it was clear when I checked. So claim the lock here.
 
-**Holder: opus-5/641d0559 (imp.bff, TcspcDecay basis port) since 2026-09-08 20:1x**
+**Holder: — (free)**
 
-> Own scratch dir. `include/TcspcDecay.h`, `src/TcspcDecay.cpp`, tests. Will release.
+> 23:52 opus-5/641d0559: released. Two asks from the fit side, both about the graph
+> redoing work: `Minimizer::compute_objective_batch` (n candidates, one crossing, ports
+> restored) and `Node::set_memoize` (skip `evaluate()` when no input moved -- 2.2-10x on a
+> rewritten value, ~5% when it never hits, off by default). Port writes now go through
+> `Node::invalidate_from_port` so `set_valid(false)` can defeat the memo; A/B'd on the
+> hot path, neutral. Also `JointChiSquared` proven to compose dataset-carrying members
+> through the graph -- it needed no change. 896 passed.
+>
+> **Not mine, still red**: the 17 failures in `test/io/test_drot.py` and
+> `test/io/test_dunbrack.py` ("corrupt brotli stream") reproduce on the 21:09 build too.
+> Whoever owns the container work should look.
+
+> 23:05 opus-5/641d0559: released. PRD-140 step 3: uncertainty propagation on `Dataset`
+> over independent sources -- add/subtract/multiply/divide/affine/transform, correct
+> under sharing, so `VV + 2G*VH` gets `VV + 4G^2*VH` and anisotropy's correlated ratio
+> comes out right. Lane 863 passed.
+
+> 22:40 opus-5/641d0559: released. PRD-140 step 2: `ChiSquared::set_dataset()` -- the
+> objective asks the data rather than being told, additively; the enum path chisurf uses
+> is byte-identical and there is a test on that. Still open: wiring `JointChiSquared`
+> through the node path, and the residual-sign decision recorded in PRD-140.
+> Lane 855 passed.
+
+> 22:15 opus-5/641d0559: released. PRD-140 step 1: `Dataset` -- any rank, noise family on
+> the data, variance asked of the model. Found while building it: `ChiSquared`'s two
+> noise models return residuals of **opposite sign** (default is (y-mu)/e, poisson is
+> the other way), so switching noise model flips every residual plot and runs test.
+> Magnitudes are right in both, so no fit moves, which is why it survived. NOT fixed --
+> chisurf plots those signs; recorded in imp.bff PRD-140 as the first thing to settle.
+> Lane 849 passed.
+
+> 21:40 opus-5/641d0559: released. TcspcDecay now emits its reconvolved basis on an
+> optional `basis` port; owner ruled PRD-140's open question -- dataflow stays in bff,
+> tttrlib is photon processing, bff is data processing. Lane 834 passed.
+>
+> **Still true and still a hazard**: I commit with a private index, so the real index
+> goes stale by my commits and an ordinary `git add`/`git commit` here writes a tree
+> missing my files -- that cost 25 files earlier today. I have synced it
+> (`git read-tree HEAD`); run that before you commit normally in imp.bff, and check
+> your work with `git archive HEAD | tar -x -C /tmp/x` and a build of *that*.
+
+> 21:10 opus-5/641d0559: released. TcspcDecay basis port NOT started -- held pending
+> imp.bff PRD-140's first question (does Node/Port stay in bff, or does the dataflow
+> framework move to tttrlib), because it decides that class's shape.
+>
+> **A HAZARD IN THIS CHECKOUT, and it already cost 25 files.** I commit with a private
+> index (`GIT_INDEX_FILE` + `read-tree`/`write-tree`/`commit-tree`/`update-ref`) so that
+> another agent's staged work is never swept into my commits. That moves the branch ref
+> **without updating the real index**, so the index goes stale by exactly my commits --
+> and a normal `git add`/`git commit` against it then writes a tree that does not know my
+> files exist. That is what happened in 7c640d0: a commit whose purpose was to add a test
+> fixture also deleted `include/EvaluationGraph.h`, `src/EvaluationGraph.cpp`,
+> `okf/reference-cxx-nodes.md`, the whole `gpu/` backend, `KrylovDiffusion.cpp`,
+> `NeuralNet.cpp`, eight test files and a fixture, and reverted FactorGraph, Node and
+> Port. Nothing was lost from the working tree, and it is all restored (5704d67, b1189ff
+> and the fixture after them).
+>
+> The index is now synced (`git read-tree HEAD`) so ordinary commits here are safe again.
+> **If you commit normally in this checkout, run `git read-tree HEAD` first** until
+> someone stops using a private index. And the check that catches it in seconds:
+> `git archive HEAD | tar -x -C /tmp/x` and build *that*, rather than trusting the
+> working tree you have been editing.
 
 > 19:45 opus-5/641d0559: released. PRD-139 done bar the run() object: variable size and
 > role, HYPER factor kind, JSON round trip, and a per-node evaluation counter. Lane
@@ -5529,6 +5590,56 @@ one supersedes.
 ---
 
 ## Resolved (recent)
+
+- **T-20260908-04 · [tttrlib] HDBSCAN's cluster-selection step is missing, so the three exposed functions cannot be composed into a clustering**
+  - Status: ✅ done — 2026-09-08
+  - Owner: claude/hdbscan-selection
+  - Opened: 2026-09-08 · Picked: 2026-09-08 · Done: 2026-09-08
+  - Why: reported by another agent classifying smFRET bursts by (E, S, mean
+    donor arrival time). `hdbscan_label_points` takes an `is_selected` array
+    that nothing in the library produced, so a caller had to write the
+    excess-of-mass optimisation of Campello et al. §4 themselves — which
+    `examples/single_molecule/plot_burst_feature_clustering.py` and
+    `benchmarks/bench_sciref.py` both did, the benchmark inside its timed
+    region. "Selection is policy, so it stays with the caller" is right about
+    it being *substitutable* and was taken as a reason to ship it *absent*.
+  - Done when: `hdbscan_select_clusters` and `hdbscan_membership_strengths`
+    exist in all four bindings; `tttrlib.hdbscan(x, ...)` runs the pipeline;
+    the A/B suite pins both against `sklearn.cluster.HDBSCAN`.
+  - Touching: `modules/math/{include,src}/Cluster.{h,cpp}`, `ext/python/Cluster.i`,
+    `test/python/misc/{test_cluster,test_hdbscan_post_mst,test_math_ab_clustering}.py`,
+    `examples/single_molecule/plot_burst_feature_clustering.{py,ipynb}`,
+    `benchmarks/{bench_sciref.py,README.md}`, `PERF.md`, `CHANGELOG.md`,
+    `modules/math/README.md`, `okf/testing/math-kernel-validation.md`,
+    `okf/prds/PRD-037-*.md`.
+  - Progress: **Done.** `hdbscan_select_clusters(parent, child, lambda, size,
+    method, allow_single_cluster, cluster_selection_epsilon, max_cluster_size)`
+    with `method` in `{"eom", "leaf"}`, and `hdbscan_membership_strengths`
+    (scikit-learn's `probabilities_`). Selection stays its own call, so a
+    caller with another rule still steps in between. Identical to sklearn —
+    labels *and* strengths — over 378 option combinations on the same tree,
+    plus the definition written out a third time in Python in the test file.
+    Two smaller things from the same report: `mutual_reachability_mst` now
+    returns its rows sorted in the total edge order with the endpoints
+    normalised (every caller was sorting, and one sorting by weight alone got
+    a different dendrogram on ties), and the condensed tree's four-tuple return
+    order is documented on the function. PERF.md's HDBSCAN row re-measured with
+    both sides in one session: 72.7 → 69.8 ms, 21× → 24×.
+    **Follow-up, same day, from the reporter's use of it:** membership strengths
+    are a rank *within* a cluster (each cluster's own death is the denominator,
+    so every cluster attains 1.0 however diffuse), which makes a threshold
+    tuned under `"eom"` go quietly inert under `"leaf"` — 0.16–1.00 against
+    0.92–1.00 on one table. Caveat written into the header and the docstring
+    before anyone shipped it. `hdbscan_cluster_stability` added so there *is* an
+    across-cluster quantity: `tttrlib.hdbscan` now returns `persistence`
+    (`stability / (size * max lambda)`), pinned to the standalone `hdbscan`
+    package's `cluster_persistence_` from a recorded fixture, 42/42 exact —
+    scikit-learn reports no persistence, so this needed a second reference
+    (`test/data/reference/math_ab_clustering_reference.npz`,
+    `gen_math_ab_clustering_reference.py`). Also settled the open question of
+    whether the leaf tie divergence scales with dimension: it does not — tied
+    MST weights *fall* with d (28/19/14/12/8 at d=2/3/5/8/16) and both methods
+    hold ARI ≥ 0.99; fragmentation of the partition drives it, not dimension.
 
 - **T-20260907-05 · [imp.bff] Parameterise the Alexa488–pAcF ketoxime label (linker `P1R`) so the ten T4L anisotropy sites can be simulated (PRD-116 → PRD-136)**
   - Status: ✅ done (no work needed)
