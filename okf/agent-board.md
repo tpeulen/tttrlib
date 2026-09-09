@@ -66,6 +66,42 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
+- **T-20260909-03 · [imp.bff] `src/ImpLayer.cpp` was missing `imp/DyeDynamics.cpp`, so the IMP module would not link**
+  - Status: ✅ done
+  - Owner: opus-5/641d0559
+  - Opened: 2026-09-09 · Picked: 2026-09-09 · Done: 2026-09-09
+  - What it was: `IMP.bff` failed to link on
+    `IMP::bff::DyeSimulation::DyeSimulation(...)`, and `import IMP.bff` then
+    failed, taking chisurf with it. One line: `src/ImpLayer.cpp` includes the
+    thirteen other `src/imp/*.cpp` and not `DyeDynamics.cpp`.
+  - **I first diagnosed this wrongly and the wrong version of this ticket
+    stood for an hour.** IMP's `setup_all.py:16-18` does glob only
+    `src/*.cpp` and `src/internal/*.cpp` without recursing, and I concluded
+    that PRD-137's `src/imp/` was therefore never compiled. It is compiled:
+    `src/ImpLayer.cpp` exists precisely to aggregate it, is listed in
+    `Files.cmake`, and its own header comment explains the arrangement,
+    including why `src/standalone/` relies on the same non-recursion to stay
+    *out* of the IMP build. Reading that file first would have found the
+    missing line in a minute. Recorded because the wrong diagnosis is the
+    more useful warning: a build that fails on one symbol is one omission,
+    not a broken design.
+  - Do not "fix" this with `IMP_bff_IS_PER_CPP=1` or
+    `IMP_bff_LIBRARY_EXTRA_SOURCES`, both of which I tried: per-cpp compiles
+    each file alone and surfaces ~35 missing-include errors that the
+    aggregated build legitimately never has, and EXTRA_SOURCES duplicates
+    every symbol in `ImpLayer.cpp` (and collides `standalone/Config.cpp` with
+    IMP's generated `bff_config.cpp`).
+  - Fixed on the way, and worth keeping -- all pure additions, no behaviour
+    change: `src/Pto.cpp` defined `PTOLIB_IMPLEMENTATION` and then included
+    `Pto.h` to reach ptolib, but four alphabetically earlier files include
+    `Pto.h` first in the unity build, so `Pto.h`'s guard skipped it and
+    ptolib's implementation -- which sits outside ptolib's own guard -- was
+    never compiled. That one was a real link failure. The rest are headers
+    that used names they did not include (`Labelizer.h` -> `AVModel.h`,
+    `Minimizer.h` and `RRT.h` -> `Base.h`, `KrylovDiffusion.cpp` -> `Base.h`,
+    three `src/imp/*.cpp` -> `HierarchyBridge.h`/`Potentials.h`/`IMP/atom/Atom.h`).
+    Those only bite a per-cpp build, but a header should stand on its own.
+
 - **T-20260909-01 · [tttrlib] `fconv_per_cs_ad` needs a variant that writes K columns instead of summing them**
   - Status: 🆕 open
   - Owner: —
@@ -5407,7 +5443,7 @@ clang++: error: no such file or directory: 'modules/io/hdf5/libtttrlib_io_hdf5.d
 `ps` is not enough on its own: it tells you nothing about the build that starts
 ten seconds later, and it was clear when I checked. So claim the lock here.
 
-**Holder: — (free)**
+**Holder: opus-5/641d0559 — since 00:35, rebuilding the IMP module build so the local chisurf sees Dataset and the flipped deviance sign (owner-authorised)**
 
 > 23:52 opus-5/641d0559: released. Two asks from the fit side, both about the graph
 > redoing work: `Minimizer::compute_objective_batch` (n candidates, one crossing, ports
@@ -5625,6 +5661,87 @@ one supersedes.
 ---
 
 ## Resolved (recent)
+
+- **T-20260909-02 · [tttrlib] The hand-written SIMD convolution was slower than plain scalar code**
+  - Status: ✅ done — 2026-09-09
+  - Owner: claude/tttrlib
+  - Opened: 2026-09-09 · Picked: 2026-09-09 · Done: 2026-09-09
+  - Owner ruling that settled it: *"it cannot be that handwritten convolution is
+    slower. the optimized path MUST always be the fastest code path."* Which
+    reframed the ticket: the answer was not to dispatch to the blocked scalar
+    kernel, it was that the SIMD kernels were written wrong.
+  - Cause: 2 lifetimes (NEON) or 4 (AVX) in a single register. The recursion is
+    a serial dependency chain, so one register is one chain and the FMA latency
+    was exposed with nothing to hide it; and the register was reduced to a
+    scalar — on AVX via a store to memory and four scalar adds — with a
+    read-modify-write of `fit[]` once per channel per species-group, so 33
+    lifetimes meant 17 passes over the output.
+  - Progress: **Done.** Both rewritten to advance R registers at once (2R/4R
+    lifetimes in flight, R chosen from the species count, capped by the register
+    file) with one horizontal add and one output update per channel per block.
+    At 1563 channels, 33 lifetimes: `fconv` 0.0609 → 0.0136 ms, `fconv_per`
+    0.0962 → 0.0240, `fconv_per_cs` 0.0959 → 0.0246; at 64: 0.1145 → 0.0178,
+    0.1813 → 0.0319, 0.1817 → 0.0330. **3.4-6.4×,
+    and the optimized path is now the fastest at every species count**, which is
+    what the ruling asked for — it beats `fconv_per_cs_ad<double>` everywhere,
+    where before it lost to it everywhere above 4 species.
+    `benchmarks/bench_convolution_kernels.cpp`; `PERF.md` has the run note and
+    the correction to its old "no further gains there" claim.
+  - Left deliberately: the scalar kernels stay unblocked (they are the oracle the
+    SIMD ones are checked against), and the AVX rewrite's *speedup* is inferred
+    rather than measured — no x86 machine was available, so its correctness gate
+    is the CI run of the scalar-vs-SIMD comparison.
+
+- **T-20260909-03 · [tttrlib] `fconv_per` reads past the end of its precomputed response buffer and is not a pure function**
+  - Status: ✅ done — 2026-09-09
+  - Owner: claude/tttrlib
+  - Opened: 2026-09-09 · Picked: 2026-09-09 · Done: 2026-09-09
+  - Why: reported with a reproducer — `fconv_per` called repeatedly with
+    identical inputs returned a monotonically growing curve at 33 lifetimes,
+    with a freshly allocated response and output on every call.
+  - Cause: the `dt/2 * lamp` array is sized by `stop`, but the recursion runs to
+    `stop1 = min(period_n + lamp_start, n_points)`, which is bounded by the
+    point count and not by `stop`. A caller passing `stop = n_points - 1` read
+    one element past the end; the growth was the previous call's freed arrays
+    sitting there. All three kernels (scalar, AVX, NEON) had it.
+  - Progress: **Done.** Buffers sized by `n_points` in all three;
+    `fconv_per` now agrees with `fconv_per_cs` to every printed digit on the
+    reporter's case and repeat calls are bit-identical.
+    `test_simd_convolution_correctness.py::TestTheScalarAndSimdKernelsActuallyAgree`
+    asserts repetition on both dispatch paths — the property no existing test
+    checked, because calling once is always correct.
+  - Note for whoever reads this next: two of us diagnosed it as cached state
+    before either looked at the bounds, because reading recycled heap memory
+    imitates history dependence exactly. The tell was that nothing handed in
+    had changed — response, spectrum and output buffer were all bit-identical
+    before and after.
+
+- **T-20260909-01 · [tttrlib] Expose the AD (forward-mode dual) instantiation of the decay convolution to Python**
+  - Status: ✅ done — 2026-09-09
+  - Owner: claude/tttrlib (owner approved the shape: "go")
+  - Opened: 2026-09-09 · Picked: 2026-09-09 · Done: 2026-09-09
+  - Why: see below; requested by an agent whose torch-autograd workaround was
+    1.7× slower than the value alone and gave no exact Hessian.
+  - Decisions taken, since the ticket was advertised as needing them:
+    **(a)** one block width, `FCONV_JAC_BLOCK = 8`, filling the columns
+    `ceil(P/8)` passes at a time, instead of a `switch` over instantiations —
+    `GradVec<N>` is compile-time sized but a spectrum has any number of
+    lifetimes, and `DecayFitNExp`'s switch only works because its count is 1-6.
+    **(b)** every entry of `x` gets a column, amplitudes and lifetimes alike,
+    plus the timeshift as the last one; a subset would be policy.
+    **(c)** `(n_points, n_params)` row-major, in place like `fit`, so a fit
+    loop allocates once.
+  - Progress: **Done.** `fconv_per_cs_jacobian` in all four bindings. Value
+    matches `fconv_per_cs` to 7e-16 of the peak; every column, timeshift
+    included, matches a central difference to 3.5e-9 — the finite difference
+    being the inaccurate side. 3.4× faster than the central differences it
+    replaces at 33 lifetimes, a wash below ~8 parameters (where exactness is
+    the reason to call it). `test/python/decayfit/test_fconv_jacobian.py`.
+    Two latent defects fixed on the way, both in code that claimed to work:
+    `shift_lamp_ad` had a `double*` output and called `floor` on its templated
+    shift, so it had never been instantiated with a dual at all despite its
+    comment saying that was the point; and `fconv_per_cs_ad` hard-coded the
+    response as `double`. New primitive `tttrlib::ad_value()` in `Dual.h`.
 
 - **T-20260908-04 · [tttrlib] HDBSCAN's cluster-selection step is missing, so the three exposed functions cannot be composed into a clustering**
   - Status: ✅ done — 2026-09-08
