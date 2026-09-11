@@ -66,6 +66,292 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
+- **T-20260910-01 · [imp.bff] The 2026-09-07 ptolib move left read-path fallout that its test changes hid**
+  - Status: 🆕 open — drot reads are fixed (2026-09-10, this session); three classes remain
+  - Owner: —
+  - Opened: 2026-09-10
+  - What happened: the old hand-written PtoReader returned **raw** stored
+    bytes, so every reader decompressed payloads itself. ptolib's
+    `File::read` (and imp.bff's `PtoReader::data`) **decode by the object's
+    encoding**. The move kept the second decompression: every `.drot` read
+    failed with "corrupt brotli stream" from then on. Fixed 2026-09-10 in
+    read_drot, drot_catalog, drot_provenance, dunbrack records,
+    potentials manifest+table, and write_drot_bundle (which wrote decoded
+    bytes labelled `+brotli`).
+  - Open classes:
+    1. **Byte-determinism**: `test_writing_twice_gives_the_same_bytes` —
+       ptolib writes random FileUIDs; the "no timestamps, no uid" premise
+       is false now. Decide: fixed-uid option in ptolib, or amend the test.
+    2. **Dunbrack record sizes**: `read_dunbrack_rotamers` — the shipped
+       sidechains container's `rot.bbdep.records` payload decodes to
+       466,560 bytes for F while the caller's expected math says 8,398,080
+       (a 18x = the phi/psi grid factor). The old expected-size arithmetic
+       was written against raw bytes; restate it against decoded ones.
+    3. **Container overhead**: `test_a_payload_that_compresses_hugely_
+       still_reads` — a tiny compressed payload plus ptolib's two indexes
+       and alignment no longer beats the 8x ratio the test pins.
+  - Done when: the seven remaining test_drot/test_dunbrack failures pass,
+    or the tests are amended with the owner's ruling recorded in okf.
+  - Touching: `src/RotamerLibrary.cpp`, `src/PotentialTables.cpp`,
+    `test/io/test_drot.py`, `test/io/test_dunbrack.py`, ptolib (for the
+    uid option, if that is the ruling).
+
+- **T-20260909-09 · [tttrlib] Re-vendor ptolib.h from 0.4.0 — the header now carries the four standard codecs**
+  - Status: 🆕 open — compatible either way; nothing breaks by staying
+  - Owner: —
+  - Opened: 2026-09-09
+  - Done when: `thirdparty/ptolib/ptolib.h` is a verbatim copy of ptolib
+    0.4.0 (`utility/sync_ptolib.sh` against a checkout, byte-compare test
+    green) and the notes below are either acted on or refuted.
+  - What changed upstream: ptolib no longer "names the codecs and carries
+    none" — `zstd`, `brotli`, `lz4`, `deflate` are embedded in the
+    implementation TU (compiled once, hidden, beside any real libzstd etc.
+    the process links), registered under their format names,
+    `PTOLIB_WITH_*`/`PTOLIB_NO_*` override or drop, `codec_by_name` fetches
+    one. imp.bff deleted its private `src/brotli/` against this. For
+    tttrlib: the implementation TU gets ~137k lines heavier to compile once
+    (the container impl TU already compiles the header, so the marginal
+    files are the codec sources); codecs a system build wires today via
+    `PTOLIB_WITH_*` keep working unchanged. The header compiles clean as
+    C++17 under clang and gcc; MSVC is CI's to confirm.
+  - Touching: `thirdparty/ptolib/`, `tools/sync_ptolib.sh` (if it pins a
+    version), the vendored-header byte-compare test.
+
+- **T-20260909-08 · [tttrlib] `MaxEntTcspc` uses Neyman weighting, which this library's own objective catalogue tells callers not to use**
+  - Status: 🆕 open — verified defect; the fix moves numbers, so it is the owner's call
+  - Owner: —
+  - Opened: 2026-09-09
+  - Why: `MaxEntTcspc.cpp:171` (lifetime) and `:342` (FRET) both take the
+    residual weight from the observed counts,
+    `sigma[i] = sqrt(y[i]) + (y[i] == 0 ? 1 : 0)`. That is Neyman weighting, and
+    `DecayFitDescriptors.cpp`'s `neyman_lsq` entry says in the library's own
+    words that it is "biased low at small counts ... prefer the Poisson
+    likelihood otherwise". The MEM engine contradicts the catalogue beside it.
+  - Reproduced independently (not taken on the reporter's word), and swept,
+    which is the part that matters: one rate from 400 Poisson bins, 4000 trials
+    — **−31.1 % at 3 counts/bin, −11.5 % at 10, −1.0 % at 100**, against
+    +0.1 % for model-weighted. Because the bias tracks counts per bin it is not
+    a scale error on `P(tau)`; it is worst in the low-count tail, where the long
+    lifetimes are, so it distorts the recovered **shape** — and the biased fit
+    leaves no residual signature.
+  - Full entry with the reproduction is in `okf/BUGS.md`.
+  - Fix: iteratively reweighted least squares — sigma from the current model,
+    normal equations re-formed once or twice as the fit moves. `run_mem` already
+    re-linearises the entropy term per iterate, so this rides the same loop.
+  - **Why it is advertised rather than done:** it changes every MaxEnt number.
+    `MaxEntTcspc` is a port of chisurf's `maxent_decay.core.solver` with recorded
+    fixtures, and downstream studies may be built on the current output. The
+    reporter's own project carries the identical line knowingly, documented, for
+    exactly that reason — they did not change it mid-study. The decision worth
+    making is whether tttrlib does the same *deliberately* or fixes it; either
+    is defensible, inheriting it from the port is not.
+  - **Partly addressed 2026-09-09 (owner: "for chi2 make second output path").**
+    `MemTcspcResult` gained `chisq_pearson` / `chisq_esm_pearson`: the same
+    solution scored with model weights, formed after the solve, never optimised
+    against and not drivable to a target. On a two-lifetime simulation with
+    `target_chisq = 1.0` it reads 1.5155 where `chisq` reads 0.9993 at 2 000
+    counts, converging to 1.0769 against 1.0284 at 200 000 — the gap closing
+    with counts is the weighting's own signature. No fitted number moved; all 28
+    existing fixtures pass. `TestTheSecondChiSquare` pins it.
+    **The weighting itself is untouched and this ticket stays open**: the caller
+    now has a score that can contradict the biased one, which is not the same as
+    the bias being gone.
+  - Done when: decided; if fixed, IRLS in both builders, the fixtures re-recorded
+    with the change called out in `CHANGELOG.md`, and a known-answer test that a
+    recovered distribution's tail is no longer pulled low.
+  - Touching: `modules/spectroscopy/decay/src/MaxEntTcspc.cpp`,
+    `test/python/decayfit/test_maxent_tcspc.py`,
+    `okf/testing/algorithm-validation.md`, `CHANGELOG.md`.
+
+- **T-20260909-07 · [tttrlib] A roughness-penalised lifetime distribution: a second regulariser beside maximum entropy?**
+  - Status: 🆕 open — a scope question with a small implementation behind it
+  - Owner: —
+  - Opened: 2026-09-09
+  - Why: this is what survived when the group-prior idea in T-20260909-06 was
+    withdrawn. A *penalised* lifetime distribution — regularising the amplitudes
+    on a lifetime grid — is standard and useful, and unlike the withdrawn idea
+    it needs no linking, no Python registration path and no curvature. Its
+    consumer is anyone fitting a lifetime distribution to a decay.
+  - **What already exists, which the reporter did not know about and which
+    reframes this.** `MaxEntTcspc` is exactly a penalised lifetime distribution:
+    maximum-entropy deconvolution against a shifted IRF, `Q(p) = 1/2 p^T H p -
+    g0^T p - nu/2 S(p)`, with `run_mem_target_chisq` choosing `nu` to hit a
+    target chi-square. So the question is **not** "build penalised distribution
+    fitting" but "is a *second* regulariser wanted, and where".
+  - The difference is real, not cosmetic: entropy pulls toward a flat default,
+    roughness penalises curvature. Both are standard; they answer different
+    questions about what a plausible distribution looks like.
+  - **Placement, and it is not where the reporter suggested.** They proposed it
+    inside `fit_nexp`. But the machinery is in the MEM engine: a roughness
+    penalty on the amplitudes is `H += lambda * D2^T D2` in
+    `build_normal_equations`, and `quadpr_bound` already solves the
+    bound-constrained QP with `p >= 0`. No new solver.
+    *Except* — see the notes below, the penalty is wanted on **log** amplitudes,
+    which is not quadratic in `p`. That is fine and also already handled in
+    shape: the entropy term is not quadratic either, and `run_mem` linearises it
+    into a QP per iterate (Skilling-Bryan). A log-roughness penalty joins the
+    same outer loop the same way.
+  - **Three notes from the reporter, who has built this**, worth more than the
+    rest of this ticket: (a) the penalty wants to be on **log** amplitudes, or
+    it charges more for structure where the distribution is small; (b) the
+    weight must **not** be fitted jointly with the amplitudes — the penalty's
+    normalising constant rewards over-smoothing and the joint optimum has no
+    structure in it at all; (c) the natural way to choose the weight is by
+    **evidence on a small grid**, which is where 16 s of their 37 s fit goes.
+    Note (b) is the one that silently produces a wrong answer rather than a
+    slow one.
+  - Consumer, concretely: their donor-only sub-problem is `fit_nexp`'s
+    advertised case — a polarisation-resolved pair sharing one temporal shape,
+    pooled as sufficient statistics with each keeping its own profiled total —
+    plus a smoothness prior on the shared spectrum. They cannot move it here
+    even so, because their spectrum must be estimated jointly with everything
+    else; but that is their model's constraint, and someone with a plain donor
+    decay has no such objection.
+  - Done when: decided whether a second regulariser is wanted at all given
+    `MaxEntTcspc`; if yes, where it lives (an option on the MEM engine, most
+    likely, not a new path in `fit_nexp`), with the weight-selection rule from
+    note (c) and an A/B against a known-answer distribution.
+  - Touching: `modules/math/include/MaxEntQp.h`,
+    `modules/spectroscopy/decay/{include,src}/MaxEntTcspc.*`, possibly
+    `DecayFitNExp`.
+
+- **T-20260909-06 · [tttrlib/bff] What `fit_linked` would need to carry a Bayesian graph fit — and the argument that it should not**
+  - Status: 🆕 open — a boundary decision for the owner, not a task
+  - Owner: —
+  - Opened: 2026-09-09
+  - Why: tpeulen asked an agent doing smFRET distance-distribution inference
+    whether tttrlib's batch fitting meets its needs. Answer: `fit_linked` is the
+    right *topology* — eight histograms sharing one distance distribution, a
+    donor lifetime spectrum, two anisotropies and twelve calibration constants,
+    with a shift, scale, scatter and background per channel — and `poisson_mle`
+    is the right objective. Four things block it. **All four verified here:**
+    1. **The model is not registrable from Python.** The registry is
+       fit23/24/25/26/fit_nexp; `register_decay_fit` and `DecayFitModel` are
+       `%ignore`d in `DecayFit.i` on purpose (the abstract base would need
+       shared-pointer-to-const-abstract in four bindings). This blocks
+       everything else, including the one thing usable today: their
+       hyperparameter search fits donor-only channels six times, which is
+       `fit_many`'s exact case and 16 s of a 37 s fit.
+    2. **Priors are per slot; theirs couples slots.** `DecayFitPrior::lnpdf` is
+       `virtual double lnpdf(double x)` — one scalar — and a linked group's
+       prior is the product of its slots'. Theirs is a P-spline roughness
+       penalty, `lambda * ||D2 c||^2` over 24 shared coefficients: a quadratic
+       form, not a product of scalar priors. Unregularised the inversion returns
+       6-10 spikes in 128 grid points that move with the Poisson realisation.
+    3. **No curvature comes out.** `DecayFitLinkedOutcome` is objective,
+       parameters, results, converged, iterations, n_variables, row_objective.
+       Nothing in `modules/spectroscopy/decay` returns a Hessian, covariance or
+       log-determinant; the only "Hessian" in the tree is L-BFGS's internal
+       scaling, never exposed. Their method is a Laplace posterior — the mode is
+       half of it and |H| at the mode is the evidence. *Nuance they understated:*
+       `DecayFit2.lnprob` **is** exposed and `supports_lnprob` is true, so the
+       curvature is obtainable by finite differences — at O(P^2) evaluations
+       each crossing the language boundary, which for their parameter count is
+       the "expensive half unavailable" complaint priced rather than refuted.
+    4. **Their rows are not one model.** Twelve physics channels across three
+       scopes with different physics, and under interleaved excitation two are
+       summed into one histogram — so a row is not even a channel. `fit_linked`
+       takes one prototype and rejects mixed models explicitly.
+  - Their asks, in their order: a Python registration path (even a callback
+    taking a parameter vector and returning a curve, paying the boundary cost);
+    a prior attached to a **link group** rather than a slot — minimally a
+    quadratic form as a matrix plus a weight, which covers P-splines, ridge and
+    any Gaussian prior on a shared vector; and the curvature at the solution,
+    Hessian or its Cholesky or just the log determinant.
+  - **Their own recommendation, which is the decision to take:** those three
+    together are not an extension of `fit_linked`, they are a general Bayesian
+    graph fitter — arbitrary model, coupled priors, curvature out — and that is
+    what bff's node graph already is. So the proposed division is: **tttrlib**
+    keeps the fast kernels and the registered analytic models, where
+    `fit_linked` is good and they would use it tomorrow for a fit23-shaped
+    problem; **bff** carries the general graph, the arbitrary model and the
+    curvature; and what tttrlib uniquely gives the general case is
+    `fconv_per_cs_jacobian` — model and derivative from one pass — because
+    nobody else can provide it.
+  - **Ask (2), a group prior as a quadratic form, is WITHDRAWN.** I had argued
+    it was the smallest of the three and the one that might land here. Checked
+    with the reporter rather than acting on the instinct, and the API gives a
+    harder reason than either of us had: **no registered model has a vector to
+    link.** `decay_fit_parameter_names("fit_nexp")` is `[]` — the only model
+    that fits a lifetime *distribution* exposes no slots at all, because its
+    amplitudes are profiled by EM and its lifetimes found by coordinate search
+    — and fit23/fit25 expose four to six scalars, where a quadratic form over
+    `tau1..tau4` is not a smoothness prior because those are discrete components
+    rather than a distribution on a grid. So there is no group for a group prior
+    to attach to, in any registered model. Not "no consumer in their pipeline":
+    no consumer at all. Building it would have been a feature nothing could
+    call, and it would have been built on my instinct.
+
+- **T-20260909-04 · [tttrlib] The SIMD convolution work does not reach `DecayFitNExp`, because its basis is built one species at a time**
+  - Status: 🆕 open
+  - Owner: —
+  - Opened: 2026-09-09
+  - Why: `fill_component()` (`DecayFitNExp.cpp`) calls
+    `fconv_per_cs(out, spectrum, irf, **1**, ...)` once per component, in a loop.
+    `numexp = 1` is below `kSimdMinNumexp`, so every one of those calls takes the
+    scalar path — and the SIMD kernels vectorise *across species*, so there is
+    nothing for them to do in a one-species call anyway. The 3.4-6.4× from
+    T-20260909-02 therefore delivers **nothing** to tttrlib's own N-exponential
+    fitter, which is the code path that matters most. This is not a dispatch
+    threshold to tweak; it is structural.
+  - What combines them: a kernel that emits the per-species **basis** (one column
+    per lifetime) instead of their weighted sum, keeping the block structure —
+    2R species per pass, one dependency chain per register — and writing 2R
+    columns per channel instead of one summed value. That basis is exactly what
+    the EM amplitude profiling consumes on every iteration, and it is also the
+    design matrix a variable-projection fit wants (FLIMfit's core trick;
+    tttrlib's EM profiling is its Poisson analogue and is already here).
+  - **Measured on a prototype** (1563 channels, NEON, R=8, min of 9 × 100),
+    against the loop of `numexp=1` calls it would replace:
+
+    | lifetimes | loop of numexp=1 | blocked basis | |
+    |---|---|---|---|
+    | 4 | 0.0398 ms | 0.0098 | 4.1× |
+    | 8 | 0.0600 | 0.0131 | 4.6× |
+    | 16 | 0.1105 | 0.0214 | 5.2× |
+    | 33 | 0.2165 | 0.0493 | 4.4× |
+    | 64 | 0.3999 | 0.0835 | 4.8× |
+
+    Agreement with the existing loop: 2.4e-16 relative. The prototype is
+    `basis.cpp` in this session's scratch; it is ~50 lines and mirrors
+    `fconv_per_cs_neon_block` with the accumulator replaced by column stores.
+  - Not the Jacobian: `fconv_per_cs_jacobian`'s amplitude columns *are* the basis
+    (checked, 1.5e-15), but it is 5-10× slower for that purpose because it also
+    computes the lifetime and shift derivatives. Right answer, wrong tool.
+  - Done when: the kernel exists for scalar/NEON/AVX with the usual
+    scalar-vs-SIMD agreement test, `fill_component`'s loop becomes one call, and
+    the FitNExp fixtures still pass (the summation order per column is unchanged,
+    so they should be bit-identical -- check rather than assume).
+  - Touching: `modules/spectroscopy/decay/{include/DecayConvolution.h,src/DecayConvolution.cpp,src/DecayFitNExp.cpp}`,
+    `benchmarks/bench_convolution_kernels.cpp`, `PERF.md`.
+
+- **T-20260909-05 · [tttrlib] Global analysis exists (`fit_linked`); what is missing is that nothing shares the *basis* across rows**
+  - Status: 🆕 open — narrowed, after the first version of this ticket was wrong
+  - Owner: —
+  - Opened: 2026-09-09
+  - **Correction.** This was advertised as "no global analysis: every pixel
+    re-derives its own basis", from reading `fit_batch`'s docs alone. Wrong:
+    `fit_linked` (`DecayFitModel.h`, and `DecayFit2.fit_linked` in every binding)
+    is global analysis and a good one. `DecayFitConstraints::link` gives one
+    integer per slot over the **concatenated** parameter vector — `< 0` fixed,
+    `0` free, `k > 0` a shared group — so a lifetime or a timeshift can be tied
+    across rows while amplitudes stay per row, which is exactly FLIMfit's
+    structure. Linked slots' priors multiply rather than compete. `fit_many` is
+    the independent, threaded batch beside it. Reading one function's docstring
+    is not a survey of a module.
+  - What is genuinely missing is narrower: a joint fit still evaluates each row's
+    model independently, so a lifetime shared across rows has its **basis rebuilt
+    per row per iteration**. FLIMfit's win is computing the shared basis *once*
+    and leaving each row a small linear solve. With T-20260909-04's basis kernel
+    that becomes: build the basis once per iteration from the linked lifetimes,
+    then one non-negative solve per row (`Nnls.h` is already here).
+  - Done when: `fit_linked` hoists the shared-parameter model evaluation out of
+    the per-row loop where the links allow it, with a measurement against the
+    current path. Needs care: it is only valid for the parameters actually
+    linked, so the hoist has to be driven by the link map rather than assumed.
+  - Touching: `modules/spectroscopy/decay/src/DecayFitModel*.cpp`, `Nnls.h`,
+    `PERF.md`.
+
 - **T-20260909-03 · [imp.bff] `src/ImpLayer.cpp` was missing `imp/DyeDynamics.cpp`, so the IMP module would not link**
   - Status: ✅ done
   - Owner: opus-5/641d0559
@@ -1147,6 +1433,44 @@ retired so nobody works the same thing twice.)*
 ---
 
 ## Active
+
+- **T-20260909-01 · [both] Structure and FRET docking route through imp.bff; chisurf drops its direct IMP dependency**
+  - Status: 🔄 in-progress
+  - Owner: opus-5/imp-routing
+  - Opened: 2026-09-09 · Picked: 2026-09-09 · Done: —
+  - Why: owner's plan (2026-09-09). chisurf imports IMP directly in four places
+    and none of them is a bff gap — all 70 `IMP.bff` names chisurf uses are in
+    bff already. The wheel links IMP at C++ level (`IMPBFF_WITH_IMP`, PRD-139),
+    so the capability is there; what is missing are **array/path-shaped doors**,
+    because nothing wrapped may name an IMP type or SWIG pulls `_IMP_kernel` in.
+  - Done when: `chisurf/` names no IMP module other than `IMP.bff`; a structure
+    read through bff carries IMP's radii and masses and reads mmCIF; FRET
+    docking is an `imp_bff` CLI and the chisurf plugin is a shim over it;
+    `imp` leaves `pixi.toml`, `pyproject.toml` and the rattler recipe.
+  - Touching: **imp.bff** `include/StructureIO.h`, `include/HierarchyBridge.h`,
+    `src/imp/`, `pyext/`, `bin/imp_bff`; **chisurf**
+    `chisurf/core/fio/structure/coordinates.py`,
+    `chisurf/core/models/structure/rmf.py`,
+    `chisurf/plugins/modelling/fret/`,
+    `chisurf/plugins/modelling/fps_json_editor/core/mrc.py`,
+    `pixi.toml`, `pyproject.toml`, `rattler-recipe/recipe.yaml`.
+  - Progress: **3 of 4 done.** Premise corrected by the owner: the wheel links
+    IMP at C++ level, so the work is *array/path doors*, not ports. Landed:
+    structure reading (`read_structure_table`, imp.bff `e36ecff` / chisurf
+    `f150ccc0e`), RMF trajectories (`RmfStructureWriter`, `285eedb` /
+    `61ec4b650`), MRC maps (`write_mrc_grid`, `4c780d3` / `6890cc758`).
+    chisurf now reads structures, writes trajectories and writes maps with
+    `IMP.atom`, `IMP.core`, `IMP.rmf` and `IMP.em` all unimportable.
+    **Blocked on (4), FRET docking**, which needs an owner ruling on where the
+    Python docking *workflows* live -- the primitives are all on the flat
+    `IMP.bff` surface, the workflows exist only inside the unimportable
+    `bin/imp_bff`. Three options and the measurement behind them are in
+    [imp-ecosystem](references/imp-ecosystem.md), "Where to pick this up".
+    Traps recorded there and in the commits: an int out-view must be spelled
+    `out_view_i`; SWIG does not re-run on a header change; SWIG silently drops
+    keyword arguments for overloaded functions; RMF has no `close` and a flush
+    is not one.
+
 
 - **T-20260908-03 · [chisurf] The startup autologin probe locks the desktop user out of MMFDB**
   - Status: ✅ done
@@ -5443,7 +5767,9 @@ clang++: error: no such file or directory: 'modules/io/hdf5/libtttrlib_io_hdf5.d
 `ps` is not enough on its own: it tells you nothing about the build that starts
 ten seconds later, and it was clear when I checked. So claim the lock here.
 
-**Holder: opus-5/641d0559 — since 00:35, rebuilding the IMP module build so the local chisurf sees Dataset and the flipped deviance sign (owner-authorised)**
+**Holder: — (free)**
+
+> 11:35 zcode/greedy-oligo: released. Rebuilt IMP.bff-lib + _IMP_bff.so for T-20260911-01 (imp.bff `f23ab26`); lanes green.
 
 > 23:52 opus-5/641d0559: released. Two asks from the fit side, both about the graph
 > redoing work: `Minimizer::compute_objective_batch` (n candidates, one crossing, ports
@@ -5661,6 +5987,34 @@ one supersedes.
 ---
 
 ## Resolved (recent)
+
+- **T-20260911-01 · [imp.bff] Greedy Olga for homo-oligomers: select labelling *sites*, not pairs — plus a homodimer labelizer example**
+  - Status: ✅ done (imp.bff `f23ab26`, 2026-09-11)
+  - Owner: zcode/greedy-oligo
+  - Opened: 2026-09-11 · Picked: 2026-09-11 · Done: —
+  - Why: owner request (2026-09-11). In a homo-oligomer the labelling mix is
+    statistical: each site is mutated once and every cross-protomer combination
+    of the chosen sites becomes measurable (dimer, sites {1,2}: 1:1, 2:2, 1:2,
+    2:1 — the pairs are free once the sites exist). `select_informative_pairs`
+    greedies over pairs, which silently models every pair as its own double
+    mutant — the wrong unit for dimers, trimers, tetramers.
+  - Done when: `select_informative_sites` scores each greedy step by the *pair
+    set* the enlarged site set implies (all combinations, both donor/acceptor
+    orientations); it reduces exactly to `select_informative_pairs` when every
+    site owns one pair; a homodimer notebook lands beside
+    `labelizer_greedy_pipeline.ipynb` and shows site-greedy beating pair-greedy
+    per mutation.
+  - Touching: `imp.bff/include/GreedyOlga.h`, `imp.bff/src/GreedyOlga.cpp`,
+    `imp.bff/pyext/include/IMP_bff.greedyolga.i`,
+    `imp.bff/test/restraints/test_greedy_sites.py`,
+    `imp.bff/ipynb/example/labelizer_greedy_homodimer.ipynb`.
+  - Progress: done. `select_informative_sites` (GreedyOlga.{h,cpp} + greedyolga.i) greedies over
+    sites, scores each step by the implied pair set, keeps Olga's ndof conventions so one-pair-per-site
+    reduces to `select_informative_pairs` exactly; pinned in test/restraints/test_greedy_sites.py
+    (29/29 with test_greedy_olga.py). Notebook labelizer_greedy_homodimer.ipynb executed: synthetic C2
+    T4L dimer, 8 sites -> 64 combinations, site-greedy 1.94 A at two mutations vs pair-greedy 1.84 A
+    at five. Build lock released; the unrelated dirty files in imp.bff (RotamerLibrary.cpp,
+    data_registry.py) are another stream's and untouched.
 
 - **T-20260909-02 · [tttrlib] The hand-written SIMD convolution was slower than plain scalar code**
   - Status: ✅ done — 2026-09-09
