@@ -543,6 +543,63 @@ void convolve_causal_ad(T *fit, const T *curve, const L *lamp, int n_points) {
 
 
 /*!
+ * @brief Full convolution of a sampled curve with a response, header-only
+ *
+ * `full[i] = sum_j curve[j] * lamp[i - j]` for every `i` the two overlap at:
+ * `n_curve + n_lamp - 1` values, numpy's `np.convolve(curve, lamp, "full")`.
+ * The shapes the modes below are cut from.
+ *
+ * @param full[out] `n_curve + n_lamp - 1` values
+ * @param curve[in] the curve, `n_curve` long
+ * @param n_curve[in] its length
+ * @param lamp[in] the response, `n_lamp` long
+ * @param n_lamp[in] its length
+ */
+template <typename T, typename L = double>
+void convolve_full_ad(T *full, const T *curve, int n_curve, const L *lamp, int n_lamp) {
+    const int n_full = n_curve + n_lamp - 1;
+    for (int i = 0; i < n_full; i++) full[i] = T(0.0);
+    for (int j = 0; j < n_curve; j++)
+        for (int k = 0; k < n_lamp; k++) full[j + k] += curve[j] * lamp[k];
+}
+
+
+/*!
+ * @brief Fold a response-broadened curve into a repetitive excitation
+ *
+ * Under excitation repeated every `period` samples, what reaches sample `i` is
+ * the broadened response of the current pulse plus what spilled past the end
+ * of every earlier one: `fit[i] = sum_{k>=0} full(i + k * period)`, read by
+ * linear interpolation where `i + k * period` falls between samples (a
+ * repetition period is rarely a whole number of channels). The curve's own
+ * periodicity -- a decay that has not died away by the next pulse -- is the
+ * curve's to carry; this folds the convolution's spill, which a convolution
+ * truncated to the window drops.
+ *
+ * @param fit[out] `n_points` values
+ * @param n_points[in] samples written
+ * @param full[in] the full convolution, `n_full` long
+ * @param n_full[in] its length
+ * @param period[in] the repetition period in samples, positive
+ */
+template <typename T>
+void fold_periodic_ad(T *fit, int n_points, const T *full, int n_full, double period) {
+    for (int i = 0; i < n_points; i++) {
+        T sum = (i < n_full) ? full[i] : T(0.0);
+        for (int k = 1;; k++) {
+            const double position = i + k * period;
+            if (position > n_full - 1) break;
+            const int j = (int) std::floor(position);
+            const double f = position - j;
+            sum += (1.0 - f) * full[j];
+            if (f > 0.0 && j + 1 < n_full) sum += f * full[j + 1];
+        }
+        fit[i] = sum;
+    }
+}
+
+
+/*!
  * @brief Coates pile-up scaling factors, header-only, model type templated
  *
  * The body of \ref add_pile_up_to_model, kept in the header (like
