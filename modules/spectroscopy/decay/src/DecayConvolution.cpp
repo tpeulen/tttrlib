@@ -64,20 +64,9 @@ if (is_verbose()) {
 
 // fast convolution - scalar reference implementation.
 static void fconv_scalar(double *fit, double *x, double *lamp, int numexp, int start, int stop, double dt) {
-    std::vector<double> l2(stop);
-    start = std::max(1, start);
-    for (int i = 0; i < stop; i++) l2[i] = dt * 0.5 * lamp[i];
-    /* convolution */
-    for (int ne = 0; ne < numexp; ne++) {
-        double expcurr = exp(-dt / x[2 * ne + 1]);
-        double a = x[2 * ne];
-        double fitcurr = 0.0;
-        fit[0] += l2[0] * a;
-        for (int i = start; i < stop; i++) {
-            fitcurr = (fitcurr + l2[i - 1]) * expcurr + l2[i];
-            fit[i] += fitcurr * a;
-        }
-    }
+    // The body lives in the header as `fconv_ad`, so a header-only consumer
+    // (imp.bff's TCSPC decay node) runs this very implementation.
+    fconv_ad<double>(fit, x, lamp, numexp, start, stop, dt);
 }
 
 

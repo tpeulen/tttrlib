@@ -462,6 +462,43 @@ void shift_lamp(double *lampsh, double *lamp, double ts, int n_points, double ou
 
 
 /*!
+ * @brief Non-periodic reconvolution of a lifetime spectrum, header-only
+ *
+ * The scalar body of `fconv`: each species' exponential convolved with the
+ * response by the recursive trapezoid rule, *added* to `fit` over
+ * `[start, stop)` (the caller zeroes it). `fit[0]` takes the first half-step.
+ * Model type templated like `fconv_per_cs_ad`, so a consumer holding only the
+ * header -- imp.bff's TCSPC decay node -- runs this implementation rather than
+ * a copy; `fconv`'s scalar path calls it too.
+ *
+ * @param fit[in,out] model, accumulated into
+ * @param x[in] interleaved amplitudes and lifetimes
+ * @param lamp[in] the response, at least `stop` long
+ * @param numexp[in] number of species
+ * @param start[in] first channel convolved (at least 1)
+ * @param stop[in] one past the last channel convolved
+ * @param dt[in] channel width
+ */
+template <typename T, typename L = double>
+void fconv_ad(T *fit, const T *x, const L *lamp, int numexp, int start, int stop, double dt) {
+    if (stop <= 0) return;
+    std::vector<double> l2(static_cast<std::size_t>(stop));
+    start = start > 1 ? start : 1;
+    for (int i = 0; i < stop; i++) l2[i] = dt * 0.5 * lamp[i];
+    for (int ne = 0; ne < numexp; ne++) {
+        const T expcurr = exp(-dt / x[2 * ne + 1]);
+        const T a = x[2 * ne];
+        T fitcurr = T(0.0);
+        fit[0] += l2[0] * a;
+        for (int i = start; i < stop; i++) {
+            fitcurr = (fitcurr + l2[i - 1]) * expcurr + l2[i];
+            fit[i] += fitcurr * a;
+        }
+    }
+}
+
+
+/*!
  * @brief Header-only core of shift_lamp(), so a consumer that only has this
  * header can shift a response function.
  *
