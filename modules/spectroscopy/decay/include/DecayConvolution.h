@@ -486,20 +486,59 @@ void shift_lamp(double *lampsh, double *lamp, double ts, int n_points, double ou
  * @param out_value[in] what to write where the shift has no source sample
  */
 template <typename T>
-void shift_lamp_ad(double *lampsh, const double *lamp, T ts, int n_points,
+void shift_lamp_ad(T *lampsh, const double *lamp, T ts, int n_points,
                    double out_value = 0.0) {
-    using std::floor;
-    const int tsint = (int) (floor(ts));
+    const int tsint = (int) std::floor(tttrlib::ad_value(ts));
     const T tsdbl = ts - (double) tsint;
-    int out_left = 0, out_right = 0, j;
+    // Channel j interpolates lamp[j + tsint] (weight 1 - tsdbl) and
+    // lamp[j + tsint + 1] (weight tsdbl). Where only one of the two lies
+    // outside the response, only *its share* is replaced by out_value. Blanking
+    // the whole channel -- which this did until 2026-09-14 -- made the result
+    // jump as a shift crossed an integer, so a finite-difference derivative in
+    // the shift saw a fabricated 1/h slope and a fitted timeshift stuck at its
+    // start; chisurf's `shift_array` had already been corrected the same way.
+    const int both_in_lo = tsint < 0 ? -tsint : 0;
+    const int both_in_hi = n_points - (tsint + 1 > 0 ? tsint + 1 : 0);
+    for (int j = 0; j < n_points; j++) {
+        if (j >= both_in_lo && j < both_in_hi) {
+            lampsh[j] = (1.0 - tsdbl) * lamp[j + tsint] + tsdbl * lamp[j + tsint + 1];
+            continue;
+        }
+        const int i0 = j + tsint;
+        const int i1 = i0 + 1;
+        const double v0 = (i0 >= 0 && i0 < n_points) ? lamp[i0] : out_value;
+        const double v1 = (i1 >= 0 && i1 < n_points) ? lamp[i1] : out_value;
+        lampsh[j] = (1.0 - tsdbl) * v0 + tsdbl * v1;
+    }
+}
 
-    if (tsint < 0) out_left = -tsint;
-    if (tsint + 1 > 0) out_right = tsint + 1;
 
-    for (j = 0; j < out_left; j++) lampsh[j] = out_value;
-    for (j = out_left; j < (n_points - out_right); j++)
-        lampsh[j] = lamp[j + tsint] * (1 - tsdbl) + lamp[j + tsint + 1] * (tsdbl);
-    for (j = (n_points - out_right); j < n_points; j++) lampsh[j] = out_value;
+/*!
+ * @brief Causal convolution of a sampled curve with a response, header-only
+ *
+ * `fit[i] = sum_{j=0..i} curve[j] * lamp[i - j]`: the curve's response as
+ * seen from its start, truncated to the curve's length -- numpy's
+ * `np.convolve(curve, lamp, "full")[:n_points]`. This is the convolution of
+ * a model that is *already* a decay (an equation of time) rather than a
+ * lifetime spectrum, which the `fconv*` family reconvolves analytically.
+ * `sconv` above is a different quadrature (trapezoid end weights, `fit[0]`
+ * zeroed) and is kept for its callers.
+ *
+ * Model type templated like `fconv_per_cs_ad`, so a `tttrlib::Dual` curve
+ * carries its derivatives through; the response is data.
+ *
+ * @param fit[out] convolved curve, `n_points` long
+ * @param curve[in] the curve to convolve, `n_points` long
+ * @param lamp[in] the response, `n_points` long
+ * @param n_points[in] number of samples
+ */
+template <typename T, typename L = double>
+void convolve_causal_ad(T *fit, const T *curve, const L *lamp, int n_points) {
+    for (int i = 0; i < n_points; i++) {
+        T sum = T(0.0);
+        for (int j = 0; j <= i; j++) sum += curve[j] * lamp[i - j];
+        fit[i] = sum;
+    }
 }
 
 

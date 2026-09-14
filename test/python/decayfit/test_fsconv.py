@@ -312,7 +312,10 @@ class Tests(unittest.TestCase):
                 0.28561886, 0.44980189, 0.66053707, 0.90452776, 1.15505166,
                 1.37543629, 1.52736396, 1.58164736, 1.52736396, 1.37543629,
                 1.15505166, 0.90452776, 0.66053707, 0.44980189, 0.28561886,
-                0.
+                # The last channel interpolates the last sample with one past
+                # the end: half of it, not a blanked zero, so the shifted
+                # response stays continuous in the shift.
+                0.10798193
             ]
         )
         np.testing.assert_array_almost_equal(ref, irf_shift)
