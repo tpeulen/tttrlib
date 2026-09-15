@@ -17,6 +17,7 @@
 #include <vector>
 #include <algorithm> /* std::max */
 #include <string.h> /* strcmp */
+#include "Dual.h"   /* tttrlib::ad_value, for the AD-templated kernels below */
 
 /* SIMD intrinsics and the runtime-dispatch macros live in info.h; the AVX
  * (x86_64) and NEON (AArch64) kernels in DecayConvolution.cpp are compiled in

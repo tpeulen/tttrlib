@@ -234,18 +234,44 @@ class TestPeriodicConvolutionAgainstBruteForce(unittest.TestCase):
 
 class TestShiftLampAgainstInterp(unittest.TestCase):
 
-    def test_matches_linear_interpolation_and_zero_fills_outside(self):
+    @staticmethod
+    def _reference(lamp, ts, out_value):
+        """Linear interpolation of lamp[j + ts]; a source sample outside the response
+        contributes out_value in its share of the channel (only that share)."""
+        n = len(lamp)
+        k = int(np.floor(ts))
+        f = ts - k
+        ref = np.empty(n)
+        for j in range(n):
+            v0 = lamp[j + k] if 0 <= j + k < n else out_value
+            v1 = lamp[j + k + 1] if 0 <= j + k + 1 < n else out_value
+            ref[j] = (1.0 - f) * v0 + f * v1
+        return ref
+
+    def test_matches_linear_interpolation_with_partial_edge_shares(self):
         lamp = gaussian_irf(40, 1.0, 12.0, 2.5)
         for ts in (0.3, 2.7, -1.6, 4.0, -0.25):
-            with self.subTest(ts=ts):
-                got = np.zeros_like(lamp)
-                tttrlib.shift_lamp(lamp, got, ts, 0.0)
-                ref = np.interp(np.arange(40) + ts, np.arange(40), lamp, left=np.nan, right=np.nan)
-                inside = np.isfinite(ref)
-                np.testing.assert_allclose(got[inside], ref[inside], rtol=0, atol=1e-13)
-                # every bin the kernel zero-fills is one np.interp cannot define, or the
-                # last bin needed for the right-hand interpolation partner
-                self.assertTrue(np.all(got[~inside] == 0.0))
+            for out_value in (0.0, 0.5):
+                with self.subTest(ts=ts, out_value=out_value):
+                    got = np.zeros_like(lamp)
+                    tttrlib.shift_lamp(lamp, got, ts, out_value)
+                    np.testing.assert_allclose(got, self._reference(lamp, ts, out_value), rtol=0, atol=1e-13)
+                    # where both partners lie inside it is exactly np.interp
+                    ref = np.interp(np.arange(40) + ts, np.arange(40), lamp, left=np.nan, right=np.nan)
+                    inside = np.isfinite(ref)
+                    np.testing.assert_allclose(got[inside], ref[inside], rtol=0, atol=1e-13)
+
+    def test_is_continuous_in_the_shift_across_integers(self):
+        # The contract since 2026-09-14: blanking a whole edge channel made the shifted
+        # response jump as the shift crossed an integer, and a finite-difference derivative
+        # in the shift saw a fabricated slope.
+        lamp = np.ones(20)
+        for k in (-2.0, 0.0, 1.0, 3.0):
+            with self.subTest(k=k):
+                a, b = np.zeros(20), np.zeros(20)
+                tttrlib.shift_lamp(lamp, a, k - 1e-9, 0.0)
+                tttrlib.shift_lamp(lamp, b, k + 1e-9, 0.0)
+                self.assertLess(np.max(np.abs(a - b)), 1e-6)
 
 
 class TestRescaleAgainstFormulas(unittest.TestCase):

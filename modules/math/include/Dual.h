@@ -133,6 +133,18 @@ struct Dual {
     Dual operator-() const { return Dual(-val, -grad); }
 };
 
+/// The value of a scalar that may or may not carry a derivative.
+///
+/// A templated kernel sometimes needs a quantity that is piecewise constant in
+/// its arguments -- the integer part of a shift, an index, a branch condition.
+/// Those must be taken from the *value*, because their derivative is zero
+/// almost everywhere and `floor` is not differentiable at the steps anyway.
+/// `ad_value` is how a kernel says "the value, whichever type I was
+/// instantiated with" without a branch on the type.
+inline double ad_value(double v) { return v; }
+template <typename G>
+inline double ad_value(const Dual<G>& d) { return d.val; }
+
 template <typename G>
 inline Dual<G> operator+(Dual<G> a, const Dual<G>& b) { a += b; return a; }
 
