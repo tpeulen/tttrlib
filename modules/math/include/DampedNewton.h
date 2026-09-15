@@ -1,8 +1,9 @@
 /*!
  * @file DampedNewton.h
  * @brief Given a curvature and a gradient, a step that actually improves the
- *        objective: Cholesky solves, the SPD log determinant, and a damped Newton
- *        (Fisher scoring, Levenberg-Marquardt) stepper with backtracking.
+ *        objective: Cholesky solves, the SPD log determinant, ridge least squares on
+ *        a kept factor, and a damped Newton (Fisher scoring, Levenberg-Marquardt)
+ *        stepper with backtracking.
  *
  * Header-only and std-only, so imp.bff carries it as a verbatim copy
  * (`include/internal/DampedNewton.h`). Moved from imp.bff's `Optimization.h`
@@ -111,6 +112,56 @@ inline bool log_det_spd(const double* A, std::size_t n, double* out) {
   *out = 2.0 * factor.log_det_half();
   return true;
 }
+
+/**
+ * \brief Ridge (Tikhonov) least squares against one design matrix, factored once.
+ *
+ * For an `m x n` row-major `A`, `project(y, x)` returns
+ * `x = (A^T A + lambda I)^-1 A^T y` -- the least-squares coefficients of `y` on
+ * the columns of `A`, damped where columns are nearly collinear so that the
+ * coefficients stay bounded. `A^T A + lambda I` is factored once by
+ * `CholeskyFactor`, so projecting many targets onto one basis costs one
+ * factorisation. `lambda` is absolute, or with `relative` a multiple of the mean
+ * diagonal of `A^T A` (`lambda = r trace(A^T A) / n`), which makes it invariant to
+ * the scale of `A`. Hoerl & Kennard, Technometrics 12, 55 (1970).
+ */
+class RidgeProjector {
+ public:
+  //! Factor for `A` (`m x n`, row-major); false if `A^T A + lambda I` is not positive definite.
+  bool factor(const double* A, std::size_t m_, std::size_t n_, double lambda_, bool relative = false) {
+    m = m_; n = n_;
+    a.assign(A, A + m * n);
+    std::vector<double> G(n * n, 0.0);
+    for (std::size_t i = 0; i < n; ++i)
+      for (std::size_t j = 0; j <= i; ++j) {
+        double s = 0.0;
+        for (std::size_t r = 0; r < m; ++r) s += A[r * n + i] * A[r * n + j];
+        G[i * n + j] = G[j * n + i] = s;
+      }
+    double tr = 0.0;
+    for (std::size_t i = 0; i < n; ++i) tr += G[i * n + i];
+    lam = relative ? lambda_ * tr / double(n) : lambda_;
+    for (std::size_t i = 0; i < n; ++i) G[i * n + i] += lam;
+    return chol.factor(G.data(), n);
+  }
+  //! `x` (n values) for the target `y` (m values).
+  bool project(const double* y, double* x) const {
+    std::vector<double> b(n, 0.0);
+    for (std::size_t i = 0; i < n; ++i) {
+      double s = 0.0;
+      for (std::size_t r = 0; r < m; ++r) s += a[r * n + i] * y[r];
+      b[i] = s;
+    }
+    return chol.solve(b.data(), x);
+  }
+  double lambda() const { return lam; }
+
+ private:
+  std::size_t m = 0, n = 0;
+  double lam = 0.0;
+  std::vector<double> a;
+  CholeskyFactor chol;
+};
 
 //! What one step attempt did.
 struct OptimizationStepResult {
