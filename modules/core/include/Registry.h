@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "RegistryCore.h"
+
 /*!
  * \file Registry.h
  * \brief The registry: what tttrlib can do, by name, as data.
@@ -33,82 +35,8 @@
 
 namespace tttrlib {
 
-/*!
- * \brief What an algorithm declares about itself.
- *
- * Every field except `impl` is data the registry serves to consumers: a UI
- * renders `display_name`, `summary`, `description` and `references_json`; a
- * form builder renders `settings_schema`; the provenance system reads
- * `operation_type`, `row_grain`, `inputs_json`, `outputs_json` and
- * `can_replay`.
- *
- * `impl` is opaque to the host. A capability registrar knows
- * how to turn it into the C++ object or call for its capability — which is the
- * seam that lets a C ABI plugin table and a C++ built-in factory travel one
- * registration path.
- */
-struct AlgorithmDescriptor {
-    // -- identity (mmfdb / flrCIF canonical names) --
-    /// The mmfdb `operation_type` this algorithm performs, e.g.
-    /// "fcs_correlation". Not necessarily unique: two entries can perform the
-    /// same operation type on different inputs (the burst-MLE fit on the green
-    /// and on the red detector both are `burst_lifetime_fitting`).
-    std::string operation_type;
-    /// The registry key -- what a caller names the entry by (`registry("fit")
-    /// ["fit23"]`, `burst_search_by_name("maxtree")`). Unique within the
-    /// registry. Empty means "same as operation_type", which is the common
-    /// case; emitted as `name`.
-    std::string name;
-    std::string display_name;     ///< human label
-    std::string summary;          ///< one line, for lists and tooltips
-
-    // -- human documentation --
-    /// Full prose: what it does, when it is the right choice, what it assumes
-    /// and where it stops being valid. This is what a user reads instead of the
-    /// source when deciding whether the algorithm suits their data.
-    std::string description;
-    /// JSON array of citation objects, so a user knows what to cite. Fields:
-    /// type, authors, title, year, and where applicable journal, volume,
-    /// pages, doi, url.
-    std::string references_json;
-
-    // -- classification --
-    std::string capability;       ///< "burst_search", "decay_fit", "fcs", ...
-
-    /// The method a caller invokes to run this, when one exists as an attribute
-    /// on the object -- emitted as `method`, which is the key the burst_search
-    /// and fit categories have always carried and which a UI dispatches on. An
-    /// algorithm reachable only by name (a plugin's) leaves this empty, and
-    /// *that absence is the signal* those consumers already read.
-    std::string dispatch_name;
-    /// "builtin" unless a plugin supplied it. Emitted as `provider`.
-    std::string provider = "builtin";
-
-    // -- contract --
-    std::string settings_schema;  ///< JSON Schema of the parameters
-    std::string inputs_json;      ///< required/optional inputs
-    std::string outputs_json;     ///< produced columns (mmfdb items)
-    std::string row_grain;        ///< "burst", "curve_point", "photon", ...
-    bool can_replay = false;      ///< re-executable from settings + inputs
-
-    // -- capability-specific keys --
-    /// A JSON object whose keys are merged into the emitted entry *after* the
-    /// generic ones, so a capability can carry what only it needs -- a fit's
-    /// `params_schema` / `results_schema` / `setup` link / `n_patterns` /
-    /// `supports_lnprob`, an operation's `data_format` / `kind` / structured
-    /// `inputs` -- without the descriptor growing a field per capability. Key
-    /// order is preserved (ordered_json), which is what the fit parameter
-    /// flattening rule depends on. Empty means nothing extra.
-    std::string extra_json;
-
-    // -- dispatch --
-    void* impl = nullptr;         ///< capability-specific, opaque here
-};
-
-/// The registry key of \p d: `name`, or `operation_type` when `name` is empty.
-inline const std::string& algorithm_key(const AlgorithmDescriptor& d) {
-    return d.name.empty() ? d.operation_type : d.name;
-}
+// AlgorithmDescriptor and algorithm_key are in RegistryCore.h, the mechanism shared with other
+// libraries (imp.bff vendors it); this header is tttrlib's registry built on it.
 
 /*!
  * \brief Register one algorithm.
