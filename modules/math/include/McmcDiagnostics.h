@@ -202,13 +202,15 @@ inline double ess(const McmcChains& x) {
     for (double v : chain_mean) vm += (v - mm) * (v - mm);
     var_plus += vm / double(m - 1);
   }
-  std::vector<double> rho(n, 0.0);
+  std::vector<double> rho(std::max<std::size_t>(n, 2), 0.0);
   double rho_even = 1.0;
   rho[0] = rho_even;
-  double rho_odd = 1.0 - (mean_var - acov(1)) / var_plus;
+  double rho_odd = 1.0 - (mean_var - (n > 1 ? acov(1) : 0.0)) / var_plus;
   rho[1] = rho_odd;
   std::size_t t = 1;
-  while (t < n - 3 && (rho_even + rho_odd) > 0.0) {       //: Geyer's initial positive sequence
+  //: signed: with fewer than 4 draws per (split) chain arviz's `t < n - 3` is false from the start,
+  //: and an unsigned n - 3 would wrap around
+  while (std::ptrdiff_t(t) < std::ptrdiff_t(n) - 3 && (rho_even + rho_odd) > 0.0) {       //: Geyer's initial positive sequence
     rho_even = 1.0 - (mean_var - acov(t + 1)) / var_plus;
     rho_odd = 1.0 - (mean_var - acov(t + 2)) / var_plus;
     if (rho_even + rho_odd >= 0.0) { rho[t + 1] = rho_even; rho[t + 2] = rho_odd; }
