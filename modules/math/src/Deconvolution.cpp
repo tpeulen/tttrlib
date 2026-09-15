@@ -371,11 +371,16 @@ namespace {
 ///
 /// @param oversampling  Samples per grid pixel in `psf`. `offset` is always in
 ///                      grid pixels regardless.
+/// Largest rank the list-mode path accepts; bounds the stack scratch of the
+/// inner loops, which run once per photon per PSF tap per iteration and must
+/// not touch the heap (per-call vectors made event mode allocator-bound).
+constexpr int kMaxEventRank = 8;
+
 double psf_at(const double* psf, const std::vector<int>& psf_shape,
-              const std::vector<double>& offset, int oversampling) {
+              const double* offset, int oversampling) {
     const std::size_t rank = psf_shape.size();
-    std::vector<int> base(rank);
-    std::vector<double> fraction(rank);
+    int base[kMaxEventRank];
+    double fraction[kMaxEventRank];
     for (std::size_t axis = 0; axis < rank; ++axis) {
         const double centre = (psf_shape[axis] - 1) / 2.0;
         const double position = offset[axis] * oversampling + centre;
@@ -420,6 +425,8 @@ std::vector<double> richardson_lucy_events(const double* coordinates, int n_even
     if (n_iter < 0) throw std::invalid_argument("richardson_lucy_events: negative n_iter");
     if (psf_oversampling < 1)
         throw std::invalid_argument("richardson_lucy_events: psf_oversampling must be at least 1");
+    if (rank > kMaxEventRank)
+        throw std::invalid_argument("richardson_lucy_events: rank above 8 is not supported");
 
     std::size_t n_grid = 1;
     for (int size : shape) {
@@ -507,15 +514,15 @@ std::vector<double> richardson_lucy_events(const double* coordinates, int n_even
 #pragma omp parallel for schedule(static)
 #endif
     for (long long flat = 0; flat < static_cast<long long>(n_grid); ++flat) {
-        std::vector<int> index(rank);
+        int index[kMaxEventRank];
         std::size_t remainder = static_cast<std::size_t>(flat);
         for (int axis = 0; axis < rank; ++axis) {
             index[axis] = static_cast<int>(remainder / grid_strides[axis]);
             remainder %= grid_strides[axis];
         }
         double total = 0.0;
-        std::vector<int> step(rank, 0);
-        std::vector<double> offset(rank);
+        int step[kMaxEventRank] = {0};
+        double offset[kMaxEventRank];
         for (std::size_t k = 0; k < n_support; ++k) {
             bool inside = true;
             for (int axis = 0; axis < rank; ++axis) {
@@ -543,12 +550,12 @@ std::vector<double> richardson_lucy_events(const double* coordinates, int n_even
 #endif
         for (int event = 0; event < n_events; ++event) {
             const double* position = coordinates + static_cast<std::size_t>(event) * rank;
-            std::vector<int> centre(rank);
+            int centre[kMaxEventRank];
             for (int axis = 0; axis < rank; ++axis)
                 centre[axis] = static_cast<int>(std::floor(position[axis] + 0.5));
             double predicted = 0.0;
-            std::vector<int> step(rank, 0);
-            std::vector<double> offset(rank);
+            int step[kMaxEventRank] = {0};
+            double offset[kMaxEventRank];
             for (std::size_t k = 0; k < n_support; ++k) {
                 bool inside = true;
                 std::size_t flat = 0;
@@ -584,11 +591,11 @@ std::vector<double> richardson_lucy_events(const double* coordinates, int n_even
                 const double weight =
                     (weights ? weights[event] : 1.0) / predicted;
                 const double* position = coordinates + static_cast<std::size_t>(event) * rank;
-                std::vector<int> centre(rank);
+                int centre[kMaxEventRank];
                 for (int axis = 0; axis < rank; ++axis)
                     centre[axis] = static_cast<int>(std::floor(position[axis] + 0.5));
-                std::vector<int> step(rank, 0);
-                std::vector<double> offset(rank);
+                int step[kMaxEventRank] = {0};
+                double offset[kMaxEventRank];
                 for (std::size_t k = 0; k < n_support; ++k) {
                     bool inside = true;
                     std::size_t flat = 0;
