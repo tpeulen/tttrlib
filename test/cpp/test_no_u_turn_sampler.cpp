@@ -8,7 +8,12 @@
 //   evaluation rises (the metric is used);
 // - a maximum tree depth of 1 (two leapfrog steps, no U-turn freedom) gives a far smaller ESS per
 //   draw on the ill-conditioned target (the control);
-// - Neal's funnel with a fixed, too large step size reports divergences.
+// - Neal's funnel with a fixed, too large step size reports divergences;
+// - against Stan: 20 independent normals (sds 0.1 .. 10), unit metric, fixed step 0.15, 4 x 5000 draws.
+//   The tree-depth histogram must match Stan 2.39.0 (CmdStan, ucfret s89_cpp/nuts_vs_stan/
+//   emit_depth_reference.py) by a two-sample chi-square at p > 1e-3, and the mean accept_stat within 0.01.
+//   The moments alone did not catch a wrong end momentum in the cross-subtree U-turn checks
+//   (imp.bff PRD-146 amendment B2); this histogram does.
 //
 //     c++ -std=c++17 -O2 -I modules/math/include -o t test/cpp/test_no_u_turn_sampler.cpp && ./t
 //
@@ -119,6 +124,42 @@ int main() {
     double ess_shallow = 1e300;
     for (std::size_t i = 0; i < n; ++i) ess_shallow = std::min(ess_shallow, tttrlib::ess_bulk(coord(shallow, n, chains, i)));
     check(ess_shallow < 0.2 * min_ess, "control: max tree depth 1 gives a far smaller ESS per draw", ess_shallow / min_ess);
+
+    {   // the tree-depth distribution against Stan's
+        const std::size_t ns = 20;
+        const tttrlib::NoUTurnSampler::Density scales = [&](const std::vector<double>& x, std::vector<double>& g) {
+            g.assign(ns, 0.0); double lp = 0;
+            for (std::size_t k = 0; k < ns; ++k) { const double sd = std::pow(10.0, -1.0 + 2.0 * double(k) / 19.0); lp -= 0.5 * x[k] * x[k] / (sd * sd); g[k] = -x[k] / (sd * sd); }
+            return lp;
+        };
+        // Stan, seed 2026: depth 2..8 -> 2, 4, 141, 1410, 7154, 10263, 1026; mean accept_stat 0.769971
+        const double stan_counts[5] = {2 + 4 + 141, 1410, 7154, 10263, 1026};   // bins: <= 4, 5, 6, 7, >= 8
+        const double stan_accept = 0.76997065;
+        double ours_counts[5] = {0, 0, 0, 0, 0}, accept = 0;
+        std::uniform_real_distribution<double> Ustart(-2.0, 2.0);   // Stan's default initialisation
+        std::mt19937_64 srng(17);
+        for (int c = 0; c < 4; ++c) {
+            tttrlib::NoUTurnSampler s(ns, scales, 1717 + 31 * c);
+            std::vector<double> q0(ns);
+            for (double& v : q0) v = Ustart(srng);
+            s.set_state(q0);
+            s.set_step_size(0.15);
+            for (int k = 0; k < 200; ++k) s.transition();
+            for (int k = 0; k < 5000; ++k) {
+                const auto t = s.transition();
+                ours_counts[std::min(4, std::max(0, t.tree_depth - 4))] += 1;
+                accept += t.accept_stat;
+            }
+        }
+        accept /= 20000.0;
+        double chi2 = 0;
+        for (int b = 0; b < 5; ++b) {
+            const double tot = ours_counts[b] + stan_counts[b];
+            for (double o : {ours_counts[b], stan_counts[b]}) { const double e = 0.5 * tot; chi2 += (o - e) * (o - e) / e; }
+        }
+        check(chi2 < 18.467, "vs Stan: tree-depth histogram, chi-square (4 dof) below 18.47 (p > 1e-3)", chi2);
+        check(std::fabs(accept - stan_accept) < 0.01, "vs Stan: mean accept_stat within 0.01 (difference)", accept - stan_accept);
+    }
 
     // Neal's funnel, 10-d: v ~ N(0, 3^2), x_k | v ~ N(0, e^v)
     const std::size_t nf = 10;

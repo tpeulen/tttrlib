@@ -144,13 +144,13 @@ class NoUTurnSampler {
       bool valid_subtree = false;
       double log_sum_weight_subtree = -std::numeric_limits<double>::infinity();
       if (U(rng_) > 0.5) {
-        rho_bck = rho; p_bck_fwd = p_fwd_bck; ps_bck_fwd = ps_fwd_bck;
+        rho_bck = rho; p_bck_fwd = p_fwd_fwd; ps_bck_fwd = ps_fwd_fwd;   // the old trajectory's forward end
         State zz = z_fwd;
         valid_subtree = build_tree(depth, zz, z_propose, ps_fwd_bck, ps_fwd_fwd, rho_fwd, p_fwd_bck, p_fwd_fwd, H0, 1.0,
                                    n_leapfrog, log_sum_weight_subtree, sum_metro_prob);
         z_fwd = zz;
       } else {
-        rho_fwd = rho; p_fwd_bck = p_bck_fwd; ps_fwd_bck = ps_bck_fwd;
+        rho_fwd = rho; p_fwd_bck = p_bck_bck; ps_fwd_bck = ps_bck_bck;   // the old trajectory's backward end
         State zz = z_bck;
         valid_subtree = build_tree(depth, zz, z_propose, ps_bck_fwd, ps_bck_bck, rho_bck, p_bck_fwd, p_bck_bck, H0, -1.0,
                                    n_leapfrog, log_sum_weight_subtree, sum_metro_prob);
