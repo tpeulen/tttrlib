@@ -37,8 +37,6 @@ Iterative reconvolution fitting algorithms and maximum likelihood estimation for
 - **`DecayPatternFit.h` / `DecayPatternFit.cpp`** — the linear unmixing of a decay into
   measured patterns (Poisson MLE or NNLS).
 - **`BlindIRF.h` / `BlindIRF.cpp`** — the IRF recovered from a decay alone.
-- **`MaxEntTcspc.h` / `MaxEntTcspc.cpp`** — maximum-entropy lifetime and distance
-  distributions (the engine itself is `MaxEntQp` in [`math`](../../math)).
 
 ## Examples
 

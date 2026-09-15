@@ -1,18 +1,16 @@
 """A/B of the probabilistic kernels in `modules/math` against independent
-references: `kalman_filter`, the `hmm_*` log-domain lattice, and the MaxEnt
-engine (`tcspc_quadpr_bound`, `tcspc_run_mem`, `maxent_invert`).
+references: `kalman_filter` and the `hmm_*` log-domain lattice.
 
 Every kernel here already has a known-answer or fixture test of its own
-(`test_kalman.py`, `test_hmm_lattice.py`, `decayfit/test_maxent_tcspc.py`).
+(`test_kalman.py`, `test_hmm_lattice.py`).
 What those cannot say is whether the kernel agrees with an implementation
 nobody here wrote. This file says it, two ways per kernel where two exist:
 
 * **A library that is not tttrlib and not ChiSurf.** hmmlearn for the lattice,
-  filterpy for the Kalman filter, scipy.optimize for the MaxEnt minimisers.
+  filterpy for the Kalman filter.
   hmmlearn and filterpy are not test dependencies, so their answers are
   recorded once by ``gen_math_ab_probabilistic_reference.py`` (inputs stored
-  with the outputs) into ``math_ab_probabilistic_reference.npz``; scipy is
-  a test dependency and is compared live.
+  with the outputs) into ``math_ab_probabilistic_reference.npz``.
 * **A textbook implementation written here from the equations**, in NumPy,
   short enough to read in one sitting -- a second independent arrangement
   that catches a shared convention error between the kernel and the library.
@@ -21,17 +19,7 @@ target that this library is also the upstream of, so "the two agree" says only
 that two things which change together still agree -- and a port's contract
 ("bit-exact with ChiSurf") is a statement about a snapshot, not about the
 mathematics. Where a kernel began as a port, the port is a fact about its
-history; what validates it is filterpy, hmmlearn, scipy or the equations.
-
-MaxEnt has no external twin: ChiSurf's ``core/math/optimization/mem.py``
-minimises a different functional (its objective value omits the entropy term
-its gradient carries, and its ``reg_scale`` comes from a settings file), so it
-is not a reference for ``run_mem``. The reference for the MaxEnt kernels is
-therefore the *optimisation problem itself*: the returned point must satisfy
-the KKT conditions of ``Q(p) = chi2(p) - nu/2 * S(p)`` on ``p >= min_prob``
-(checked in NumPy from the header's definitions), and scipy's L-BFGS-B, given
-a generous budget, must land on the same point and be unable to improve on it.
-That is what "agrees with the reference" means for a convex program.
+history; what validates it is filterpy, hmmlearn or the equations.
 """
 
 import importlib.util
@@ -330,252 +318,6 @@ class TestHmmLatticeAgainstTheTextbook(unittest.TestCase):
                 self.assertEqual(got, ref)
             else:
                 self.assertAlmostEqual(got, ref, places=12)
-
-
-# ---------------------------------------------------------------------------
-# MaxEnt: the bounded QP and the Skilling-Bryan iteration
-# ---------------------------------------------------------------------------
-
-def _qp(C, d):
-    return (lambda x: 0.5 * x @ C @ x + d @ x), (lambda x: C @ x + d)
-
-
-def _scipy_bounded_min(f, jac, x0, lb, **opts):
-    from scipy.optimize import minimize
-    options = dict(ftol=1e-16, gtol=1e-14, maxiter=200000, maxfun=2000000)
-    options.update(opts)
-    return minimize(f, x0, jac=jac, bounds=[(lb, None)] * len(x0),
-                    method="L-BFGS-B", options=options)
-
-
-class TestQuadprBoundAgainstScipy(unittest.TestCase):
-    """`quadpr_bound` against L-BFGS-B on the same bounded quadratic.
-
-    The header is explicit that the active-set *sweep* is not a KKT-correct
-    QP solver: it never releases a clamped variable and never checks the
-    multiplier sign. So the honest statement is in two parts. Whenever its
-    answer *is* a KKT point -- always when no bound binds, and on many
-    problems where some do -- it must coincide with scipy's minimiser. When
-    it is not, it must still be feasible, must not beat scipy (scipy's value
-    is the true minimum, so anything lower is a bug in the check), and the
-    gap is bounded and reported. On the problems here that gap is ~1e-2
-    relative at worst; the MEM outer loop re-solves the QP each step, which
-    is why the sweep is adequate there and why it is not exposed as a
-    general solver."""
-
-    def _cases(self):
-        rng = np.random.default_rng(3)
-        for n, lb, jitter in ((10, 0.0, 1.0), (30, 1e-4, 3.0), (20, 0.5, 3.0),
-                              (15, -2.0, 1.0), (40, 0.0, 2.0)):
-            A = rng.standard_normal((n, n))
-            C = A @ A.T + 5 * np.eye(n)
-            d = rng.standard_normal(n) * jitter
-            yield n, lb, C, d
-
-    def test_free_optimum_and_kkt_points_coincide_with_scipy(self):
-        checked_kkt = 0
-        for n, lb, C, d in self._cases():
-            x = np.asarray(tttrlib.tcspc_quadpr_bound(C.ravel(), d, lb))
-            f, jac = _qp(C, d)
-            r = _scipy_bounded_min(f, jac, np.full(n, max(lb, 0.0) + 1.0), lb)
-            self.assertTrue(np.all(x >= lb - 1e-12))
-            self.assertGreaterEqual(f(x), r.fun - 1e-9 * max(1.0, abs(r.fun)),
-                                    "the sweep may not beat the true minimum")
-            g = jac(x)
-            free = x > lb + 1e-9
-            is_kkt = (np.abs(g[free]).max(initial=0.0) < 1e-8 * (1 + np.abs(g).max())
-                      and np.all(g[~free] >= -1e-8))
-            if is_kkt:
-                checked_kkt += 1
-                np.testing.assert_allclose(x, r.x, rtol=1e-6, atol=1e-8)
-                self.assertAlmostEqual(f(x), r.fun, delta=1e-8 * max(1.0, abs(r.fun)))
-            else:
-                # documented non-optimality: bounded, and reported here
-                gap = (f(x) - r.fun) / max(1.0, abs(r.fun))
-                self.assertLess(gap, 5e-2)
-        self.assertGreaterEqual(checked_kkt, 2, "no KKT case exercised the equality")
-
-    def test_the_two_by_two_with_an_active_bound_is_exact(self):
-        """Small enough for the sweep to be exact and for the answer to be
-        written down: x1 clamps at the bound, x2 solves its 1-D problem."""
-        C = np.array([[2.0, 0.5], [0.5, 1.0]])
-        d = np.array([3.0, -1.0])       # x1 wants to go negative
-        lb = 0.0
-        x = np.asarray(tttrlib.tcspc_quadpr_bound(C.ravel(), d, lb))
-        f, jac = _qp(C, d)
-        r = _scipy_bounded_min(f, jac, np.ones(2), lb)
-        np.testing.assert_allclose(x, r.x, rtol=1e-8, atol=1e-10)
-
-
-def _mem_problem(seed=3, n_rows=200, n=25, sigma=0.01):
-    """A two-lifetime decay on a log-spaced tau grid, weighted normal
-    equations in run_mem's `1/2 p^T H p - g0^T p + const` form."""
-    rng = np.random.default_rng(seed)
-    tau = np.geomspace(0.1, 10, n)
-    t = np.linspace(0, 20, n_rows)
-    A = np.exp(-t[:, None] / tau[None, :])
-    p_true = np.zeros(n)
-    p_true[8] = 1.0
-    p_true[17] = 0.5
-    b = A @ p_true + rng.standard_normal(n_rows) * sigma
-    w = np.full(n_rows, 1.0 / sigma ** 2)
-    H = 2 * (A * w[:, None]).T @ A
-    g0 = 2 * A.T @ (w * b)
-    c = float(w @ (b * b))
-    return A, b, tau, p_true, H, g0, c
-
-
-def _mem_Q(H, g0, c, m, nu):
-    """run_mem's objective, from the header: Q = chi2 - nu/2 * S with
-    S = sum(p - p log(p/m)) - sum(m). And its gradient."""
-    def Q(p):
-        with np.errstate(divide="ignore", invalid="ignore"):
-            S = np.sum((1.0 - np.log(p / m)) * p) - m.sum()
-        return 0.5 * p @ H @ p - g0 @ p + c - 0.5 * nu * S
-
-    def dQ(p):
-        with np.errstate(divide="ignore", invalid="ignore"):
-            return H @ p - g0 + 0.5 * nu * np.log(p / m)
-    return Q, dQ
-
-
-class TestRunMemAgainstScipy(unittest.TestCase):
-    """`run_mem`'s fixed point is the bound-constrained minimiser of Q.
-
-    Three checks, none of which imports the kernel's own arithmetic: (i) the
-    KKT conditions of Q at the returned p, evaluated in NumPy from the
-    header's formulas -- free coordinates stationary, clamped coordinates with
-    a non-negative gradient; (ii) L-BFGS-B started at the prior with a
-    generous budget lands on the same p; (iii) L-BFGS-B started *at* p cannot
-    lower Q. Q is convex (H is PSD, -S is convex on p > 0), so KKT is
-    sufficient and there is one answer to agree on."""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.A, cls.b, cls.tau, cls.p_true, cls.H, cls.g0, cls.c = _mem_problem()
-        cls.m = np.full(cls.tau.size, 0.05)
-
-    def _solve(self, nu, tol=1e-8, max_iter=5000):
-        r = tttrlib.tcspc_run_mem(self.H.ravel(), self.g0, self.m, self.c, nu,
-                                  max_iter, tol, 1e-12)
-        return np.array(list(r.p), dtype=float), r
-
-    def test_kkt_of_the_returned_point(self):
-        for nu in (0.1, 1.0, 10.0, 100.0):
-            p, _ = self._solve(nu)
-            Q, dQ = _mem_Q(self.H, self.g0, self.c, self.m, nu)
-            g = dQ(p)
-            scale = np.abs(self.H @ p).max() + np.abs(self.g0).max()
-            free = p > 1e-9
-            self.assertTrue(free.any())
-            self.assertLess(np.abs(g[free]).max() / scale, 1e-9, f"nu={nu}")
-            if (~free).any():
-                self.assertGreater(g[~free].min(), 0.0, f"nu={nu}: a clamped "
-                                   "coordinate wants to move up")
-
-    def test_lbfgsb_from_the_prior_lands_on_the_same_point(self):
-        for nu in (0.1, 1.0, 10.0, 100.0):
-            p, _ = self._solve(nu)
-            Q, dQ = _mem_Q(self.H, self.g0, self.c, self.m, nu)
-            r = _scipy_bounded_min(Q, dQ, self.m.copy(), 1e-12)
-            # The claim that holds on every platform: the kernel is never
-            # WORSE than L-BFGS-B from the same start.
-            self.assertLessEqual(Q(p), r.fun + 1e-9 * abs(r.fun), f"nu={nu}")
-            if Q(p) >= r.fun - 1e-6 * abs(r.fun):
-                # Same objective -- so compare what the objective DETERMINES,
-                # not the raw coordinates. Q is flat along a ridge here: on
-                # macOS the two solutions differ by 0.9% in the largest
-                # component while their Q agrees to 1e-6, which says the point
-                # is not pinned down to better than about a percent by this
-                # problem. Asserting the coordinates agree to 0.5% would be
-                # asserting a property the problem does not have; what IS
-                # determined is the total mass and where it sits.
-                # 1e-4 relative, not 1e-6: both solvers stop on their own
-                # criterion, and the totals differ by ~3e-6 relative here.
-                self.assertAlmostEqual(float(p.sum()), float(r.x.sum()),
-                                       delta=1e-4 * float(p.sum()), msg=f"nu={nu}")
-                grid = np.arange(p.size, dtype=float)
-                centre_p = float((grid * p).sum() / p.sum())
-                centre_r = float((grid * r.x).sum() / r.x.sum())
-                self.assertAlmostEqual(centre_p, centre_r, delta=0.05,
-                                       msg=f"nu={nu}: the mass sits elsewhere")
-                # and neither solver puts mass where the other has none
-                carries_mass = p > 0.01 * p.max()
-                self.assertLess(float(np.max(r.x[~carries_mass], initial=0.0)),
-                                0.05 * p.max(), f"nu={nu}: mass where we have none")
-            else:
-                # L-BFGS-B stalled above the kernel's point -- a projected
-                # quasi-Newton is weak exactly where coordinates clamp, and
-                # how far it gets depends on the BLAS (CI stalls ~4e-3
-                # relative at nu=0.1 where this machine does not). "Ours is
-                # lower" is only meaningful if ours is also stationary, so
-                # restart scipy FROM our point: it must not find anything
-                # lower.
-                back = _scipy_bounded_min(Q, dQ, p.copy(), 1e-12)
-                self.assertGreaterEqual(back.fun, Q(p) - 1e-9 * abs(Q(p)),
-                                        f"nu={nu}: scipy improved on the kernel's point")
-
-    def test_lbfgsb_cannot_improve_on_the_returned_point(self):
-        for nu in (0.1, 1.0, 10.0, 100.0):
-            p, _ = self._solve(nu)
-            Q, dQ = _mem_Q(self.H, self.g0, self.c, self.m, nu)
-            r = _scipy_bounded_min(Q, dQ, p.copy(), 1e-12)
-            self.assertGreaterEqual(r.fun, Q(p) - 1e-9 * abs(Q(p)), f"nu={nu}")
-
-    def test_the_two_lifetimes_come_back(self):
-        """Known answer, independent of any solver: at a weak prior pull the
-        mass sits on the two planted grid points -- within one grid step,
-        which is what a lifetime spectrum resolves at this noise."""
-        p, _ = self._solve(0.1)
-        top = np.argsort(p)[-2:]
-        self.assertEqual(set(top.tolist()), {8, 17})
-        self.assertAlmostEqual(p[7:10].sum(), 1.0, delta=0.1)
-        self.assertAlmostEqual(p[16:19].sum(), 0.5, delta=0.1)
-        self.assertLess(p[np.r_[0:7, 10:16, 19:25]].sum(), 0.1)
-
-
-class TestMaxentInvertAgainstScipy(unittest.TestCase):
-    """`maxent_invert(A, b, nu)` documents its objective as
-    ||Ax - b||^2 - nu^2 S(x) with a uniform prior of ones. Same three checks
-    against that objective, on the documented functional rather than on the
-    engine's internal (H, g0) form -- so this also checks the translation
-    (H = 2 A^T A, nu_run = 2 nu^2) that MaxEnt.cpp does on the way in."""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.A, cls.b, cls.tau, cls.p_true, *_ = _mem_problem(seed=9, sigma=0.02)
-
-    def _objective(self, nu):
-        A, b = self.A, self.b
-        m = np.ones(A.shape[1])
-
-        def Q(x):
-            with np.errstate(divide="ignore", invalid="ignore"):
-                S = np.sum((1.0 - np.log(x / m)) * x) - m.sum()
-            r = A @ x - b
-            return r @ r - nu * nu * S
-
-        def dQ(x):
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return 2 * A.T @ (A @ x - b) + nu * nu * np.log(x / m)
-        return Q, dQ
-
-    def test_agrees_with_lbfgsb_on_the_documented_objective(self):
-        n_rows, n = self.A.shape
-        for nu in (0.05, 0.3, 1.0):
-            x = np.array(list(tttrlib.maxent_invert(self.A.ravel(), self.b, nu,
-                                                    n_rows, n, 20000, 1e-9)), dtype=float)
-            Q, dQ = self._objective(nu)
-            self.assertTrue(np.all(x >= 1e-12))
-            g = dQ(x)
-            free = x > 1e-9
-            scale = np.abs(2 * self.A.T @ (self.A @ x)).max() + 1.0
-            self.assertLess(np.abs(g[free]).max() / scale, 1e-8, f"nu={nu}")
-            r = _scipy_bounded_min(Q, dQ, np.ones(n), 1e-12)
-            self.assertAlmostEqual(Q(x), r.fun, delta=1e-7 * max(1.0, abs(r.fun)),
-                                   msg=f"nu={nu}")
-            r2 = _scipy_bounded_min(Q, dQ, x.copy(), 1e-12)
-            self.assertGreaterEqual(r2.fun, Q(x) - 1e-8 * max(1.0, abs(Q(x))))
 
 
 if __name__ == "__main__":

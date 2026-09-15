@@ -99,7 +99,7 @@ static void bench_solvers(std::mt19937_64& rng) {
         }));
     }
 
-    // The MaxEnt TCSPC active set's fallback path: a square min-norm solve.
+    // A square min-norm solve, the least-squares fallback of a singular system.
     for (int n : {64, 128}) {
         const int m = 4 * n;
         const auto A = random_matrix(m, n, rng);

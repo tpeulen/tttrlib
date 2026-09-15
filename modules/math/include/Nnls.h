@@ -5,14 +5,8 @@
  * & Hanson, 1974, algorithm NNLS -- the same algorithm scipy.optimize.nnls
  * wraps).
  *
- * This is a different tool from `tttrlib::quadpr_bound` (MaxEntQp.h), which
- * that header's own docstring is explicit about: quadpr_bound's active-set
- * sweep never *releases* a variable once clamped and never checks dual
- * feasibility, so it is adequate as the inner solve of one MEM Newton step
- * (itself iterated to convergence by run_mem's outer loop) but is not a
- * general-purpose, KKT-correct bounded solver. NNLS below is that solver: at
- * termination every passive-set gradient component is (numerically) zero and
- * every active-set one is non-negative -- the KKT conditions for
+ * At termination every passive-set gradient component is (numerically) zero
+ * and every active-set one is non-negative -- the KKT conditions for
  * min ||Ax-b||^2 s.t. x >= 0 -- because the algorithm can move an index
  * between the two sets in either direction, not just zero it.
  */

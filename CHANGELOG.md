@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+- **Removed: maximum entropy. It lives in imp.bff now.** `maxent_invert`,
+  `solve_tcspc_mem_lifetime` / `_fret`, `tcspc_run_mem`, `tcspc_quadpr_bound`,
+  the `tcspc_build_fi_*` design builders (and their Java `_into` helpers),
+  `MemTcspcResult`, the `MaxEntQp` engine and `decay_pattern_fit`'s `kMaxEnt` /
+  `kMaxEntTargetChisq` modes are gone. Use `IMP.bff.maxent_solve` (a quadratic
+  chi-square), `IMP.bff.maxent_invert` (a weighted design against a prior) or
+  the `MaxEntSpectrum` graph node (TCSPC lifetime and distance distributions).
+  Measured before the removal, imp.bff's engine gives the same answers on the
+  generic entry points (2e-10) and on simulated TCSPC decays, and reaches the
+  chi-square floor on a periodic FRET case where this one stalled (2.73 against
+  1.163) because its bounded QP never released a clamped amplitude.
+  `decay_pattern_fit` loses its `prior` argument and the `nu_used` /
+  `target_converged` result fields; `kTikhonov` is now exact non-negative least
+  squares on the augmented system `[A; sqrt(lambda) I]`, checked against
+  `scipy.optimize.nnls`.
+
 - **The PTO container and the DataStore moved to ptolib**
   (https://github.com/tpeulen/ptolib, private for now), one C++17 header that
   tttrlib and IMP.bff both vendor (`thirdparty/ptolib/ptolib.h`, refreshed by

@@ -4,7 +4,7 @@
 %}
 
 // Vector-of-vector patterns and the exception path both need std::exception
-// mapped, matching MaxEnt.i's sibling engines.
+// mapped.
 %exception tttrlib::decay_pattern_fit {
     try {
         $action

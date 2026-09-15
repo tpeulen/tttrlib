@@ -28,7 +28,7 @@ namespace tttrlib {};
 // `offsets` is optional and means "one burst spanning everything". A NumPy
 // IN_ARRAY1 pair cannot simply be left off, so give the pair a `default`
 // typemap: SWIG then treats it as optional and runs the `in` typemap only when
-// it is actually supplied. Same device as MaxEntTcspc.i's `prior`.
+// it is actually supplied.
 %typemap(default) (long long* offsets, int n_offsets) {
     $1 = nullptr;
     $2 = 0;

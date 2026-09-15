@@ -52,24 +52,5 @@ class TestBackgroundEstimation(unittest.TestCase):
         self.assertEqual(bg, 0.0)
 
 
-class TestMaxEnt(unittest.TestCase):
-
-    def test_identity_matrix(self):
-        # A = I, b = [1, 2, 3] -> solution recovers b (not normalized: the data
-        # constrains the absolute scale, as in chisurf's mem.py)
-        A = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-        b = [1.0, 2.0, 3.0]
-        x = list(tttrlib.maxent_invert(A, b, 0.001, 3, 3))
-        self.assertEqual(len(x), 3)
-        # should approx reproduce b (identity A, small nu)
-        self.assertTrue(all(abs(x[i] - b[i]) < 0.5 for i in range(3)))
-
-    def test_returns_positive(self):
-        A = [1.0, 0.5, 0.3, 0.0, 1.0, 0.2, 0.0, 0.0, 1.0]
-        b = [1.2, 0.7, 0.5]
-        x = list(tttrlib.maxent_invert(A, b, 0.01, 3, 3))
-        self.assertTrue(all(v > 0 for v in x))
-
-
 if __name__ == '__main__':
     unittest.main()

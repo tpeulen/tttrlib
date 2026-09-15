@@ -6,9 +6,8 @@ tttrlib_add_module(
     NAME     corrections
     SOURCES  "${CMAKE_CURRENT_SOURCE_DIR}/src/SpectralCrosstalk.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/BackgroundEstimation.cpp"
-             "${CMAKE_CURRENT_SOURCE_DIR}/src/MaxEnt.cpp"
     HEADERS  "${CMAKE_CURRENT_SOURCE_DIR}/include"
     DEPENDS  core util math
-    SWIG_INTERFACES SpectralCrosstalk.i BackgroundEstimation.i MaxEnt.i
+    SWIG_INTERFACES SpectralCrosstalk.i BackgroundEstimation.i
     TEST_DIR test/python/corrections
 )

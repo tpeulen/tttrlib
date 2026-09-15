@@ -4,7 +4,7 @@
 The four bindings do not share one `%include` list. `ext/python/tttrlib.i`,
 `ext/r/tttrlib.i`, `ext/java/tttrlib.i` and `ext/js/tttrlib.i` each keep their
 own, and on 2026-08-11 they had drifted by 16-18 files -- whole subsystems
-(`Cluster.i` and its HDBSCAN kernels, `Deconvolution.i`, `MaxEnt.i`,
+(`Cluster.i` and its HDBSCAN kernels, `Deconvolution.i`,
 `Streaming.i`, `Pda3cCore.i`) present in Python and absent everywhere else.
 
 Nothing caught it. `check_swig_multilang.sh` runs SWIG four times and passes if

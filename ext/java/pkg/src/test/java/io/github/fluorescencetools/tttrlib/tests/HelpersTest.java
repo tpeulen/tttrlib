@@ -131,42 +131,4 @@ public class HelpersTest {
         double[] kernel = new double[64];
         assertTrue(tttrlib.scan_blur_kernel_1d_into(1e-6, kernel) > 0);
     }
-
-    // ---- MaxEnt design matrices ------------------------------------------
-
-    /** Four output arrays from ONE native call -- the claim that made a Java
-     *  result class unnecessary. The int return is Fi's element count, which
-     *  yields every other length. */
-    @Test
-    public void buildFiLifetimesFillsAllFourOutputs() {
-        final int nChannels = 32;
-        double[] decay = new double[nChannels];
-        double[] lamp = new double[nChannels];
-        for (int i = 0; i < nChannels; i++) {
-            lamp[i] = Math.exp(-0.5 * Math.pow((i - 4.0) / 1.5, 2));
-            decay[i] = 100.0 * Math.exp(-i * 0.5 / 2.0) + 1.0;
-        }
-        double[] tau = {0.5, 1.0, 2.0, 4.0};
-
-        double[] fi = new double[nChannels * tau.length];
-        double[] y = new double[nChannels];
-        double[] sigma = new double[nChannels];
-        double[] fitAdditive = new double[nChannels];
-
-        int nFi = tttrlib.tcspc_build_fi_lifetimes_into(
-                decay, lamp, 0.5, tau, 0.0, 0.0, 0.0, 0, nChannels, 0.0,
-                fi, y, sigma, fitAdditive);
-
-        assertTrue(nFi > 0, "Fi's element count");
-        assertEquals(0, nFi % tau.length, "Fi is (n_data x n_tau) flattened");
-        assertTrue(nFi / tau.length > 0, "n_data = Fi / tau.length");
-        assertTrue(anyNonZero(fi), "Fi was not filled");
-        assertTrue(anyNonZero(y), "y was not filled");
-        assertTrue(anyNonZero(sigma), "sigma was not filled");
-    }
-
-    private static boolean anyNonZero(double[] a) {
-        for (double v : a) if (v != 0.0) return true;
-        return false;
-    }
 }

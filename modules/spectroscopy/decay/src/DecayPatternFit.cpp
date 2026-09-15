@@ -2,9 +2,10 @@
 #include "DecayPatternFit.h"
 #include "Registry.h"
 
+#include <algorithm>
+#include <cmath>
 #include <stdexcept>
 
-#include "MaxEntQp.h"
 #include "Nnls.h"
 
 namespace tttrlib {
@@ -48,7 +49,6 @@ PatternFitResult decay_pattern_fit(
     const std::vector<std::vector<double>>& patterns,
     PatternFitMode mode,
     double reg_strength,
-    const std::vector<double>& prior,
     int max_iter,
     double tol
 ) {
@@ -66,45 +66,19 @@ PatternFitResult decay_pattern_fit(
             break;
         }
         case PatternFitMode::kTikhonov: {
-            std::vector<double> H, g0;
-            double const_term = 0.0;
-            build_normal_equations(A, data, {}, n_bins, n_patterns, H, g0, const_term);
+            if (reg_strength < 0.0)
+                throw std::invalid_argument("decay_pattern_fit: the Tikhonov weight must be non-negative");
+            // ||Ax-b||^2 + lambda ||x||^2 is ||[A; sqrt(lambda) I] x - [b; 0]||^2.
+            const int n_rows = n_bins + n_patterns;
+            const double root = std::sqrt(reg_strength);
+            std::vector<double> A_aug(static_cast<size_t>(n_rows) * n_patterns, 0.0);
+            std::copy(A.begin(), A.end(), A_aug.begin());
             for (int k = 0; k < n_patterns; ++k)
-                H[static_cast<size_t>(k) * n_patterns + k] += 2.0 * reg_strength;
-            std::vector<double> ng0(g0);
-            for (auto& v : ng0) v = -v;
-            res.amplitudes = quadpr_bound(H, ng0, 0.0);
-            break;
-        }
-        case PatternFitMode::kMaxEnt: {
-            std::vector<double> H, g0;
-            double const_term = 0.0;
-            build_normal_equations(A, data, {}, n_bins, n_patterns, H, g0, const_term);
-            std::vector<double> m = prior;
-            if (m.empty()) m.assign(n_patterns, 1.0);
-            else if (static_cast<int>(m.size()) != n_patterns)
-                throw std::invalid_argument("decay_pattern_fit: prior.size() must equal patterns.size()");
-            const MaxEntResult r = run_mem(H, g0, m, const_term, reg_strength,
-                                            max_iter, tol > 0.0 ? tol : 1e-4, 1e-12);
-            res.amplitudes = r.p;
-            res.nu_used = reg_strength;
-            break;
-        }
-        case PatternFitMode::kMaxEntTargetChisq: {
-            std::vector<double> H, g0;
-            double const_term = 0.0;
-            build_normal_equations(A, data, {}, n_bins, n_patterns, H, g0, const_term);
-            std::vector<double> m = prior;
-            if (m.empty()) m.assign(n_patterns, 1.0);
-            else if (static_cast<int>(m.size()) != n_patterns)
-                throw std::invalid_argument("decay_pattern_fit: prior.size() must equal patterns.size()");
-            const MemTargetChisqResult r = run_mem_target_chisq(
-                H, g0, m, const_term, /*target_chisq=*/reg_strength,
-                /*nu0=*/1e-5, /*max_iter=*/std::max(max_iter, 1000),
-                /*chisq_tol=*/1e-2, tol > 0.0 ? tol : 1e-4, 1e-12);
-            res.amplitudes = r.result.p;
-            res.nu_used = r.nu;
-            res.target_converged = r.converged;
+                A_aug[static_cast<size_t>(n_bins + k) * n_patterns + k] = root;
+            std::vector<double> b_aug(data);
+            b_aug.resize(n_rows, 0.0);
+            res.amplitudes = nnls(A_aug, b_aug, n_rows, n_patterns, max_iter,
+                                  tol > 0.0 ? tol : 1e-10);
             break;
         }
     }
@@ -122,7 +96,7 @@ namespace {
 const char* const kDecayPatternFitEntry = R"JSON({
   "name": "decay_pattern_fit",
   "label": "Pattern (species-fraction) fit of a decay",
-  "summary": "Fits a decay as a non-negative combination of measured pattern decays, by Poisson MLE or NNLS, with optional regularisation and prior.",
+  "summary": "Fits a decay as a non-negative combination of measured pattern decays, by Poisson MLE or NNLS, with optional regularisation.",
   "description": "The linear unmixing of a decay into known component patterns (a scatter pattern, a donor-only pattern, ...): fractions are found by maximum likelihood on the Poisson counts or by non-negative least squares, optionally regularised, and returned with the fitted curve and goodness of fit. Assumes the patterns were measured under the same IRF and binning as the data.",
   "operation_type": "tcspc_fitting",
   "method": "decay_pattern_fit",

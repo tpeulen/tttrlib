@@ -1,5 +1,21 @@
 # Bundle update log
 
+## 2026-09-15 — maximum entropy leaves tttrlib for imp.bff
+
+tpeulen: "remove maxent from tttrlib, provided bff maxent works as good or
+better". Measured first (imp.bff b1eec87): `IMP.bff.maxent_solve` /
+`maxent_invert` agree with `tcspc_run_mem` / `maxent_invert_weighted` to 2e-10
+with the same iteration counts and verdicts; on simulated TCSPC lifetime and
+FRET decays (single-shot and periodic) the distributions and chi-squares match,
+except periodic FRET at nu = 1e-6, where imp.bff's MaxEntSpectrum had stalled at
+chi2r 2.73 against a reachable 1.163 and now reaches 1.1632 -- its QP releases
+clamped amplitudes (KKT). ChiSurf (ba4cca029) and ucfret (13e7e56) call imp.bff.
+Removed here: MaxEntTcspc, MaxEnt (corrections), MaxEntQp, the Java design
+builders, the gallery example and its figure, and `decay_pattern_fit`'s MaxEnt
+modes; `kTikhonov` is now `nnls` on the augmented system. The uncommitted
+`converged`/`dgrad`/`chisq_pearson` work on MaxEntTcspc is superseded by the
+same outputs on imp.bff's MaxEntSpectrum and maxent_solve.
+
 ## 2026-08-19 (50th entry)
 
 * **The 77-commit push went red, then green in five rounds** (runs 32147106516

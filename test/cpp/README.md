@@ -1,8 +1,7 @@
 # C++ tests for the shared numerics
 
 `modules/math/include/Mat.h` and `QREigen.h` are header-only and sit under every
-ported spectroscopy algorithm — MaxEnt, the Kalman burst search, the HMM
-surrogate, Gopich–Szabo, BurstML. A defect here surfaces as a plausible-looking
+ported spectroscopy algorithm — the Kalman burst search, the HMM surrogate, Gopich–Szabo, BurstML. A defect here surfaces as a plausible-looking
 but wrong result several layers up, which is exactly the kind of defect that
 survives an end-to-end test. These check the kernels directly.
 

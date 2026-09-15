@@ -13,8 +13,6 @@
   t_min | t >= t_min)) and the true rate of a simulated Poisson process, at
   realistic 0.2-3 kHz background rates, in kHz. (The A/B found the threshold
   missing and the unit off by 1e3 on 2026-08-17; both fixed the same day.)
-* `MaxEnt.h` (`maxent_invert`) is covered by
-  test/python/misc/test_math_ab_probabilistic.py (scipy L-BFGS-B KKT check).
 
 Register: okf/testing/algorithm-validation.md
 """

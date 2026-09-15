@@ -20,9 +20,8 @@ that was NOT derived from it:
 * `blind_irf_estimate` against a known-answer simulation (peak recovered; the
   shape is NOT -- pinned as an expected failure, see the class docstring).
 
-`MaxEntTcspc` (`test_maxent_tcspc.py`, `test_math_ab_probabilistic.py`) and
-`decay_pattern_fit` (`test_decay_pattern_fit.py`, vs `scipy.optimize.nnls`) are
-already A/B-tested elsewhere and are not repeated here.
+`decay_pattern_fit` (`test_decay_pattern_fit.py`, vs `scipy.optimize.nnls`) is
+already A/B-tested elsewhere and is not repeated here.
 """
 import os
 import unittest

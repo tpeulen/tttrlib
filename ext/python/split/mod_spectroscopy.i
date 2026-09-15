@@ -98,11 +98,9 @@ from tttrlib.kernels import *
 #ifndef TTTRLIB_WITHOUT_CORRECTIONS
 %include "SpectralCrosstalk.i"
 %include "BackgroundEstimation.i"
-%include "MaxEnt.i"
 #endif
 #ifndef TTTRLIB_WITHOUT_DECAY
 %include "BlindIRF.i"
-%include "MaxEntTcspc.i"
 %include "DecayPatternFit.i"
 #endif
 #ifndef TTTRLIB_WITHOUT_PDA

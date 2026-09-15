@@ -269,18 +269,10 @@ TTTRLIB_R_UINT64_TYPEMAPS
 #ifndef TTTRLIB_WITHOUT_CORRECTIONS
 %include "SpectralCrosstalk.i"
 %include "BackgroundEstimation.i"
-%include "MaxEnt.i"
 #endif
 #ifndef TTTRLIB_WITHOUT_DECAY
 %include "BlindIRF.i"
 %include "DecayPatternFit.i"
-#endif
-/* Maximum-entropy TCSPC: lifetime and FRET-distance distributions. Its inputs
-   go through IN_ARRAY1 and its outputs through ARGOUTVIEWM_ARRAY1/2, all of
-   which rarrays.i implements -- unlike jarrays.i, which has no rank-2 argout,
-   so this file stays declared for java. */
-#ifndef TTTRLIB_WITHOUT_DECAY
-%include "MaxEntTcspc.i"
 #endif
 #ifndef TTTRLIB_WITHOUT_PDA
 %include "Pda3cCore.i"

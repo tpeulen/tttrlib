@@ -16,19 +16,14 @@ import pytest
 tttrlib = pytest.importorskip("tttrlib")
 
 
-def _long_call(n_tau):
-    """A CPU-bound C++ call whose duration scales with the grid size."""
-    n, dt = 4096, 0.01
-    t = np.arange(n) * dt
-    irf = np.exp(-0.5 * ((t - 5.0) / 0.2) ** 2)
-    irf /= irf.sum()
-    decay = np.random.poisson(
-        (np.exp(-t / 4.0) * 5e4 / np.exp(-t / 4.0).sum()) + 5.0
-    ).astype(float)
-    tau = np.linspace(0.5, 8.0, n_tau)
-    return lambda: tttrlib.solve_tcspc_mem_lifetime(
-        decay.tolist(), irf.tolist(), dt, tau.tolist(),
-        0.0, 0.0, 0.0, 0, n - 1, 0.0, nu=1e-4, max_iter=2)
+def _long_call(n_patterns):
+    """A CPU-bound C++ call whose duration scales with the number of patterns."""
+    n = 4096
+    x = np.linspace(0.0, 20.0, n)
+    patterns = [np.exp(-x / tau).tolist() for tau in np.linspace(0.5, 8.0, n_patterns)]
+    data = np.random.poisson(5e3 * np.exp(-x / 4.0) + 5.0).astype(float).tolist()
+    return lambda: tttrlib.decay_pattern_fit(
+        data, patterns, tttrlib.PatternFitMode_kTikhonov, 1e-3, 10 * n_patterns, 1e-10)
 
 
 def test_a_long_call_does_not_stall_the_heartbeat():
@@ -37,8 +32,8 @@ def test_a_long_call_does_not_stall_the_heartbeat():
     # this machine; the heartbeat assertion needs a call that DOMINATES the
     # tolerated gap.
     call, duration = None, 0.0
-    for n_tau in (300, 600, 900, 1400):
-        call = _long_call(n_tau)
+    for n_patterns in (100, 200, 400, 800):
+        call = _long_call(n_patterns)
         t0 = time.perf_counter()
         call()
         duration = time.perf_counter() - t0
