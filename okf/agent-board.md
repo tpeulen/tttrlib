@@ -119,6 +119,8 @@ are still claims and still binding.
 
 - **T-20260909-08 · [tttrlib] `MaxEntTcspc` uses Neyman weighting, which this library's own objective catalogue tells callers not to use**
   - Status: 🆕 open — verified defect; the fix moves numbers, so it is the owner's call
+  - Moved (2026-09-15, d88268bc5): maximum entropy is no longer in tttrlib. The question now
+    applies to imp.bff's `MaxEntSpectrum` / `maxent_solve` (same data weighting); raise it there.
   - Owner: —
   - Opened: 2026-09-09
   - Why: `MaxEntTcspc.cpp:171` (lifetime) and `:342` (FRET) both take the
@@ -165,6 +167,8 @@ are still claims and still binding.
 
 - **T-20260909-07 · [tttrlib] A roughness-penalised lifetime distribution: a second regulariser beside maximum entropy?**
   - Status: 🆕 open — a scope question with a small implementation behind it
+  - Moved (2026-09-15, d88268bc5): maximum entropy is no longer in tttrlib. The question now
+    applies to imp.bff's `MaxEntSpectrum` / `maxent_solve` (same data weighting); raise it there.
   - Owner: —
   - Opened: 2026-09-09
   - Why: this is what survived when the group-prior idea in T-20260909-06 was
