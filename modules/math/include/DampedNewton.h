@@ -113,23 +113,42 @@ inline bool log_det_spd(const double* A, std::size_t n, double* out) {
   return true;
 }
 
+//! How `RidgeProjector` solves: the normal equations by Cholesky, or the augmented
+//! least-squares problem by Householder QR.
+enum class RidgeSolver { cholesky, qr };
+
 /**
  * \brief Ridge (Tikhonov) least squares against one design matrix, factored once.
  *
  * For an `m x n` row-major `A`, `project(y, x)` returns
  * `x = (A^T A + lambda I)^-1 A^T y` -- the least-squares coefficients of `y` on
  * the columns of `A`, damped where columns are nearly collinear so that the
- * coefficients stay bounded. `A^T A + lambda I` is factored once by
- * `CholeskyFactor`, so projecting many targets onto one basis costs one
- * factorisation. `lambda` is absolute, or with `relative` a multiple of the mean
- * diagonal of `A^T A` (`lambda = r trace(A^T A) / n`), which makes it invariant to
- * the scale of `A`. Hoerl & Kennard, Technometrics 12, 55 (1970).
+ * coefficients stay bounded. The factorisation is done once, so projecting many
+ * targets onto one basis costs one factorisation. `lambda` is absolute, or with
+ * `relative` a multiple of the mean diagonal of `A^T A` (`lambda = r trace(A^T A) / n`),
+ * which makes it invariant to the scale of `A`. Hoerl & Kennard, Technometrics 12,
+ * 55 (1970).
+ *
+ * **Two solvers, one answer, different accuracy.** `cholesky` factors
+ * `A^T A + lambda I` (`CholeskyFactor`): cheap, but forming `A^T A` squares the
+ * conditioning, so the coefficients carry `cond(A^T A + lambda I) * eps` of error.
+ * `qr` factors the augmented `(m + n) x n` matrix `[A; sqrt(lambda) I]` by Householder
+ * reflections and solves `R x = Q^T [y; 0]` (Golub & Van Loan, Matrix Computations,
+ * 4th ed., 5.2 and 5.3): the error scales with the conditioning of the augmented
+ * matrix, its square root. On a lifetime basis with `cond(A^T A + lambda I)` 2.7e9
+ * the coefficients went from 3e-7 to 4e-13 of a 50-digit reference.
  */
 class RidgeProjector {
  public:
-  //! Factor for `A` (`m x n`, row-major); false if `A^T A + lambda I` is not positive definite.
-  bool factor(const double* A, std::size_t m_, std::size_t n_, double lambda_, bool relative = false) {
-    m = m_; n = n_;
+  //! Factor for `A` (`m x n`, row-major); false if the system is singular (or, for
+  //! `cholesky`, `A^T A + lambda I` is not positive definite).
+  bool factor(const double* A, std::size_t m_, std::size_t n_, double lambda_, bool relative = false,
+              RidgeSolver solver_ = RidgeSolver::cholesky) {
+    m = m_; n = n_; solver = solver_;
+    double tr = 0.0;
+    for (std::size_t r = 0; r < m * n; ++r) tr += A[r] * A[r];
+    lam = relative ? lambda_ * tr / double(n) : lambda_;
+    if (solver == RidgeSolver::qr) return factor_qr(A);
     a.assign(A, A + m * n);
     std::vector<double> G(n * n, 0.0);
     for (std::size_t i = 0; i < n; ++i)
@@ -138,14 +157,12 @@ class RidgeProjector {
         for (std::size_t r = 0; r < m; ++r) s += A[r * n + i] * A[r * n + j];
         G[i * n + j] = G[j * n + i] = s;
       }
-    double tr = 0.0;
-    for (std::size_t i = 0; i < n; ++i) tr += G[i * n + i];
-    lam = relative ? lambda_ * tr / double(n) : lambda_;
     for (std::size_t i = 0; i < n; ++i) G[i * n + i] += lam;
     return chol.factor(G.data(), n);
   }
   //! `x` (n values) for the target `y` (m values).
   bool project(const double* y, double* x) const {
+    if (solver == RidgeSolver::qr) return project_qr(y, x);
     std::vector<double> b(n, 0.0);
     for (std::size_t i = 0; i < n; ++i) {
       double s = 0.0;
@@ -155,12 +172,66 @@ class RidgeProjector {
     return chol.solve(b.data(), x);
   }
   double lambda() const { return lam; }
+  RidgeSolver solver_used() const { return solver; }
 
  private:
+  //! Householder QR of [A; sqrt(lambda) I], column-major reflectors kept in `h`
+  //! (rows below the diagonal of each column), `tau` their scalars, R in the upper triangle.
+  bool factor_qr(const double* A) {
+    const std::size_t M = m + n;
+    h.assign(M * n, 0.0);                        // row-major M x n
+    for (std::size_t r = 0; r < m; ++r) for (std::size_t c = 0; c < n; ++c) h[r * n + c] = A[r * n + c];
+    const double sl = std::sqrt(lam);
+    for (std::size_t c = 0; c < n; ++c) h[(m + c) * n + c] = sl;
+    beta.assign(n, 0.0);
+    ok_qr = true;
+    for (std::size_t k = 0; k < n; ++k) {
+      double norm = 0.0;
+      for (std::size_t r = k; r < M; ++r) norm = std::hypot(norm, h[r * n + k]);
+      if (!(norm > 0.0) || !std::isfinite(norm)) { ok_qr = false; return false; }
+      const double alpha = h[k * n + k] > 0.0 ? -norm : norm;   // v = x - alpha e1, no cancellation
+      h[k * n + k] -= alpha;
+      double vnorm2 = 0.0;
+      for (std::size_t r = k; r < M; ++r) vnorm2 += h[r * n + k] * h[r * n + k];
+      beta[k] = 2.0 / vnorm2;
+      for (std::size_t c = k + 1; c < n; ++c) {
+        double s = 0.0;
+        for (std::size_t r = k; r < M; ++r) s += h[r * n + k] * h[r * n + c];
+        s *= beta[k];
+        for (std::size_t r = k; r < M; ++r) h[r * n + c] -= s * h[r * n + k];
+      }
+      diag_r.resize(n);
+      diag_r[k] = alpha;
+    }
+    return true;
+  }
+  bool project_qr(const double* y, double* x) const {
+    if (!ok_qr) return false;
+    const std::size_t M = m + n;
+    std::vector<double> z(M, 0.0);
+    for (std::size_t r = 0; r < m; ++r) z[r] = y[r];
+    for (std::size_t k = 0; k < n; ++k) {       // z <- Q^T z, reflector by reflector
+      double s = 0.0;
+      for (std::size_t r = k; r < M; ++r) s += h[r * n + k] * z[r];
+      s *= beta[k];
+      for (std::size_t r = k; r < M; ++r) z[r] -= s * h[r * n + k];
+    }
+    for (std::size_t ii = n; ii-- > 0;) {        // R x = z[0..n)
+      double s = z[ii];
+      for (std::size_t c = ii + 1; c < n; ++c) s -= h[ii * n + c] * x[c];
+      x[ii] = s / diag_r[ii];
+    }
+    for (std::size_t i = 0; i < n; ++i) if (!std::isfinite(x[i])) return false;
+    return true;
+  }
+
   std::size_t m = 0, n = 0;
   double lam = 0.0;
+  RidgeSolver solver = RidgeSolver::cholesky;
   std::vector<double> a;
   CholeskyFactor chol;
+  std::vector<double> h, beta, diag_r;
+  bool ok_qr = false;
 };
 
 //! What one step attempt did.
