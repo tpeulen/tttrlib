@@ -23,7 +23,7 @@ for d in modules/*/include modules/*/*/include; do
 done
 
 BASE_INCLUDES=(-DTTTRLIB_WITH_AVX=0 -I. -Iinclude -Isrc -Iext -Iext/python
-          -Ithirdparty/nlohmann_json/include "${MODULE_INCLUDES[@]}")
+          -Ithirdparty -Ithirdparty/nlohmann_json/include "${MODULE_INCLUDES[@]}")
 
 # ext/CMakeLists.txt passes -DSWIGWORDSIZE64 on 64-bit Linux, so generate what is
 # actually built rather than a variant of it. Without the flag SWIG resolves
