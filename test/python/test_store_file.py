@@ -342,9 +342,12 @@ def test_a_missing_file_says_so(tmp_path):
 
 
 def test_a_file_that_is_not_a_store_says_so(tmp_path):
+    """The message is ptolib's own, generic -- ptolib is shared with imp.bff
+    too, so it does not say "tttrlib" (thirdparty/ptolib/ptolib.h,
+    `OpenStore`: `filename + " is not a store file"`)."""
     path = tmp_path / "notes.txt"
     path.write_bytes(b"this is not a store file, it is a note" * 10)
-    with pytest.raises(Exception, match="not a tttrlib store file"):
+    with pytest.raises(Exception, match="is not a store file"):
         tttrlib.load_store(str(path))
 
 

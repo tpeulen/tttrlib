@@ -32,6 +32,10 @@ Iterative reconvolution fitting algorithms and maximum likelihood estimation for
   Neyman and Gehrels least squares, and the Pearson/Neyman chi-squares.
 - **`DecayConvolution.h` / `DecayConvolution.cpp`** — the reconvolution kernels (`fconv` and
   its periodic / per-channel / SIMD variants), pile-up, lamp shift, rescaling.
+- **`PeriodicDecayKernel.h`** — the bin-integrated periodic decay kernel: what a
+  histogram channel receives from light absorbed uniformly within one channel,
+  under excitation that repeats every period. Header-only, std-only; imp.bff
+  carries a verbatim copy.
 - **`DecayFitDFA.h` / `DecayFitDFA.cpp`** — the anisotropy (VV/VH) forms of those kernels.
 - **`DecayFitNExp.h` / `DecayFitNExp.cpp`** — the standalone n-exponential fitter.
 - **`DecayPatternFit.h` / `DecayPatternFit.cpp`** — the linear unmixing of a decay into

@@ -43,6 +43,10 @@ columnar `DataStore`, and **the registry**.
   itself in, next to its own code, when its library loads; `registry_json()`
   assembles the categories from what registered, plus the file-format,
   table-format and plugin catalogs. See [`modules/README.md`](../README.md).
+- **`RegistryCore.h`** — the registry's mechanism, header-only and std-only:
+  descriptors, the table they register in, the entry shape. `Registry.h`
+  above is one user of it; imp.bff vendors this same header, pinned, for its
+  own registry, so both read with the same code.
 
 ## Dependencies
 
