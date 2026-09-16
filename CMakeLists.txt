@@ -578,6 +578,26 @@ INCLUDE(TTTRLibThirdParty)
 # modules/CMakeLists.txt -- which today declares exactly one module holding all
 # of src/, on purpose.
 INCLUDE(TTTRLibModule)
+
+# WINDOWS_EXPORT_ALL_SYMBOLS (set per-module in tttrlib_add_module, SHARED only)
+# auto-exports functions on MSVC but not global *data* symbols -- a documented
+# CMake/MSVC gap, not a bug in a specific module. A module with a plain `extern`
+# global (there is exactly one today: kTttrlibBanner, modules/io/pto) needs an
+# explicit __declspec(dllexport/dllimport) for that one symbol; this flag tells
+# it which side of the DLL boundary it is on. Defined project-wide (not per
+# module) because whether the *project* links SHARED or STATIC is the only
+# question that matters -- a STATIC build (e.g. the Windows Java native, built
+# with -DTTTRLIB_MODULE_TYPE=STATIC) must never see dllexport/dllimport: there
+# is no DLL, and dllimport on a statically-linked symbol is itself a link error.
+# Must come after INCLUDE(TTTRLibModule) (which sets TTTRLIB_MODULE_TYPE's
+# default) and before ADD_SUBDIRECTORY(modules) (which is where every module's
+# objects actually consume tttrlib_build_config's compile definitions) --
+# cmake/TTTRLibThirdParty.cmake, where this used to live, runs too early:
+# TTTRLIB_MODULE_TYPE is still unset there, so the check silently always failed.
+if(WIN32 AND TTTRLIB_MODULE_TYPE STREQUAL "SHARED")
+    target_compile_definitions(tttrlib_build_config INTERFACE TTTRLIB_WINDOWS_SHARED_BUILD)
+endif()
+
 ADD_SUBDIRECTORY(modules)
 
 # The example drop-in plugin. Opt-in (-DTTTRLIB_BUILD_EXAMPLE_PLUGIN=ON) and

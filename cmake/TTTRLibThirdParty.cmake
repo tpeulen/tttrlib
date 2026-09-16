@@ -100,19 +100,11 @@ endif()
 if(BUILD_PHOTON_HDF)
     target_compile_definitions(tttrlib_build_config INTERFACE BUILD_PHOTON_HDF)
 endif()
-# WINDOWS_EXPORT_ALL_SYMBOLS (set per-module in tttrlib_add_module, SHARED only)
-# auto-exports functions on MSVC but not global *data* symbols -- a documented
-# CMake/MSVC gap, not a bug in a specific module. A module with a plain `extern`
-# global (there is exactly one today: kTttrlibBanner, modules/io/pto) needs an
-# explicit __declspec(dllexport/dllimport) for that one symbol; this flag tells
-# it which side of the DLL boundary it is on. Defined project-wide (not per
-# module) because whether the *project* links SHARED or STATIC is the only
-# question that matters -- a STATIC build (e.g. the Windows Java native, built
-# with -DTTTRLIB_MODULE_TYPE=STATIC) must never see dllexport/dllimport: there
-# is no DLL, and dllimport on a statically-linked symbol is itself a link error.
-if(WIN32 AND TTTRLIB_MODULE_TYPE STREQUAL "SHARED")
-    target_compile_definitions(tttrlib_build_config INTERFACE TTTRLIB_WINDOWS_SHARED_BUILD)
-endif()
+# The TTTRLIB_WINDOWS_SHARED_BUILD define (kTttrlibBanner's dllexport/dllimport
+# switch) is set in the top-level CMakeLists.txt, not here -- this file is
+# INCLUDE()-d before TTTRLibModule.cmake sets TTTRLIB_MODULE_TYPE's default, so
+# checking it here would always see an empty/unset variable. See CMakeLists.txt
+# right after `INCLUDE(TTTRLibModule)`.
 # OpenMP belongs here because it is genuinely project-wide: the top-level
 # CMakeLists puts ${OpenMP_CXX_FLAGS} into CMAKE_CXX_FLAGS, so *every*
 # translation unit compiles with it, whichever module it ends up in. The link
