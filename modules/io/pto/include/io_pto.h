@@ -31,6 +31,21 @@
 #include <functional>
 #endif
 
+// WINDOWS_EXPORT_ALL_SYMBOLS (see cmake/TTTRLibModule.cmake) auto-exports
+// functions from this module's DLL but not global *data* symbols -- a
+// documented CMake/MSVC gap. kTttrlibBanner below is the one plain `extern`
+// data symbol this module has, so it alone needs an explicit annotation; see
+// cmake/TTTRLibThirdParty.cmake for TTTRLIB_WINDOWS_SHARED_BUILD.
+#if defined(_WIN32) && defined(TTTRLIB_WINDOWS_SHARED_BUILD)
+#  if defined(tttrlib_io_pto_EXPORTS)
+#    define TTTRLIB_IO_PTO_API __declspec(dllexport)
+#  else
+#    define TTTRLIB_IO_PTO_API __declspec(dllimport)
+#  endif
+#else
+#  define TTTRLIB_IO_PTO_API
+#endif
+
 #include "ptolib/ptolib.h"
 #include "DataStore.h"
 #include "TTTRStreamWriter.h"
@@ -90,7 +105,7 @@ PtoFileType pto_classify_path(const std::string& path);
 
 /// What \ref PtoFile::create writes into the banner: ptolib's decoding note,
 /// plus where to get this library.
-extern const char* const kTttrlibBanner;
+extern TTTRLIB_IO_PTO_API const char* const kTttrlibBanner;
 
 /*!
  * \brief A PTO file, open for reading or for writing, with tttrlib's photon knowledge.

@@ -7,9 +7,20 @@ if(POLICY CMP0148)
 endif()
 
 
-# Module headers must be on the include path of every binding target -- and, 
+# Module headers must be on the include path of every binding target -- and,
 # critically, of swig itself. See cmake/TTTRLibModule.cmake.
 tttrlib_module_include_directories()
+
+# ptolib is vendored flat at thirdparty/ptolib/ptolib.h; #include "ptolib/ptolib.h"
+# resolves against the top-level INCLUDE_DIRECTORIES(thirdparty) (this file's
+# CMakeLists.txt, near the TIFF linkage option), which -- despite ext/ being
+# add_subdirectory()'d after that call, so it should inherit it -- evidently
+# does not reach swig's own -I list the way it reaches the C++ compiler (same
+# class of gap the comment above already documents for module headers):
+#   ext/python/Ptolib.i:341: Error: Unable to find 'ptolib/ptolib.h'
+# Stating it explicitly here, in this directory's own scope, fixes it the same
+# way tttrlib_module_include_directories() does for module headers.
+include_directories("${CMAKE_SOURCE_DIR}/thirdparty")
 
 SET(MODULE_NAME ${PROJECT_NAME})
 
