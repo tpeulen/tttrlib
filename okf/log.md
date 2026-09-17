@@ -1,5 +1,15 @@
 # Bundle update log
 
+## 2026-09-17 — 2D-FLC harvest part 2: nothing of the MATLAB is left
+
+The four pieces the first harvest found unported are in: `TK_CreateExpCurve` (the
+basis summed over each 2D-FDC bin; Octave A/B ≤ 4e-14; a point-sampled basis misfits
+log columns by a median 43%), and the 2D IRF-rise scan and rise-averaged run with the
+`MinimizeQ` regulator ramp they drive (deterministic parts A/B-identical, minimizer
+L-BFGS-B, scan recovers a simulated IRF placement). `TK_DisIntLife2Dmap` is display
+only and recorded SKIPPED. Details: [PRD-036](prds/PRD-036-2d-flc-photon-kernels.md)
+"Part 2".
+
 ## 2026-09-17 — the 2D-FLC MATLAB is fully harvested; its checkout can go
 
 The last two unported MATLAB pieces of PRD-036's audit table — the `Reproduct`

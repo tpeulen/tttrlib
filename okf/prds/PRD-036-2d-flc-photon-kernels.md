@@ -489,18 +489,18 @@ chisurf Python; three workflow items are ported nowhere yet.**
 | `TK_Histgram1D.m` | fixed-width micro-time histogram | chisurf `fit/helpers.histogram_1d` (trivial; `np.bincount` class of work) |
 | `TK_MyMain_Simu_PhotonStream.m` | the two-state photon-stream simulator | tttrlib `SimEngine` (PRD-036's decision: simulate with our own, not a transcription); chisurf `simulate.py` wraps it with the MATLAB default case |
 | `TK_RateEq_MakeExpMatrix.m` | master-equation generator, `p(t) = expm(G t) p(0)` | chisurf `fit/kinetics.make_generator_matrix` (docstring cites the port) |
-| `TK_mi_ModelFunction.m` | the four `mi` prior types for MEM | chisurf `fit/mem_1d.py` (all four, by name) |
+| `TK_mi_ModelFunction.m` | the four `mi` prior types for MEM | chisurf `fit/mem_1d.py` (single state) and `fit/minimize_q.mi_model` (multi-state, Octave A/B 5e-16, 2026-09-17) |
 | `TK_FitF_1DMEM_01/02`, `TK_FitF_1DMEM_MinimizeQ_01/02` | 1D MEM inversion | chisurf `fit/mem_1d.py` + `api.lifetime_spectrum_mem` (`api.lifetime_spectrum(method=...)` is NNLS/Tikhonov only — corrected 2026-09-17) |
 | `TK_FitF_2DMEM_07`, `TK_GFitF_2DMEM_05` | 2D MEM (single and global over lags) | chisurf `fit/mem_2d.py`, `fit/global_mem.py` (global: "invert several lag matrices jointly") |
-| `TK_FitF_MinimizeQ_09`, `TK_GFitF_MinimizeQ_04` | Q-objective minimizers | chisurf `fit/mem_2d.py` (entropy-refresh + regularizer ramp, by docstring) / `fit/global_mem.py` |
-| `TK_ExpMultiDeco_For2DFLC.m` | multi-exponential basis / decomposition convention | chisurf `fit/ilt.py` (cites the convention) |
+| `TK_FitF_MinimizeQ_09`, `TK_GFitF_MinimizeQ_04` | Q-objective minimizers | chisurf `fit/minimize_q.minimize_q` (2026-09-17): the reference's objective, fix flags and regulator ramp; local minimizer L-BFGS-B instead of `fminsearch`. `fit/mem_2d.py` / `global_mem.py` remain the plugin's own (different objective) |
+| `TK_ExpMultiDeco_For2DFLC.m` | IRF-convolved exponential basis placed by rise points | chisurf `fit/exp_curve.exp_multi_deco` (2026-09-17, A/B 2e-15) |
 | `TK_FitF_GaussianMulti.m` (+ its `TK_MyMain_Fit_` driver) | Gaussian-mixture components over the MEM output | chisurf `fit/gaussian.py` |
 | `TK_FitF_CorrelationDecay_RateMat_05`/`_16_NotRatio` | rate-matrix fit of the correlation decay | chisurf `fit/kinetics.py` (`fit_rate_matrix`, variable projection) |
-| `TK_MyMain_Search_RiseIRF_1DMEM`/`_2DMEM` | IRF-rise scan over 1D/2D MEM | chisurf `fit/helpers.search_rise_irf` — **1D only**; the 2D scan (and `TK_MyMain_Run_Ave2DMEM`, below) is not ported (spot-check 2026-09-17) |
-| `TK_DisIntLife2Dmap.m` | intensity-weighted, smoothed display of a lifetime–lifetime map (`Int`, `Life`, `SmoothFactor`) | **not ported** (spot-check 2026-09-17: nothing in chisurf cites or implements it; `api.two_d_spectrum` is the inversion, not this display step) |
+| `TK_MyMain_Search_RiseIRF_1DMEM`/`_2DMEM` | IRF-rise scan over 1D/2D MEM | 1D: chisurf `fit/helpers.search_rise_irf`; **2D: `fit/workflow_2d.search_irf_rise_2d`** (2026-09-17; with `Fit_2DMEM_04` + `GFit_2DMEM` as `fit_2d_mem_workflow`), `api.search_irf_rise_2d`, CLI `flc-2d rise-search-2d`. Start values and rise sequence A/B'd; recovers a simulated IRF placement |
+| `TK_DisIntLife2Dmap.m` | display of a lifetime–lifetime map | **SKIPPED** (2026-09-17): pure display — `figure`, `image(imgaussfilt(A))`, `colormap(load('mycmap.dat'))` (file not in the repository), output `Out` never assigned; its only other effect, `global g2Dmax`, is a colour-axis limit used by `TK_MyMain_Fig` |
 | `TK_MyMain_Analyze*`, `TK_MyMain_CorFit*`, `TK_MyMain_Fit_*`, `TK_MyMain_GFit_*`, `TK_MyMain_Fig*`, `TK_MyMain_OpenAllFiles_01`, `TK_MyMain_ConcatenateMeasureTime`, `TK_MyMain_Exp_FFT_FWHM` | workflow drivers (open, build, fit, plot) | the plugin itself: `api.py`, `cli/`, `backend/services.py`, the GUI — the drivers are what a plugin replaces. `Exp_FFT_FWHM` (resolution of the exponential basis by FFT) has no counterpart |
 | `TK_MyMain_Create2DFDC_cor_02`, `TK_MyMain_Create2DFDC_cor_SeparateData_v01` | background-subtracted, symmetrized 2D-FDC; the per-molecule version | chisurf `bootstrap.separate_data_2d_fdc` (2026-09-17; before that the table claimed "the plugin itself", but nothing built the `cor` matrices or summed per molecule). One molecule is `_cor_02` |
-| `TK_CreateExpCurve.m`, `TK_MyMain_Run_Ave2DMEM.m` | the basis *integrated* over each linear/log bin with the IRF rise point; the IRF-rise-averaged 2D + global MEM driver | **not ported** (were missing from this table). chisurf's `build_exp_basis` samples the basis at bin positions instead of integrating over the bin |
+| `TK_CreateExpCurve.m`, `TK_MyMain_Run_Ave2DMEM.m` | the basis summed over each linear/log bin; the rise-point-averaged 2D + global MEM driver | **ported 2026-09-17**: `fit/exp_curve.create_exp_curve` / `api.exp_curves` (Octave A/B <= 4e-14 on four gates, including MATLAB's one-row `sum` quirk); `fit/workflow_2d.average_2d_mem` / `api.average_2d_mem` / CLI `flc-2d average-2d`. A sampled basis misfits log columns by a median 43% (linear < 1%), so `two_d_spectrum` now refuses a log axis without `basis=` |
 | `TK_FitF_Reproduct1DFDC(.m/_02)`, `TK_FitF_Reproduct2DFDCand2DFLC_03`, `TK_GFitF_Reproduct2DFDCand2DFLC_03` | forward "reproduct": the fminsearch objective (model, chi2, entropy, Q) and, after a fit, the model rebuilt on the other binning | **ported 2026-09-17**: chisurf `fit/reproduct.py` (`reproduce_1d`/`_2d`/`_global_2d`, `unpack_estimates_*`, `reproduce_result`; `decay_model`/`fdc_model` are now the forward models the fits evaluate), `api.reproduce_1d_fdc`/`reproduce_2d_fdc`/`reproduce_fit`, CLI `flc-2d reproduce`. Octave A/B identical to 2e-16, fixture `test/data/flc_2d/matlab_reproduct.npz` |
 | `TK_MyMain_Create2DFDC_cor_SeparateData_BootStrap_v02` | per-molecule 2D-FDC summed over a *drawn* set of molecules (one replicate per run) | **ported 2026-09-17**: chisurf `bootstrap.py` (`separate_data_2d_fdc`, `bootstrap_order`, `bootstrap_2d_fdc` adds the replicate loop and per-element mean/std), `api.separate_data_2d_fdc`/`bootstrap_2d_fdc`, CLI `flc-2d bootstrap`. Octave A/B bit-identical (3 draws, 10 matrices each), fixture `test/data/flc_2d/matlab_bootstrap.npz` |
 
@@ -508,8 +508,9 @@ The two rows that were unported here on 2026-08-16 (reproduct, bootstrap) were
 ported on 2026-09-17; the spot-check that day found four more that the table had
 over-claimed or left out (`TK_DisIntLife2Dmap`, the 2D IRF-rise scan,
 `TK_CreateExpCurve`, `TK_MyMain_Run_Ave2DMEM`) — all analysis-layer, none photon
-pass, so none blocks anything this PRD shipped. They are open in chisurf
-`okf/references/filtered-fcs-2dflcs-theory.md` "Where to pick this up". `examples/correlation/plot_fdc_2d.py` (tttrlib) now
+pass. Three were ported the same day and `TK_DisIntLife2Dmap` recorded SKIPPED
+(display only) — see **Part 2** at the end. Every file in the table is now ported,
+owned by a plugin driver, or skipped with its reason. `examples/correlation/plot_fdc_2d.py` (tttrlib) now
 demonstrates the whole chain the C++ owns: simulate → `fdc_scan_two_axes` →
 coupling vs lag → fitted relaxation (0.91 s fitted against 1.00 s simulated on
 the seeded stream) — with the papers cited in its docstring.
@@ -712,3 +713,36 @@ kept past it). `benchmarks/competitors/bench_fret.py` `fdc2d` skips with a
 re-clone message (or `FLC2D_DIR`). Fixtures:
 `test/data/reference/fdc2d_matlab_tk_create2dfdc04.npz` (here),
 chisurf `test/data/flc_2d/{reference_irf,matlab_reproduct,matlab_bootstrap}.npz`.
+
+### Part 2: the basis, the 2D MEM drivers, and what was skipped (2026-09-17)
+
+- **`TK_CreateExpCurve` / `TK_ExpMultiDeco_For2DFLC`.** The IRF is placed by two
+  rise channels (IRF channel `I` on data channel `I − (RisePoint_IRF −
+  RisePoint_FL)`, channels `RangePoint_IRF_min..max`, negative samples kept), the
+  basis divided by its single largest element, cropped to the gate and **summed**
+  over the linear and log 2D-FDC bins. Octave A/B on four gates: ≤ 4e-14. Found:
+  MATLAB `sum` of a one-row slice sums *across* lifetimes, so every linear bin at
+  `lint_BinFactor = 1`, and the last linear bin at the reference's own default gate
+  (0.5–12.2 ns, factor 4), hold a scalar — reproduced, documented. Against a basis
+  sampled at the bin position (same convolution): linear columns within 1% after
+  scaling, log columns off by a median 43%; chisurf's log-matrix inversions now
+  require the binned basis.
+- **`TK_MyMain_Search_RiseIRF_2DMEM` / `TK_MyMain_Run_Ave2DMEM`** are drivers around
+  `TK_MyMain_Fit_2DMEM_04` (Gaussian start from `Hozzon_estimates`, scaled to
+  `max(Mat_2DFDC_log)`, shortest-lag fit with `A` abs and `G` symmetric) and
+  `TK_MyMain_GFit_2DMEM` (per-lag `G`/`y0` with `A` fixed, then the global fit), each
+  a `MinimizeQ` regulator ramp (`0.1·1.4^(k−1)`, 100 trials, prior refreshed per
+  trial) on log matrices from bin 30. The search runs this at rise points 300..319 and
+  keeps A, the first-lag linear model and `[Q, χ², S]`; the average runs it at five
+  points around a centre — with `A` **fixed** at the scaled start (flag changed 2→1 on
+  2019-01-17) — and averages A, G, maps, models and trial tables. chisurf:
+  `fit/minimize_q.py`, `fit/workflow_2d.py`, CLI `rise-search-2d`/`average-2d`. The
+  deterministic parts (start values from lines 1–176 of `Fit_2DMEM_04` run unchanged,
+  prior types 0–3, rise sequences) are A/B-identical; the minimizer is L-BFGS-B with an
+  analytic gradient instead of `fminsearch`, so fitted maps are not A/B-able — tested
+  instead on a simulated stream: χ² minimum at rise point 294 for an IRF simulated at
+  300, 2× worse at 270 and 3× at 330.
+- **`TK_DisIntLife2Dmap`: SKIPPED**, display only (see the table row).
+
+Fixture: chisurf `test/data/flc_2d/matlab_exp_curve.npz` (219 KB). Nothing in the
+checkout is left unharvested.

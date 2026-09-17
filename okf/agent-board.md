@@ -5992,6 +5992,17 @@ one supersedes.
 
 ## Resolved (recent)
 
+- **T-20260917-07 · [chisurf] 2D-FLC harvest, part 2: TK_CreateExpCurve, TK_DisIntLife2Dmap, the 2D IRF-rise search and the averaged 2D-MEM run**
+  - Status: ✅ done
+  - Owner: opus-5/flc2d-harvest
+  - Opened: 2026-09-17 · Picked: 2026-09-17 · Done: 2026-09-17
+  - Why: coordinator: the four pieces T-20260917-02's audit found unported must land before junk/2D-FLC-code is deleted.
+  - Done when: each ported (Octave A/B fixture under test/data/flc_2d, tests, API/CLI) or recorded SKIPPED with evidence; PRD-036 rows flipped.
+  - Touching: chisurf `chisurf/plugins/fcs/flc_2d/{api.py,cli/main.py,fit/}` (new modules), `test/data/flc_2d/`, flc_2d tests, docs filtered_fcs concept/guide 17, okf filtered-fcs-2dflcs-theory, okf/log.md; tttrlib PRD-036, okf/log.md.
+  - Progress: done. flc_2d fit/exp_curve.py (TK_CreateExpCurve, A/B <=4e-14), fit/minimize_q.py + fit/workflow_2d.py (MinimizeQ ramp, Fit_2DMEM_04/GFit_2DMEM, Search_RiseIRF_2DMEM, Run_Ave2DMEM; deterministic parts A/B'd, scan recovers simulated IRF placement), CLI rise-search-2d/average-2d; TK_DisIntLife2Dmap SKIPPED (display only). two_d_spectrum refuses log axes without basis=. Nothing in junk/2D-FLC-code remains unharvested.
+
+
+
 - **T-20260917-02 · [both] Finish the 2D-FLC harvest: reproduct + split-data bootstrap ports, cut every junk/2D-FLC-code dependency**
   - Status: ✅ done
   - Owner: opus-5/flc2d-harvest
