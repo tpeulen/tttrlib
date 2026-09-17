@@ -267,7 +267,15 @@ IF(BUILD_PHOTON_HDF)
     # HDF5 into a process that already has the environment's (via h5py or
     # PyTables), and whichever initialises first wins: writing a Photon-HDF5
     # file aborts the interpreter outright.
-    IF(DEFINED HDF5_ROOT OR DEFINED ENV{HDF5_ROOT})
+    # Windows has no Homebrew-style competing system install to guard
+    # against, and pixi's own CMake package has been confirmed (real CI) to
+    # lack the CONFIG-mode delegation its bundled FindHDF5.cmake needs to
+    # discover a vcpkg-provisioned HDF5 in module mode ("Could NOT find
+    # HDF5" even with HDF5_ROOT/CMAKE_PREFIX_PATH correctly set) -- forcing
+    # module-only search here would break the one thing that does work
+    # there (CONFIG mode, since CMAKE_FIND_PACKAGE_PREFER_CONFIG or plain
+    # find_package(HDF5 CONFIG) both find vcpkg's hdf5-config.cmake fine).
+    IF((DEFINED HDF5_ROOT OR DEFINED ENV{HDF5_ROOT}) AND NOT WIN32)
         SET(HDF5_NO_FIND_PACKAGE_CONFIG_FILE TRUE)
     ELSEIF(DEFINED ENV{CONDA_PREFIX} AND EXISTS "$ENV{CONDA_PREFIX}/include/H5public.h")
         # No explicit root, but the active conda env ships an HDF5. Its include
@@ -284,6 +292,20 @@ IF(BUILD_PHOTON_HDF)
     FIND_PACKAGE(HDF5 COMPONENTS C)
     IF(HDF5_FOUND)
         MESSAGE(STATUS "HDF5 in use: ${HDF5_LIBRARIES}")
+    ENDIF()
+    # thirdparty/HighFive hard-codes the imported target name HDF5::HDF5,
+    # which is what CMake's own module-mode FindHDF5.cmake creates. CONFIG
+    # mode (the path taken on Windows, see above) resolves via the found
+    # package's own CMake config instead, under its own target name -- on
+    # vcpkg that is hdf5::hdf5-shared (or hdf5::hdf5-static for a static
+    # build), not HDF5::HDF5, and HighFive's target_link_libraries() then
+    # fails with "the target was not found". Alias whichever exists.
+    IF(HDF5_FOUND AND NOT TARGET HDF5::HDF5)
+        IF(TARGET hdf5::hdf5-shared)
+            ADD_LIBRARY(HDF5::HDF5 ALIAS hdf5::hdf5-shared)
+        ELSEIF(TARGET hdf5::hdf5-static)
+            ADD_LIBRARY(HDF5::HDF5 ALIAS hdf5::hdf5-static)
+        ENDIF()
     ENDIF()
     # Refuse a cross-prefix HDF5 inside a conda env. An extension built in env
     # A against env B's HDF5 carries an @rpath install name env A cannot
