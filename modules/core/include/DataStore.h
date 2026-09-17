@@ -7,15 +7,15 @@
  * \brief The columnar table, and the histogram fills over it.
  *
  * The DataStore itself -- Column, BitMask, the registry, the expression engine
- * that gates rows -- lives in **ptolib** (`thirdparty/ptolib/ptolib.h`,
+ * that gates rows -- lives in **ptolib** (`thirdparty/ptolib/include/ptolib/ptolib.h`,
  * https://github.com/tpeulen/ptolib), the header tttrlib shares with IMP.bff so
  * a table written by one is the table the other reads. This header re-exports
  * those types under `tttrlib::data`, where every caller and every binding has
  * always found them, and adds the one thing that is tttrlib's: filling a
  * `hist::HistogramNd` from columns.
  *
- * The implementation is compiled once, in `src/DataStore.cpp`
- * (`PTOLIB_IMPLEMENTATION`); everything else includes this header.
+ * The implementation and codecs are compiled by the `ptolib::ptolib` CMake
+ * dependency; consumers include this header and link the core module.
  */
 
 #include <algorithm>

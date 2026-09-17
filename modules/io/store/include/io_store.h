@@ -7,7 +7,7 @@
  * \brief The native store file (.dstore): a DataStore, saved and reloaded.
  *
  * The format and its reader and writer live in **ptolib**
- * (`thirdparty/ptolib/ptolib.h`, see `docs/dstore.md` there for the layout and
+ * (`thirdparty/ptolib/include/ptolib/ptolib.h`, see `docs/dstore.md` there for the layout and
  * the five choices behind it). This header re-exports them under `tttrlib::io`,
  * where every caller and binding has always found them. Nothing here is
  * tttrlib-specific; a `.dstore` written by IMP.bff through the same header is

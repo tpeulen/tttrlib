@@ -6,7 +6,7 @@
  * \file io_pto.h
  * \brief PTO -- the PhoTon cOntainer -- as tttrlib uses it.
  *
- * The container itself lives in **ptolib** (`thirdparty/ptolib/ptolib.h`,
+ * The container itself lives in **ptolib** (`thirdparty/ptolib/include/ptolib/ptolib.h`,
  * https://github.com/tpeulen/ptolib), the header tttrlib shares with IMP.bff:
  * the EBML framing, objects, tags, annotations, cues, the two-index atomic
  * commit, in-place update, compaction, the writer lock, and embedding a

@@ -122,6 +122,24 @@ IF(TTTRLIB_CCACHE AND NOT MSVC AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
   ENDIF()
 ENDIF()
 
+# ptolib (the DataStore, .dstore and the PTO container) is a compiled library,
+# vendored as a source package; refresh with tools/sync_ptolib.sh. A parent
+# project that already defines ptolib::ptolib supplies its own. It is added
+# before any directory-scope compile option or LINK_LIBRARIES below: those apply
+# to every target created afterwards, subdirectories included, and would put
+# tttrlib's libraries into ptolib's exported link interface (CMake then refuses
+# to generate: "requires target tiff that is not in any export set"). The include
+# directory is set at directory scope as well, because SWIG does not read target
+# usage requirements.
+IF(NOT TARGET ptolib::ptolib)
+  IF(INSTALL AND BUILD_LIBRARY)
+    ADD_SUBDIRECTORY(thirdparty/ptolib)
+  ELSE()
+    ADD_SUBDIRECTORY(thirdparty/ptolib EXCLUDE_FROM_ALL)
+  ENDIF()
+ENDIF()
+INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/ptolib/include")
+
 ## System-specific adjustments
 ################################
 
@@ -676,7 +694,9 @@ IF(BUILD_LIBRARY)
     TARGET_COMPILE_OPTIONS(${PROJECT_NAME}Static PRIVATE -fno-lto)
   ENDIF()
 
-  # Link libraries (Boost removed - using C++17 standard library)
+  # Module object collections do not propagate their link dependencies.
+  TARGET_LINK_LIBRARIES(${PROJECT_NAME}Shared PRIVATE ptolib::ptolib)
+  TARGET_LINK_LIBRARIES(${PROJECT_NAME}Static PUBLIC ptolib::ptolib)
 
   # Define which headers are going to be included in the install target
   # A module's headers are public headers as well: they install flat into

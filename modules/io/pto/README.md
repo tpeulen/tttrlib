@@ -1,6 +1,6 @@
 # `io/pto` — PTO, the PhoTon cOntainer, as tttrlib uses it
 
-**The container lives in ptolib.** `thirdparty/ptolib/ptolib.h`
+**The container lives in ptolib.** `thirdparty/ptolib/include/ptolib/ptolib.h`
 (https://github.com/tpeulen/ptolib, vendored; refresh with
 `tools/sync_ptolib.sh`) holds the EBML framing, objects, tags, annotations,
 cues, the two-index atomic commit, in-place update, compaction, the writer
@@ -61,3 +61,7 @@ The standalone `pto` inspector and the `ptoview` TUI ship with ptolib now
 ## Dependencies
 
 - Depends on `io/base`, `core` (which compiles ptolib), `io/store`.
+
+The container implementation and codecs are compiled by the vendored
+`ptolib::ptolib` CMake dependency, linked through `core`. Codec configuration
+is shared with the rest of tttrlib through the `PTOLIB_*` CMake options.

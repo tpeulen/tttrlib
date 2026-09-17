@@ -3,8 +3,8 @@
 # io_pto -- tttrlib's half of PTO, the PhoTon cOntainer (an EBML document with
 # DocType "pto").
 #
-# The container itself is ptolib (thirdparty/ptolib/ptolib.h), the header
-# shared with IMP.bff, and is compiled once in modules/core/src/DataStore.cpp.
+# The container itself is the compiled ptolib::ptolib dependency shared with
+# IMP.bff, linked through core.
 # What this module adds needs a photon library behind it: recognising a photon
 # file by its bytes, indexing a record stream with cues, reading a range of
 # events out of an object into a TTTR, streaming an acquisition into a

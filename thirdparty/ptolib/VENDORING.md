@@ -1,9 +1,9 @@
-# ptolib in this tree
+# ptolib source package
 
-`ptolib.h` and `pto_tui.hpp` come from https://github.com/tpeulen/ptolib
--- v0.3.2 (91fa6fb3de582b0c13fb3ac4d2a2ba23f10d4b41), as verbatim copies.
+From https://github.com/tpeulen/ptolib, revision v0.3.2-5-g79b4735.
+VENDORING.json records the exact SHA-256 of every managed source file.
 
-Do not edit them here. Fix upstream, then re-run `scripts/vendor.sh` from the
-ptolib checkout pointing at this directory. The test suite compares these
-files against `../ptolib` when that checkout is present, and refuses a
-symlink: what is committed must build without the checkout.
+Build with add_subdirectory() and link ptolib::ptolib. Codecs are built
+separately; do not define PTOLIB_IMPLEMENTATION. Development tools and
+tests remain in the upstream checkout. Fix upstream, then refresh with
+scripts/vendor.sh. Unrelated destination files are preserved.

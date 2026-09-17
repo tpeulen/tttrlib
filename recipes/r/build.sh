@@ -46,6 +46,8 @@ cd ..
 WRAP=$(find "$(pwd)/b2" -name 'tttrlibR_wrap.cxx' | head -1)
 R_IF=$(find "$(pwd)/b2" -name 'tttrlib.R' | head -1)
 STATIC=$(find "$(pwd)/b2" -name 'libtttrlib_static.a' | head -1)
+PTOLIB_STATIC="$(pwd)/b2/thirdparty/ptolib/libptolib.a"
+test -f "${PTOLIB_STATIC}"
 test -f "${WRAP}"; test -f "${R_IF}"; test -f "${STATIC}"
 
 # 3. Stage into the R package and substitute the Makevars placeholders. R CMD
@@ -64,7 +66,7 @@ MODULE_INCDIRS=""
 for d in "${ROOT}"/modules/*/include "${ROOT}"/modules/*/*/include; do
   [ -d "$d" ] && MODULE_INCDIRS="${MODULE_INCDIRS} -I${d}"
 done
-INCDIRS="-I${ROOT}/include -I${ROOT}/src${MODULE_INCDIRS} -I${ROOT}/thirdparty -I${ROOT}/thirdparty/nlohmann_json/include -I${ROOT}/thirdparty/HighFive/include -I${PREFIX}/include"
+INCDIRS="-I${ROOT}/include -I${ROOT}/src${MODULE_INCDIRS} -I${ROOT}/thirdparty -I${ROOT}/thirdparty/ptolib/include -I${ROOT}/thirdparty/nlohmann_json/include -I${ROOT}/thirdparty/HighFive/include -I${PREFIX}/include"
 # The static core must be linked WHOLE: every module registers what it can do
 # in the registry (core, Registry.h) from a static initialiser next to the
 # code, and an archive member nothing in the wrapper references would otherwise
@@ -74,6 +76,7 @@ case "$(uname -s)" in
   Darwin) TTTRLIB_LIBS="-Wl,-force_load,${STATIC}" ;;
   *)      TTTRLIB_LIBS="-Wl,--whole-archive ${STATIC} -Wl,--no-whole-archive" ;;
 esac
+TTTRLIB_LIBS="${TTTRLIB_LIBS} ${PTOLIB_STATIC}"
 sed -e "s|@TTTRLIB_INCLUDE@|${ROOT}|g" \
     -e "s|@HDF5_CFLAGS@|${INCDIRS}|g" \
     -e "s|@TTTRLIB_LIBS@|${TTTRLIB_LIBS}|g" \

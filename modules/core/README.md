@@ -32,7 +32,7 @@ columnar `DataStore`, and **the registry**.
   columns, dictionary-encoded strings, bit-packed masks, zero-copy NumPy/R
   views. The files that *save* one are [`io/store`](../io/store),
   [`io/hdf5`](../io/hdf5), [`io/csv`](../io/csv) and [`io/pto`](../io/pto).
-- **`DataStore.h`** — re-exports the DataStore, Column, BitMask, registry and the expression engine from ptolib (`thirdparty/ptolib/ptolib.h`, shared with IMP.bff) under `tttrlib::data`, and adds the `HistogramNd` fills over columns. `src/DataStore.cpp` is the one translation unit that compiles ptolib's implementation (`PTOLIB_IMPLEMENTATION`): the table, the expression engine, the `.dstore` file and the PTO container.
+- **`DataStore.h`** — re-exports the DataStore, Column, BitMask, registry and the expression engine from ptolib (`thirdparty/ptolib/include/ptolib/ptolib.h`, shared with IMP.bff) under `tttrlib::data`, and adds the `HistogramNd` fills over columns. The core links `ptolib::ptolib`, which compiles the table, expression engine, `.dstore` and PTO storage, and codec sources separately. `src/DataStore.cpp` only includes the public header. Codec providers are selected through `PTOLIB_<CODEC>_PROVIDER` (`bundled`, `system`, or `disabled`); `PTOLIB_DECODE_ONLY_CODECS` accepts a semicolon-separated list for reader-only codecs.
 - **`MicrotimeLinearization.h` / `MicrotimeLinearization.cpp`** — per-channel
   DNL correction (look-up table) and micro-time shifts.
 - **`FileCheck.h` / `FileCheck.cpp`** — what a file is: the content sniffers

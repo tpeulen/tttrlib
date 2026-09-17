@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- **ptolib is a compiled library now, vendored as its source package.**
+  `thirdparty/ptolib` holds ptolib's CMake project (public header
+  `include/ptolib/ptolib.h`, sources in `src/`, codecs bundled or taken from the
+  system per `PTOLIB_<CODEC>_PROVIDER`) plus a `VENDORING.json` sha256 manifest,
+  instead of the single header compiled under `PTOLIB_IMPLEMENTATION` in
+  `modules/core/src/DataStore.cpp`. The core module and both aggregate
+  libraries link `ptolib::ptolib`; the R recipe links `libptolib.a`. Unreadable
+  store files now say "not a store file".
+
 - **Removed: maximum entropy. It lives in imp.bff now.** `maxent_invert`,
   `solve_tcspc_mem_lifetime` / `_fret`, `tcspc_run_mem`, `tcspc_quadpr_bound`,
   the `tcspc_build_fi_*` design builders (and their Java `_into` helpers),

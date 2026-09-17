@@ -43,7 +43,7 @@ tttrlib_add_module(
              "${CMAKE_CURRENT_SOURCE_DIR}/src/MicrotimeLinearization.cpp"
     HEADERS  "${CMAKE_CURRENT_SOURCE_DIR}/include"
     DEPENDS  io plugin io_ps io_sm io_cz io_bh io_pq io_be io_fl io_hdf5 util
-    EXTERNAL_DEPS tttrlib::json
+    EXTERNAL_DEPS tttrlib::json ptolib::ptolib
     SWIG_INTERFACES Registry.i Histogram.i HistogramNd.i DataStore.i TTTR.i TTTRHeader.i TTTRRange.i TTTRSelection.i TTTRMask.i
                     Channel.i FileCheck.i RecordStream.i
     TEST_DIR test/python/tttr

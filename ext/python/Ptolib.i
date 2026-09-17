@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
 // ptolib -- the PTO container and the DataStore -- wrapped ONCE for every
-// binding. ptolib is one header (thirdparty/ptolib/ptolib.h), and SWIG wraps a
-// header at the first %include and never again; so every typemap that used to
+// binding. ptolib's public API is one header (thirdparty/ptolib/include/ptolib/
+// ptolib.h; the implementation is the compiled ptolib::ptolib target), and SWIG
+// wraps a header at the first %include and never again; so every typemap that used to
 // sit in DataStore.i, StoreFile.i and Pto.i in front of "its" header has to
 // sit here, in front of the one header that now holds all three. Those three
 // files %include this one first (SWIG includes a file once, so the second and

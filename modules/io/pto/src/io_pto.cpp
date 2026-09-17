@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
 // tttrlib's half of the PTO container: what needs a photon library. The
-// container itself is ptolib (thirdparty/ptolib/ptolib.h), compiled once in
-// modules/core/src/DataStore.cpp.
+// container itself is ptolib (thirdparty/ptolib/include/ptolib/ptolib.h),
+// compiled by the ptolib::ptolib dependency that core links.
 #include "io_pto.h"
 #include "FileIO.h"
 
