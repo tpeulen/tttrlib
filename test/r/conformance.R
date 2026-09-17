@@ -481,47 +481,59 @@ OPS <- list(
   # uid from an older container through here and expect it back.
   "pto.create" = function(on, a) {
     f <- PtoFile()
-    if (!PtoFile_create(f, a[[1]], a[[2]])) stop(PtoFile_error(f))
+    if (!PtoFile_create(f, a[[1]], a[[2]])) stop(f$error())
     f
   },
+  # Everything below that pto::File declares and PtoFile does not redeclare
+  # (open/close/commit/add_file/error/n_objects/objects/object/read/cues) is
+  # called through R's `$` dispatch, not the flat `PtoFile_xxx(obj, ...)`
+  # form: SWIG's R backend only emits a flat wrapper under the class that
+  # *declares* a method, never under a derived class that merely inherits it
+  # -- unlike Python, where the proxy class's MRO makes inherited methods
+  # callable under the derived name for free. `obj$method(...)` resolves
+  # through R's S4 dispatch (see the generated accessor's `callNextMethod`),
+  # which does walk up to the base class, so it is both the fix and the
+  # general rule for every inherited pto::File call here. `create` above is
+  # the one exception: PtoFile redeclares it (io_pto.h), so the flat
+  # `PtoFile_create` wrapper genuinely exists.
   "pto.open" = function(on, a) {
     f <- PtoFile()
-    if (!PtoFile_open(f, a[[1]], FALSE)) stop(PtoFile_error(f))
+    if (!f$open(a[[1]], FALSE)) stop(f$error())
     f
   },
-  "pto.close" = function(on, a) PtoFile_close(on),
-  "pto.commit" = function(on, a) PtoFile_commit(on),
+  "pto.close" = function(on, a) on$close(),
+  "pto.commit" = function(on, a) on$commit(),
   "pto.add_file" = function(on, a) {
-    uid <- PtoFile_add_file(on, a[[1]], a[[2]], a[[3]], a[[4]], 0)
-    if (uid == 0) stop(PtoFile_error(on))
+    uid <- on$add_file(a[[1]], a[[2]], a[[3]], a[[4]], 0)
+    if (uid == 0) stop(on$error())
     uid
   },
   "pto.add_store" = function(on, a) {
     uid <- pto_add_store(on, a[[1]], a[[2]], a[[3]], 0)
-    if (uid == 0) stop(PtoFile_error(on))
+    if (uid == 0) stop(on$error())
     uid
   },
-  "pto.n_objects" = function(on, a) PtoFile_n_objects(on),
+  "pto.n_objects" = function(on, a) on$n_objects(),
   # A std::vector of a wrapped struct stays an ExternalReference in R -- unlike
   # a VectorString, which the R library coerces to a character vector -- so it
   # is read through its size/__getitem__ accessors, and those are 0-based.
   "pto.names" = function(on, a) {
-    v <- PtoFile_objects(on)
+    v <- on$objects()
     n <- PtoObjectVector_size(v)
     if (n == 0L) list() else as.list(vapply(
       0:(n - 1L), function(k) PtoObject_name_get(PtoObjectVector___getitem__(v, k)), ""))
   },
   "pto.kinds" = function(on, a) {
-    v <- PtoFile_objects(on)
+    v <- on$objects()
     n <- PtoObjectVector_size(v)
     if (n == 0L) list() else as.list(vapply(
       0:(n - 1L), function(k) PtoObject_kind_get(PtoObjectVector___getitem__(v, k)), ""))
   },
-  "pto.size_of" = function(on, a) PtoObject_size_get(PtoFile_object(on, a[[1]])),
+  "pto.size_of" = function(on, a) PtoObject_size_get(on$object(a[[1]])),
   # latin-1: the one encoding that round-trips an arbitrary octet in all four
   # runners, so a case can pin a byte range without four bytes-to-string rules.
   "pto.read_text" = function(on, a) {
-    bytes <- as.raw(as.integer(PtoFile_read(on, a[[1]], a[[2]], a[[3]])))
+    bytes <- as.raw(as.integer(on$read(a[[1]], a[[2]], a[[3]])))
     if (length(bytes) == 0L) "" else rawToChar(bytes)
   },
   "pto.store_columns" = function(on, a)
@@ -551,11 +563,11 @@ OPS <- list(
   },
   "pto.build_cues" = function(on, a) {
     n <- PtoFile_build_cues(on, a[[1]], a[[2]])
-    if (n == 0) stop(PtoFile_error(on))
+    if (n == 0) stop(on$error())
     n
   },
   "pto.cue_events" = function(on, a) {
-    v <- PtoFile_cues(on, a[[1]])
+    v <- on$cues(a[[1]])
     n <- PtoCueVector_size(v)
     if (n == 0L) list() else as.list(vapply(
       0:(n - 1L), function(k) PtoCue_event_get(PtoCueVector___getitem__(v, k)), 0))
@@ -569,7 +581,7 @@ OPS <- list(
 
   # -- record streams -------------------------------------------------
   # A record buffer comes back as an ordinary R vector, the same way
-  # PtoFile_read's payload does above -- so length() works on it and
+  # `on$read(...)`'s payload does above -- so length() works on it and
   # as.integer() feeds it straight back to decode_records, whose rarrays.i
   # typemap coerces an INTSXP. That is why this runner needs no byte plumbing at
   # all while Java needs a copy loop out of a VectorUint8 proxy.
