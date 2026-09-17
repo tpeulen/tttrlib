@@ -498,7 +498,7 @@ chisurf Python; three workflow items are ported nowhere yet.**
 | `TK_FitF_CorrelationDecay_RateMat_05`/`_16_NotRatio` | rate-matrix fit of the correlation decay | chisurf `fit/kinetics.py` (`fit_rate_matrix`, variable projection) |
 | `TK_MyMain_Search_RiseIRF_1DMEM`/`_2DMEM` | IRF-rise scan over 1D/2D MEM | 1D: chisurf `fit/helpers.search_rise_irf`; **2D: `fit/workflow_2d.search_irf_rise_2d`** (2026-09-17; with `Fit_2DMEM_04` + `GFit_2DMEM` as `fit_2d_mem_workflow`), `api.search_irf_rise_2d`, CLI `flc-2d rise-search-2d`. Start values and rise sequence A/B'd; recovers a simulated IRF placement |
 | `TK_DisIntLife2Dmap.m` | display of a lifetime–lifetime map | **SKIPPED** (2026-09-17): pure display — `figure`, `image(imgaussfilt(A))`, `colormap(load('mycmap.dat'))` (file not in the repository), output `Out` never assigned; its only other effect, `global g2Dmax`, is a colour-axis limit used by `TK_MyMain_Fig` |
-| `TK_MyMain_Analyze*`, `TK_MyMain_CorFit*`, `TK_MyMain_Fit_*`, `TK_MyMain_GFit_*`, `TK_MyMain_Fig*`, `TK_MyMain_OpenAllFiles_01`, `TK_MyMain_ConcatenateMeasureTime`, `TK_MyMain_Exp_FFT_FWHM` | workflow drivers (open, build, fit, plot) | the plugin itself: `api.py`, `cli/`, `backend/services.py`, the GUI — the drivers are what a plugin replaces. `Exp_FFT_FWHM` (resolution of the exponential basis by FFT) has no counterpart |
+| `TK_MyMain_Analyze*`, `TK_MyMain_CorFit*`, `TK_MyMain_Fit_*`, `TK_MyMain_GFit_*`, `TK_MyMain_Fig*`, `TK_MyMain_OpenAllFiles_01`, `TK_MyMain_ConcatenateMeasureTime`, `TK_MyMain_Exp_FFT_FWHM` | workflow drivers (open, build, fit, plot) | the plugin itself: `api.py`, `cli/`, `backend/services.py`, the GUI — the drivers are what a plugin replaces. `Exp_FFT_FWHM` (spectral half width of each IRF-convolved basis column) is chisurf `fit/exp_curve.basis_fft_hwhm` (2026-09-17, the unchanged script's 501 widths A/B 7e-16) |
 | `TK_MyMain_Create2DFDC_cor_02`, `TK_MyMain_Create2DFDC_cor_SeparateData_v01` | background-subtracted, symmetrized 2D-FDC; the per-molecule version | chisurf `bootstrap.separate_data_2d_fdc` (2026-09-17; before that the table claimed "the plugin itself", but nothing built the `cor` matrices or summed per molecule). One molecule is `_cor_02` |
 | `TK_CreateExpCurve.m`, `TK_MyMain_Run_Ave2DMEM.m` | the basis summed over each linear/log bin; the rise-point-averaged 2D + global MEM driver | **ported 2026-09-17**: `fit/exp_curve.create_exp_curve` / `api.exp_curves` (Octave A/B <= 4e-14 on four gates, including MATLAB's one-row `sum` quirk); `fit/workflow_2d.average_2d_mem` / `api.average_2d_mem` / CLI `flc-2d average-2d`. A sampled basis misfits log columns by a median 43% (linear < 1%), so `two_d_spectrum` now refuses a log axis without `basis=` |
 | `TK_FitF_Reproduct1DFDC(.m/_02)`, `TK_FitF_Reproduct2DFDCand2DFLC_03`, `TK_GFitF_Reproduct2DFDCand2DFLC_03` | forward "reproduct": the fminsearch objective (model, chi2, entropy, Q) and, after a fit, the model rebuilt on the other binning | **ported 2026-09-17**: chisurf `fit/reproduct.py` (`reproduce_1d`/`_2d`/`_global_2d`, `unpack_estimates_*`, `reproduce_result`; `decay_model`/`fdc_model` are now the forward models the fits evaluate), `api.reproduce_1d_fdc`/`reproduce_2d_fdc`/`reproduce_fit`, CLI `flc-2d reproduce`. Octave A/B identical to 2e-16, fixture `test/data/flc_2d/matlab_reproduct.npz` |
@@ -742,6 +742,12 @@ chisurf `test/data/flc_2d/{reference_irf,matlab_reproduct,matlab_bootstrap}.npz`
   analytic gradient instead of `fminsearch`, so fitted maps are not A/B-able — tested
   instead on a simulated stream: χ² minimum at rise point 294 for an IRF simulated at
   300, 2× worse at 270 and 3× at 330.
+- **`TK_MyMain_Exp_FFT_FWHM`**, listed as "no counterpart" among the drivers, is a
+  resolution study: FFT power spectrum of each basis column (`n = 2^nextpow2`), half
+  width at half maximum by interpolation, `HWHM_ns = 1/(2π HWHM_GHz)`. Ported as
+  `exp_curve.basis_fft_hwhm`; the unchanged script (501 lifetimes, 50 000 channels,
+  115 s in Octave) agrees to 7e-16. On the reference IRF the resolved time scale is
+  0.60 ns for a 0.01 ns lifetime, 1.50 ns at 1.01, 5.41 ns at 5.01.
 - **`TK_DisIntLife2Dmap`: SKIPPED**, display only (see the table row).
 
 Fixture: chisurf `test/data/flc_2d/matlab_exp_curve.npz` (219 KB). Nothing in the
