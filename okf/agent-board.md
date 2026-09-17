@@ -1833,16 +1833,26 @@ retired so nobody works the same thing twice.)*
 ## Active
 
 - **T-20260917-10 · [imp.bff] Does it compile? IMP module build + the imp-bff pip wheel, no source changes**
-  - Status: 🔄 in-progress
+  - Status: ✅ done
   - Owner: opus-5/f5a8af51
-  - Opened: 2026-09-17 · Picked: 2026-09-17 · Done: —
+  - Opened: 2026-09-17 · Picked: 2026-09-17 · Done: 2026-09-17
   - Why: tpeulen asked whether imp.bff still compiles and whether the pip build
     works. Build only, to answer the question.
   - Done when: `ninja` in `../imp/cmake-build-arm64` reaches the bff targets,
     and `python -m build --wheel` installs into a scratch env and imports.
-  - Touching: **holds the imp.bff build lock** (`../imp/cmake-build-arm64`);
-    no source files.
-  - Progress: picked.
+  - Touching: released (imp.bff build lock released).
+  - Progress: both build. IMP module: every source touched, unity `bff_all.cpp`
+    + SWIG wrap recompiled and linked clean in 5:54, `test/{decay,expression,
+    graph,factorgraph,chi2}` 442 passed / 1 xfailed against it. pip wheel:
+    `imp_bff-0.14.4.dev716+ga3151ca36-cp312-cp312-macosx_26_0_arm64.whl`
+    (6.6 MB), installs into a clean venv, passes the cibuildwheel test-command.
+    The same test slice against the *wheel* fails 18 -- all harness, not the
+    wheel: every one routes through `reference_curve`, which calls
+    `tttrlib.fconv_per_cs` (PyPI tttrlib 0.26.2 here vs 0.27.0 in the IMP env),
+    and the bayesian TK driver compiles C++ against the build tree. Worth a
+    ticket: three tests in `test/decay/test_tcspc_decay.py` call that helper
+    without the `skipUnless(tttrlib is not None)` their neighbours carry, so a
+    machine without tttrlib gets errors instead of skips.
 
 - **T-20260917-09 · [imp.bff+chisurf] aGrUM harvest re-homed to bff: canonical forms, exact linear-Gaussian elimination, closed-form conditioning; chisurf delegates**
   - Status: ✅ done
