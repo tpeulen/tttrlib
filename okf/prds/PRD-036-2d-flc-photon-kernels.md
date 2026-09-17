@@ -6,7 +6,9 @@ removal (`f1290e84b`, 2026-08-12 — `flc_2d/core.py` calls `fdc_*`, parity
 fixture green). Proven against the original author's MATLAB and benchmarked —
 see **The tick quantization was the reference's all along** (Octave proof,
 permanent fixture) and the three benchmark sections (dynamics resolution,
-microsecond immobilized, microsecond diffusing) below.
+microsecond immobilized, microsecond diffusing) below. The rest of the MATLAB
+corpus was accounted for, the last two unported pieces ported in chisurf, and the
+reference checkout deleted on 2026-09-17 (**The harvest finished**, last section).
 **Priority:** requested by the user (2026-08-11) — mark 2D-FLC a tttrlib
 candidate and write it up against the original MATLAB.
 **Depends on:** nothing new. Uses the NumPy-typemap pattern from
@@ -14,10 +16,13 @@ candidate and write it up against the original MATLAB.
 **Consumer waiting on this:** ChiSurf `chisurf/plugins/fcs/flc_2d/core.py`,
 one of 13 files still importing numba
 (`okf/subsystems/numba-retirement.md`, chisurf).
-**Reference implementation:** `junk/2D-FLC-code` — the original MATLAB by
-Toru Kondo (Schlau-Cohen lab, MIT), with *A Technical Note on 2D-FLC.pdf*.
-Read and marked: `README`, `MatlabCodes/TK_Create2DFDC_04.m`,
-`MatlabCodes/TK_MyMain_Simu_PhotonStream.m`.
+**Reference implementation:** the original MATLAB by Toru Kondo (Schlau-Cohen
+lab, MIT), https://github.com/PremashisManna/2D-FLC-code at `082b59c`, with
+P. Manna, *2D-Fluorescence Lifetime Correlation Code: Mathematical Basis,
+Tutorial and Technical Notes* (PDF in that repository, 2020). It lived at
+chisurf `junk/2D-FLC-code` until the harvest finished on 2026-09-17 and was then
+deleted; everything taken from it is recorded here and in recorded fixtures (see
+**The harvest finished** at the end). Re-clone with chisurf `junk/clone.sh`.
 
 ## The claim
 
@@ -176,6 +181,10 @@ because it is invisible until an import order changes.
       (Done with chisurf's numba removal, `f1290e84b`, 2026-08-12; board
       ticket `T-20260811-14` closed by it.)
 - [x] The `junk/2D-FLC-code` markers point at this PRD (already done).
+- [x] Every MATLAB file accounted for (table above), the two unported rows
+      (reproduct, split-data bootstrap) ported and A/B'd against Octave, and no
+      test, benchmark or script depending on the checkout at run time — so the
+      checkout could be deleted (2026-09-17, see the last section).
 
 
 ## What the simulation actually showed (2026-08-11)
@@ -481,21 +490,26 @@ chisurf Python; three workflow items are ported nowhere yet.**
 | `TK_MyMain_Simu_PhotonStream.m` | the two-state photon-stream simulator | tttrlib `SimEngine` (PRD-036's decision: simulate with our own, not a transcription); chisurf `simulate.py` wraps it with the MATLAB default case |
 | `TK_RateEq_MakeExpMatrix.m` | master-equation generator, `p(t) = expm(G t) p(0)` | chisurf `fit/kinetics.make_generator_matrix` (docstring cites the port) |
 | `TK_mi_ModelFunction.m` | the four `mi` prior types for MEM | chisurf `fit/mem_1d.py` (all four, by name) |
-| `TK_FitF_1DMEM_01/02`, `TK_FitF_1DMEM_MinimizeQ_01/02` | 1D MEM inversion | chisurf `fit/mem_1d.py` + `api.lifetime_spectrum(method=...)` |
+| `TK_FitF_1DMEM_01/02`, `TK_FitF_1DMEM_MinimizeQ_01/02` | 1D MEM inversion | chisurf `fit/mem_1d.py` + `api.lifetime_spectrum_mem` (`api.lifetime_spectrum(method=...)` is NNLS/Tikhonov only — corrected 2026-09-17) |
 | `TK_FitF_2DMEM_07`, `TK_GFitF_2DMEM_05` | 2D MEM (single and global over lags) | chisurf `fit/mem_2d.py`, `fit/global_mem.py` (global: "invert several lag matrices jointly") |
 | `TK_FitF_MinimizeQ_09`, `TK_GFitF_MinimizeQ_04` | Q-objective minimizers | chisurf `fit/mem_2d.py` (entropy-refresh + regularizer ramp, by docstring) / `fit/global_mem.py` |
-| `TK_ExpMultiDeco_For2FLC.m` | multi-exponential basis / decomposition convention | chisurf `fit/ilt.py` (cites the convention) |
+| `TK_ExpMultiDeco_For2DFLC.m` | multi-exponential basis / decomposition convention | chisurf `fit/ilt.py` (cites the convention) |
 | `TK_FitF_GaussianMulti.m` (+ its `TK_MyMain_Fit_` driver) | Gaussian-mixture components over the MEM output | chisurf `fit/gaussian.py` |
 | `TK_FitF_CorrelationDecay_RateMat_05`/`_16_NotRatio` | rate-matrix fit of the correlation decay | chisurf `fit/kinetics.py` (`fit_rate_matrix`, variable projection) |
-| `TK_MyMain_Search_RiseIRF_1DMEM`/`_2DMEM` | IRF-rise scan over 1D/2D MEM | chisurf `fit/helpers.search_rise_irf` |
-| `TK_DisIntLife2Dmap.m` | discretise lifetimes onto the lifetime–lifetime map | chisurf `fit/ilt.py` map assembly (`api.two_d_spectrum`) |
-| `TK_MyMain_Analyze*`, `TK_MyMain_CorFit*`, `TK_MyMain_Fit_*`, `TK_MyMain_GFit_*`, `TK_MyMain_Fig*`, `TK_MyMain_OpenAllFiles_01`, `TK_MyMain_ConcatenateMeasureTime`, `TK_MyMain_Exp_FFT_FWHM`, `TK_MyMain_Create2DFDC_cor_02`, `TK_MyMain_Create2DFDC_cor_SeparateData_v01` | workflow drivers (open, build, fit, plot) | the plugin itself: `api.py`, `cli/`, `backend/services.py`, the GUI — the drivers are what a plugin replaces |
-| `TK_FitF_Reproduct1DFDC(.m/_02)`, `TK_FitF_Reproduct2DFDCand2DFLC_03`, `TK_GFitF_Reproduct2DFDCand2DFLC_03` | **forward "reproduct": rebuild decays/maps from fitted parameters, to validate a fit visually** | **not ported.** The model evaluation exists inside each fit, but no standalone reproduce-from-parameters entry point exists. Natural home: chisurf `api.py` |
-| `TK_MyMain_Create2DFDC_cor_SeparateData_BootStrap_v02` | **split-data bootstrap error estimation on the 2D-FDC** | **not ported.** Nothing in either repo does bootstrap errors on the matrices. Natural home: chisurf `api.py`/`fit/` |
+| `TK_MyMain_Search_RiseIRF_1DMEM`/`_2DMEM` | IRF-rise scan over 1D/2D MEM | chisurf `fit/helpers.search_rise_irf` — **1D only**; the 2D scan (and `TK_MyMain_Run_Ave2DMEM`, below) is not ported (spot-check 2026-09-17) |
+| `TK_DisIntLife2Dmap.m` | intensity-weighted, smoothed display of a lifetime–lifetime map (`Int`, `Life`, `SmoothFactor`) | **not ported** (spot-check 2026-09-17: nothing in chisurf cites or implements it; `api.two_d_spectrum` is the inversion, not this display step) |
+| `TK_MyMain_Analyze*`, `TK_MyMain_CorFit*`, `TK_MyMain_Fit_*`, `TK_MyMain_GFit_*`, `TK_MyMain_Fig*`, `TK_MyMain_OpenAllFiles_01`, `TK_MyMain_ConcatenateMeasureTime`, `TK_MyMain_Exp_FFT_FWHM` | workflow drivers (open, build, fit, plot) | the plugin itself: `api.py`, `cli/`, `backend/services.py`, the GUI — the drivers are what a plugin replaces. `Exp_FFT_FWHM` (resolution of the exponential basis by FFT) has no counterpart |
+| `TK_MyMain_Create2DFDC_cor_02`, `TK_MyMain_Create2DFDC_cor_SeparateData_v01` | background-subtracted, symmetrized 2D-FDC; the per-molecule version | chisurf `bootstrap.separate_data_2d_fdc` (2026-09-17; before that the table claimed "the plugin itself", but nothing built the `cor` matrices or summed per molecule). One molecule is `_cor_02` |
+| `TK_CreateExpCurve.m`, `TK_MyMain_Run_Ave2DMEM.m` | the basis *integrated* over each linear/log bin with the IRF rise point; the IRF-rise-averaged 2D + global MEM driver | **not ported** (were missing from this table). chisurf's `build_exp_basis` samples the basis at bin positions instead of integrating over the bin |
+| `TK_FitF_Reproduct1DFDC(.m/_02)`, `TK_FitF_Reproduct2DFDCand2DFLC_03`, `TK_GFitF_Reproduct2DFDCand2DFLC_03` | forward "reproduct": the fminsearch objective (model, chi2, entropy, Q) and, after a fit, the model rebuilt on the other binning | **ported 2026-09-17**: chisurf `fit/reproduct.py` (`reproduce_1d`/`_2d`/`_global_2d`, `unpack_estimates_*`, `reproduce_result`; `decay_model`/`fdc_model` are now the forward models the fits evaluate), `api.reproduce_1d_fdc`/`reproduce_2d_fdc`/`reproduce_fit`, CLI `flc-2d reproduce`. Octave A/B identical to 2e-16, fixture `test/data/flc_2d/matlab_reproduct.npz` |
+| `TK_MyMain_Create2DFDC_cor_SeparateData_BootStrap_v02` | per-molecule 2D-FDC summed over a *drawn* set of molecules (one replicate per run) | **ported 2026-09-17**: chisurf `bootstrap.py` (`separate_data_2d_fdc`, `bootstrap_order`, `bootstrap_2d_fdc` adds the replicate loop and per-element mean/std), `api.separate_data_2d_fdc`/`bootstrap_2d_fdc`, CLI `flc-2d bootstrap`. Octave A/B bit-identical (3 draws, 10 matrices each), fixture `test/data/flc_2d/matlab_bootstrap.npz` |
 
-The two unported rows are recorded honestly rather than silently dropped; both
-are analysis-layer conveniences, not photon-pass numerics, so neither blocks
-anything PRD-036 shipped. `examples/correlation/plot_fdc_2d.py` (tttrlib) now
+The two rows that were unported here on 2026-08-16 (reproduct, bootstrap) were
+ported on 2026-09-17; the spot-check that day found four more that the table had
+over-claimed or left out (`TK_DisIntLife2Dmap`, the 2D IRF-rise scan,
+`TK_CreateExpCurve`, `TK_MyMain_Run_Ave2DMEM`) — all analysis-layer, none photon
+pass, so none blocks anything this PRD shipped. They are open in chisurf
+`okf/references/filtered-fcs-2dflcs-theory.md` "Where to pick this up". `examples/correlation/plot_fdc_2d.py` (tttrlib) now
 demonstrates the whole chain the C++ owns: simulate → `fdc_scan_two_axes` →
 coupling vs lag → fitted relaxation (0.91 s fitted against 1.00 s simulated on
 the seeded stream) — with the papers cited in its docstring.
@@ -626,3 +640,75 @@ touch politely).
 
 Example: `examples/correlation/plot_fdc_2d_microsecond_fret_diffusion.py`
 (~4 min runtime; the table regenerates from fixed seeds).
+
+
+## The harvest finished, and the checkout went (2026-09-17)
+
+User: "2D FLC code; finish … and rm from junk". Done in chisurf; the checkout at
+`junk/2D-FLC-code` was deleted after this.
+
+**Reproduct.** In the MATLAB the four `Reproduct` functions are the objective
+`fminsearch` minimizes *and* the call each minimizer makes afterwards to rebuild
+the model on the other binning (fit on linear, reproduce on log). Model
+`E A G Aᵀ Eᵀ + y0·(Δt Δtᵀ)` (1D: `E A + y0·Δt`, `Δt` the bin widths with the first
+copied from the second — so `y0` is constant on a linear axis and not on a log
+one); exact zeros of `A` lifted to `1e-7·(max−min)`; `chi2 = mean((cor−model)² /
+(data + mean(data)))`, bin-width-weighted only in the original 1D version;
+entropy `Σ A − Σ mi − Σ A log((A+εA)/(mi+εmi))` with `εA` only in the 2D ones;
+`Q = chi2 − 2S/regulator`; estimates vectors unpacked with fix flags 0/1/2/3,
+column-major, the global vector interleaving `G` and `y0` per lag. Ported as
+chisurf `flc_2d/fit/reproduct.py`; Octave A/B on every flag combination, a
+zero amplitude and a log axis: max relative difference **2.1e-16**.
+
+**Bootstrap.** `TK_MyMain_Create2DFDC_cor_SeparateData_BootStrap_v02` is the
+per-molecule data preparation: for each molecule (one file) the 2D-FDC at each
+`dT`, at `max(dT)` (the uncorrelated background, `cor = M(dT) − M(max dT)`), at
+`ddT/2` (`short`) and the zero-lag 1D-FDC, on linear and log axes, symmetrized
+`(M+Mᵀ)/2`, summed over molecules. All lags share one reference set (window ends
+`max(dT)` before `min(Tend, last photon)`); the background ends `ddT/2` earlier.
+The "bootstrap" is *which* molecules are summed: `randperm(N·GroupNum_factor)`
+mapped to `(v−1) mod N + 1`, taken until the drawn photons reach
+`PhotonNum_factor × total`; with both factors 1 (the default, and what
+`TK_MyMain_Run_Ave2DMEM` runs) it is the plain sum. **No statistic gets an error
+bar inside the MATLAB**: one run is one replicate, and errors come from repeating
+the whole analysis. chisurf `bootstrap_2d_fdc` draws the replicates and reports
+per-element mean and std. Octave A/B (script body unchanged, random draw replaced
+by a given permutation; draws 1/1, group factor 2, photon factor 0.5; Tend inside
+two of the molecules): orders, photon totals, measurement times and all ten
+matrices **bit-identical**. Calibration on simulation (12 molecules × 0.5 s,
+τ 1/3 ns, 40 s⁻¹): bootstrap std 4930 vs 5570 spread over 16 independent data
+sets; the exchange contrast is 8.9 bootstrap-σ, a frozen control 0.07σ. The
+technical note's `DivideNum` does not exist in v02 (a later version).
+
+**What the A/B found in code that had been "proven identical".**
+
+1. **ChiSurf's linear matrix sat one bin off its axis.** The library stores
+   linear bin `ceil(τ/f)` at that index, so index 0 is always empty; chisurf's
+   `create_2d_fdc_numba_int` sliced `[:lint_imax−1]` — the reference's *size*,
+   wrong *offset* — keeping the empty row and dropping the last real bin. That is
+   the "654 / 974 lost pairs" of **A second ChiSurf defect** above, which was
+   withdrawn as "the reference's trim": the reference's trim drops the *padding*
+   bin, and the aligned slice `[1:lint_imax]` keeps all 6443 at every factor. The
+   1D-FDC's correlation with the micro-time histogram went 0.98 → 0.99997. This
+   repo's `TestAgainstTheOriginalMatlab` was always right (it slices `[1:n+1]`).
+2. **Same-tick photons.** The reference pairs a reference photon only with
+   photons *after* it in stream order. `fdc_scan_*`'s window search also finds
+   earlier photons at the same macro tick, and the reference photon itself, when
+   the window starts at the reference (`dT = ddT/2`, or zero lag). On a stream
+   with 427 repeated ticks: +1459 pairs at `dT = ddT/2`, +41 on the 1D diagonal.
+   chisurf now subtracts them (`core.earlier_same_time_pairs`); the library is
+   unchanged — for `dT > ddT/2` it never happens, which is every case this PRD
+   fixture-pinned. A caller that wants reference semantics at the short lag
+   through the library directly must do the same.
+
+**What replaced the checkout at run time.** chisurf `flc_2d/test/conftest.py`
+simulated the reference data set (τ 1/3 ns, 10 kcps, `[[0,30],[10,0]]` s⁻¹) from
+a fixed seed instead of reading the 69 MB `simulated_data.mat` — which had been
+absent, so the six data-driven tests had been **skipping silently** (and are
+`slow`-marked). Only the IRF is committed (`test/data/flc_2d/reference_irf.npz`,
+14 KB). Two simulator details had to match the MATLAB for the recorded
+numbers to come back (sorted-cumsum IRF draw; photons past the 12.5 ns window
+kept past it). `benchmarks/competitors/bench_fret.py` `fdc2d` skips with a
+re-clone message (or `FLC2D_DIR`). Fixtures:
+`test/data/reference/fdc2d_matlab_tk_create2dfdc04.npz` (here),
+chisurf `test/data/flc_2d/{reference_irf,matlab_reproduct,matlab_bootstrap}.npz`.

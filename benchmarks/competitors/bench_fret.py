@@ -8,8 +8,8 @@
            with test/cpp/burstml_mex_shim + GSL, driver competitors/native/burstml/ --
            timed inside the process
   two_cde  FRETBursts phrates.kde_laplace + Tomov's burst formula, in the fretbursts venv
-  fdc2d    Toru Kondo's TK_Create2DFDC_04.m (../chisurf/junk/2D-FLC-code) in Octave,
-           tic/toc around the function
+  fdc2d    Toru Kondo's TK_Create2DFDC_04.m (https://github.com/PremashisManna/2D-FLC-code
+           at 082b59c) in Octave, tic/toc around the function
   cusum    PAM CUSUM_burstsearch (PAM.m) in Octave, tic/toc
 
 PAM is https://gitlab.com/PAM-PIE/PAM at commit 7319d15d. Its checkout was
@@ -17,6 +17,10 @@ harvested and removed from ../chisurf/junk/PAM; both PAM competitors skip until
 it is re-cloned with ../chisurf/junk/clone.sh (or PAM_DIR points at a checkout).
 The A/B tests do not need it: they read recorded fixtures
 (test/data/reference/pda_pam_histogram_reference.npz, cusum_pam_reference.npz).
+The 2D-FLC checkout went the same way (../chisurf/junk/2D-FLC-code, removed
+2026-09-17): fdc2d skips until it is re-cloned with ../chisurf/junk/clone.sh or
+FLC2D_DIR points at one; its identity check lives on in
+test/data/reference/fdc2d_matlab_tk_create2dfdc04.npz.
 
 Run in the base env (numpy only); each pair skips with a printed reason when
 its compiler / GSL / Octave / venv / checkout is missing. Reference outputs
@@ -42,6 +46,7 @@ CHISURF_JUNK = os.path.abspath(os.path.join(ROOT, "..", "chisurf", "junk"))
 PAM_DIR = os.environ.get("PAM_DIR", os.path.join(CHISURF_JUNK, "PAM"))
 PAM_MISSING = ("PAM checkout not found at {} (harvested and removed; re-clone "
                "https://gitlab.com/PAM-PIE/PAM with ../chisurf/junk/clone.sh or set PAM_DIR)")
+FLC2D_DIR = os.environ.get("FLC2D_DIR", os.path.join(CHISURF_JUNK, "2D-FLC-code"))
 FRETBURSTS_PY = os.path.join(os.path.dirname(HERE), ".venvs", "fretbursts", "bin", "python")
 OCTAVE = shutil.which("octave") or "/opt/homebrew/bin/octave"
 CXX = shutil.which("c++") or shutil.which("clang++") or shutil.which("g++")
@@ -200,9 +205,13 @@ def octave(cmd, cwd, timeout=1800):
 
 
 def bench_fdc2d():
-    m = os.path.join(CHISURF_JUNK, "2D-FLC-code", "MatlabCodes", "TK_Create2DFDC_04.m")
-    if not (os.path.exists(m) and os.path.exists(OCTAVE)):
-        return skip("fdc2d", "needs Octave and ../chisurf/junk/2D-FLC-code")
+    m = os.path.join(FLC2D_DIR, "MatlabCodes", "TK_Create2DFDC_04.m")
+    if not os.path.exists(OCTAVE):
+        return skip("fdc2d", "needs Octave")
+    if not os.path.exists(m):
+        return skip("fdc2d", "2D-FLC checkout not found at {} (harvested and removed; re-clone "
+                    "https://github.com/PremashisManna/2D-FLC-code with ../chisurf/junk/clone.sh "
+                    "or set FLC2D_DIR)".format(FLC2D_DIR))
     z = np.load(os.path.join(SHARED, "fdc2d.npz"))
     macro, micro, lags, ddT, t_min, t_max, L = z["macro"], z["micro"], z["lags"], int(z["ddT"]), int(z["t_min"]), int(z["t_max"]), int(z["logt_imax"])
     d = tempfile.mkdtemp(prefix="fdc_octave_")

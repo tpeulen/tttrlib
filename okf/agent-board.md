@@ -5992,6 +5992,16 @@ one supersedes.
 
 ## Resolved (recent)
 
+- **T-20260917-02 · [both] Finish the 2D-FLC harvest: reproduct + split-data bootstrap ports, cut every junk/2D-FLC-code dependency**
+  - Status: ✅ done
+  - Owner: opus-5/flc2d-harvest
+  - Opened: 2026-09-17 · Picked: 2026-09-17 · Done: 2026-09-17
+  - Why: tpeulen "2D FLC code; finish … and rm from junk". PRD-036 audit table has two "not ported" rows; flc_2d tests look for the 69 MB simulated_data.mat.
+  - Done when: reproduct + bootstrap in flc_2d api/CLI with Octave A/B fixture; flc_2d tests run from small fixtures; no runtime reference to 2D-FLC-code left.
+  - Touching: chisurf `chisurf/plugins/fcs/flc_2d/{api.py,fit/,cli/,README.md,gui/help.md,test/}`, `test/repro/compare_matlab_implementation.py`, `test/numba_import_allowlist.txt`, `test/data/flc_2d/`, docs flc_2d concept/guide, okf/log.md; tttrlib `okf/prds/PRD-036-2d-flc-photon-kernels.md`, `benchmarks/competitors/bench_fret.py` (fdc2d section only), okf/log.md.
+  - Progress: done. chisurf 16c940981 (flc_2d fit/reproduct.py + bootstrap.py, API/CLI, Octave fixtures, linear-matrix one-bin offset + same-tick pair + swallowed NameError fixes, conftest simulates the reference data set; the 6 data tests had been skipping silently). tttrlib: PRD-036 table/harvest section, bench_fret.py fdc2d skip message, okf/log. junk/2D-FLC-code is safe to delete. Left: test/repro/compare_matlab_implementation.py is dead (imports a missing module, never-existing path) but carries another session's uncommitted format-sweep hunks — delete once that sweep lands. Open items in chisurf okf/references/filtered-fcs-2dflcs-theory.md "Where to pick this up".
+
+
 - **T-20260911-01 · [imp.bff] Greedy Olga for homo-oligomers: select labelling *sites*, not pairs — plus a homodimer labelizer example**
   - Status: ✅ done (imp.bff `f23ab26`, 2026-09-11)
   - Owner: zcode/greedy-oligo

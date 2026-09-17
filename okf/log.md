@@ -1,5 +1,24 @@
 # Bundle update log
 
+## 2026-09-17 — the 2D-FLC MATLAB is fully harvested; its checkout can go
+
+The last two unported MATLAB pieces of PRD-036's audit table — the `Reproduct`
+functions and the split-data bootstrap driver — were ported in chisurf `flc_2d`
+and A/B'd against the original in Octave (reproduct 2e-16; bootstrap
+bit-identical), with recorded fixtures, so `../chisurf/junk/2D-FLC-code` was
+deleted. The A/B found two things in code the PRD had called identical:
+chisurf's linear 2D-FDC matrix was sliced one bin off its axis (index 0 of the
+library's matrix is always empty) — the "lost pairs" once withdrawn as the
+reference's own trim — and `fdc_scan_*` counts the reference photon and earlier
+same-tick photons whenever a window starts at the reference (`dT = ddT/2`, zero
+lag), which the reference does not. The library is unchanged (no case it pins
+has such a window); chisurf corrects both. The spot-check of the table found
+`TK_DisIntLife2Dmap`, the 2D IRF-rise scan, `TK_CreateExpCurve` and
+`TK_MyMain_Run_Ave2DMEM` over-claimed or missing; now listed as not ported.
+`benchmarks/competitors/bench_fret.py` `fdc2d` skips with a re-clone message (or
+`FLC2D_DIR`). Details: [PRD-036](prds/PRD-036-2d-flc-photon-kernels.md) "The
+harvest finished".
+
 ## 2026-09-17 — the PAM A/B tests read recorded fixtures; the checkout can go
 
 `../chisurf/junk/PAM` (https://gitlab.com/PAM-PIE/PAM at 7319d15d) was harvested
