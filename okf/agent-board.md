@@ -1832,6 +1832,23 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
+- **T-20260918-01 · [imp.bff] The pair screen must not claim a dye model it did not use**
+  - Status: 🔄 in-progress
+  - Owner: opus-5/f5a8af51
+  - Opened: 2026-09-18 · Picked: 2026-09-18 · Done: —
+  - Why: `labelizer_fret_pair_scores` scores a pair from two accessible volumes,
+    and when a volume comes back empty it measures between the attachment
+    points instead and still labels the row `PROBE_MODEL_ACCESSIBLE_VOLUME`.
+    Seen three times while building the workshop: 247 of 7750 pairs on BmrA,
+    123 of 1953 on hGBP1, and 43 of 406 volumes empty under an fps.json's own
+    clearance. Recorded in okf/validation/fret-docking-on-bmra.md.
+  - Done when: a row whose distance came from the attachment points carries
+    `PROBE_MODEL_CBETA`, so a caller can filter, and the module builds and its
+    label/FRET tests pass.
+  - Touching: **holds the imp.bff build lock** (`../imp/cmake-build-arm64`);
+    `src/LabelizerFRET.cpp`, `test/label/`.
+  - Progress: patched, building.
+
 - **T-20260917-10 · [imp.bff] Does it compile? IMP module build + the imp-bff pip wheel, no source changes**
   - Status: ✅ done
   - Owner: opus-5/f5a8af51
