@@ -158,7 +158,7 @@ All decay surfaces are reachable from Python since 2026-08-17: `fconv_cs_time_ax
 |---|---|---|---|---|
 | TTTR.h / BurstSearchDispatch.h | sliding window | FRETBursts 0.8.3 `bsearch_c` + `bsearch_py` live | (istart, istop) identical, 6 streams × 5 settings | PASS |
 | TTTR (Python) | `burst_search_coincident` (DCBS) | FRETBursts `and_gate` | identical after fusing FRETBursts' overlapping outputs | PASS (bounded) |
-| TTTR.h | `burst_search_cusum_sprt` | Zhang & Yang 2005 in NumPy; PAM `CUSUM_burstsearch` in Octave | identical; Jaccard ≥ 0.85 vs PAM's discretised variant | PASS / behavioural |
+| TTTR.h | `burst_search_cusum_sprt` | Zhang & Yang 2005 in NumPy; PAM `CUSUM_burstsearch` in Octave (**recorded fixture** `test/data/reference/cusum_pam_reference.npz`, 29 KB: ticks + PAM START/STOP for 3 seeds; regenerate with `gen_ab_cusum_pam_reference.py`) | identical; Jaccard ≥ 0.85 vs PAM's discretised variant | PASS / behavioural |
 | BurstSearchKalman.h | `burst_search_kalman` | **ground truth** (40 injected bursts per case) + **filterpy 1.4.5** running the filter with the detection in NumPy (recorded fixture) | precision 100 % (every burst found was injected), recall 73–98 %, and identical to the filterpy reference on 4 configurations | PASS |
 | BurstSearchBOCPD.h | `burst_search_bocpd` | Adams & MacKay 2007 run-length recursion transcribed in NumPy from the paper (plug-in Poisson predictive) | identical | PASS (header says Negative-Binomial; the code is plug-in Poisson) |
 | BurstSearchBayesianBlocks.h | `bayesian_blocks_events`, `ncp_prior_from_p0` | astropy `bayesian_blocks(fitness='events')` recorded; Scargle 2013 eq. 21 | change points identical on 7 sets; 1e-12 | PASS |
@@ -244,7 +244,7 @@ degenerate answer that scores 100 % recall by overlap, which is why
 | HMMConstraints/Restraints/Emission.h | constraints, restraints, product alphabet | — | existing known-answer suites | KNOWN-ANSWER |
 | CtmcKinetics.h | generator, equilibrium, round trips | NumPy, `scipy.linalg.null_space`, `expm` | 1e-14 / 1e-9 | PASS |
 | GopichSzabo.h | `log_likelihood`, `viterbi`, `relaxation_times`, `emission_from_efficiencies` | direct `scipy.linalg.expm` evaluation of GS-2009 eq. 3; NumPy max-product; `eig(Q)` | 1e-9 rel on 4 schemes; 100 % path; 1e-8 | PASS |
-| Pda.h | `s1s2` | **PAM `PDA_histogram.cpp` compiled from `../chisurf/junk/PAM`** (mex.h shim); Antonik 2006 NumPy (pre-existing) | ≤ 7e-18; 1e-14 | PASS |
+| Pda.h | `s1s2` | **PAM `PDA_histogram.cpp`** (mex.h shim), **recorded fixture** `test/data/reference/pda_pam_histogram_reference.npz` (24 KB, 25 matrices; regenerate with `test/python/pda/gen_ab_pda_pam_reference.py`); Antonik 2006 NumPy (pre-existing) | ≤ 1e-15; 1e-14 | PASS |
 | PdaBurstLikelihood.h | burst likelihood | defining nested sum | pre-existing | PASS |
 | Pda3cCore.h | `transfer_matrix_3c` | NumPy competing-acceptor cascade (40 geometries); limits E → I at large R, E = ½ at R = R₀ | 1e-12 | PASS |
 | Pda3cCore.h | `gauss_hermite_grid` | **moment exactness** — an n-node rule is exact to degree 2n-1, so the grid for N(µ, Σ) must return µ, Σ and zero third moments (3, 5, 7 nodes; correlated Σ) | 1e-9 | PASS (no reference implementation involved) |
@@ -368,6 +368,12 @@ Upstream code itself as reference (`benchmarks/check_fret.py`,
 | `TwoCDE` (FRET-2CDE, Laplace) | FRETBursts `phrates.kde_laplace` + Tomov formula | 6e-15 | 4.2× | ✅ |
 | `fdc_scan_log` | `TK_Create2DFDC_04.m` (Kondo) in Octave | 0 of 389 185 pair counts differ | ~4700× (interpreted double loop) | ✅ |
 | `burst_search_cusum_sprt` | PAM `CUSUM_burstsearch` in Octave | behavioural: min Jaccard 0.87, same burst count (PAM's discretisation, α = 1/N, offsets) | ~1400× | ✅ (behavioural) |
+
+The two PAM rows need the PAM checkout (https://gitlab.com/PAM-PIE/PAM at
+7319d15d), which was harvested and deleted from `../chisurf/junk/PAM` on
+2026-09-17: `bench_fret.py` skips them with a message to re-clone via
+`../chisurf/junk/clone.sh` (or set `PAM_DIR`). Their A/B tests no longer need
+it — they read the recorded fixtures listed in the register above.
 
 ## Record decoding — identity and speed, checked (2026-08-17)
 

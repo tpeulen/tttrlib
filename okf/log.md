@@ -1,5 +1,23 @@
 # Bundle update log
 
+## 2026-09-17 — the PAM A/B tests read recorded fixtures; the checkout can go
+
+`../chisurf/junk/PAM` (https://gitlab.com/PAM-PIE/PAM at 7319d15d) was harvested
+and is being deleted, and two A/B tests read it at run time. Both now read
+recorded fixtures, made while the checkout was still there:
+`test/data/reference/pda_pam_histogram_reference.npz` (24 KB; PAM
+`PDA_histogram.cpp` S1/S2 matrices for the single-species, mixture and bimodal
+P(F) cases, still equal to `Pda.s1s2` at atol 1e-15) and
+`cusum_pam_reference.npz` (29 KB; ticks and PAM `CUSUM_burstsearch` START/STOP
+for 3 seeds, still Jaccard ≥ 0.85 both ways). Regenerate after re-cloning with
+`test/python/pda/gen_ab_pda_pam_reference.py` and
+`test/python/burstfilter/gen_ab_cusum_pam_reference.py` (`--pam` or `PAM_DIR`).
+Trap found while recording: under numpy 2 `repr(np.float64(x))` is
+`np.float64(x)`, which the C++ driver's `scanf` reads as garbage — the
+generator casts to `float` first. `benchmarks/competitors/bench_fret.py` still
+times PAM itself, so its `pda`/`cusum` competitors stay optional and their skip
+message says to re-clone. Details: [algorithm-validation](testing/algorithm-validation.md).
+
 ## 2026-09-15 — maximum entropy leaves tttrlib for imp.bff
 
 tpeulen: "remove maxent from tttrlib, provided bff maxent works as good or

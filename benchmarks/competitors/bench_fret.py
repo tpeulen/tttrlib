@@ -1,15 +1,22 @@
 #!/usr/bin/env python
 """Upstream FRET / burst competitors, on the shared inputs of ``bench_fret.py``:
 
-  pda      PAM PDA_histogram.cpp (../chisurf/junk/PAM), compiled natively through the
-           mex.h shim in competitors/native/pam_pda/ -- timed inside the process
+  pda      PAM PDA_histogram.cpp (functions/PDAFit/histogram_library/), compiled
+           natively through the mex.h shim in competitors/native/pam_pda/ -- timed
+           inside the process
   burstml  the original FRET_burstML MEX (junk/FRET_burstML/burstMLProject.zip) built
            with test/cpp/burstml_mex_shim + GSL, driver competitors/native/burstml/ --
            timed inside the process
   two_cde  FRETBursts phrates.kde_laplace + Tomov's burst formula, in the fretbursts venv
   fdc2d    Toru Kondo's TK_Create2DFDC_04.m (../chisurf/junk/2D-FLC-code) in Octave,
            tic/toc around the function
-  cusum    PAM CUSUM_burstsearch (../chisurf/junk/PAM/PAM.m) in Octave, tic/toc
+  cusum    PAM CUSUM_burstsearch (PAM.m) in Octave, tic/toc
+
+PAM is https://gitlab.com/PAM-PIE/PAM at commit 7319d15d. Its checkout was
+harvested and removed from ../chisurf/junk/PAM; both PAM competitors skip until
+it is re-cloned with ../chisurf/junk/clone.sh (or PAM_DIR points at a checkout).
+The A/B tests do not need it: they read recorded fixtures
+(test/data/reference/pda_pam_histogram_reference.npz, cusum_pam_reference.npz).
 
 Run in the base env (numpy only); each pair skips with a printed reason when
 its compiler / GSL / Octave / venv / checkout is missing. Reference outputs
@@ -32,6 +39,9 @@ from common import record, RESULTS  # noqa: E402
 
 SHARED = os.path.join(RESULTS, "shared", "fret")
 CHISURF_JUNK = os.path.abspath(os.path.join(ROOT, "..", "chisurf", "junk"))
+PAM_DIR = os.environ.get("PAM_DIR", os.path.join(CHISURF_JUNK, "PAM"))
+PAM_MISSING = ("PAM checkout not found at {} (harvested and removed; re-clone "
+               "https://gitlab.com/PAM-PIE/PAM with ../chisurf/junk/clone.sh or set PAM_DIR)")
 FRETBURSTS_PY = os.path.join(os.path.dirname(HERE), ".venvs", "fretbursts", "bin", "python")
 OCTAVE = shutil.which("octave") or "/opt/homebrew/bin/octave"
 CXX = shutil.which("c++") or shutil.which("clang++") or shutil.which("g++")
@@ -50,9 +60,11 @@ def rec(category, tool, task, best_s, times, n_items, unit, extra=None):
 # --------------------------------------------------------------------------- PDA
 
 def bench_pda():
-    src = os.path.join(CHISURF_JUNK, "PAM", "functions", "PDAFit", "histogram_library", "PDA_histogram.cpp")
-    if not (os.path.exists(src) and CXX):
-        return skip("pda", "needs ../chisurf/junk/PAM PDA_histogram.cpp and a C++ compiler")
+    src = os.path.join(PAM_DIR, "functions", "PDAFit", "histogram_library", "PDA_histogram.cpp")
+    if not os.path.exists(src):
+        return skip("pda", PAM_MISSING.format(PAM_DIR))
+    if not CXX:
+        return skip("pda", "needs a C++ compiler")
     d = tempfile.mkdtemp(prefix="pam_pda_bench_")
     nat = os.path.join(HERE, "native", "pam_pda")
     exe = os.path.join(d, "pam_pda")
@@ -215,9 +227,11 @@ def bench_fdc2d():
 
 
 def bench_cusum():
-    pam = os.path.join(CHISURF_JUNK, "PAM", "PAM.m")
-    if not (os.path.exists(pam) and os.path.exists(OCTAVE)):
-        return skip("cusum", "needs Octave and ../chisurf/junk/PAM/PAM.m")
+    pam = os.path.join(PAM_DIR, "PAM.m")
+    if not os.path.exists(pam):
+        return skip("cusum", PAM_MISSING.format(PAM_DIR))
+    if not os.path.exists(OCTAVE):
+        return skip("cusum", "needs Octave")
     z = np.load(os.path.join(SHARED, "cusum.npz"))
     ticks, IB, IT, res = z["ticks"], float(z["IB_khz"]), float(z["IT_khz"]), float(z["res"])
     src = open(pam, encoding="utf-8", errors="replace").read().splitlines()

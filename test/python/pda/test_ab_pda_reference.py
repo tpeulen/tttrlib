@@ -2,12 +2,13 @@
 the defining formulae of the three-colour physics.
 
 * ``Pda.s1s2`` (2-channel PDA model matrix) against **PAM**
-  (Schrimpf et al. 2018, ``functions/PDAFit/histogram_library/PDA_histogram.cpp``
-  from ``../chisurf/junk/PAM``): the MEX source is compiled at test time
-  through a 15-line ``mex.h`` shim into a stdin/stdout program and driven with
-  the same P(F), p_ch1, backgrounds; single species and mixtures (PAM is one
-  species per call -- the mixture is the amplitude-weighted sum). Skips when
-  the PAM checkout or a compiler is absent.
+  (Schrimpf et al. 2018, https://gitlab.com/PAM-PIE/PAM at 7319d15d,
+  ``functions/PDAFit/histogram_library/PDA_histogram.cpp``), as a **recorded
+  fixture** (``test/data/reference/pda_pam_histogram_reference.npz``): the MEX
+  source was compiled unmodified through a ``mex.h`` shim and driven with the
+  same P(F), p_ch1, backgrounds; single species and mixtures (PAM is one
+  species per call -- the mixture is the amplitude-weighted sum). Regenerate
+  with ``gen_ab_pda_pam_reference.py`` after re-cloning PAM.
 * The independent NumPy transcription of Antonik et al. 2006 (binomial split,
   Poisson background convolution) already pins ``Pda.s1s2`` to 1e-14 in
   ``test_pda_reference.py`` -- cited, not duplicated -- as does the defining
@@ -22,147 +23,56 @@ the defining formulae of the three-colour physics.
 
 ChiSurf is deliberately **not** a reference in either file. This library is its
 upstream, so agreement establishes only that two things that move together
-still do; and the comparison needed an absolute path to a checkout, so it
-skipped everywhere except one machine.
+still do.
 """
 import os
-import shutil
-import subprocess
-import sys
-import tempfile
 import unittest
-from math import factorial
 
 import numpy as np
 
 import tttrlib
 
-PAM_SRC = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "..", "..", "..", "..", "chisurf", "junk", "PAM", "functions", "PDAFit",
-    "histogram_library", "PDA_histogram.cpp",
-)
-
-_MEX_SHIM = r"""
-#pragma once
-#include <cstdlib>
-#include <cstdio>
-#include <cstddef>
-typedef size_t mwSize;
-struct mxArray { double* data; size_t n; };
-enum { mxDOUBLE_CLASS = 6 };
-enum { mxREAL = 0 };
-inline double mxGetScalar(const mxArray* a) { return a->data[0]; }
-inline double* mxGetPr(const mxArray* a) { return a->data; }
-inline void* mxCalloc(size_t n, size_t s) { return calloc(n, s); }
-inline mxArray* mxCreateNumericMatrix(mwSize m, mwSize n, int, int) { mxArray* a = new mxArray; a->data = nullptr; a->n = m * n; return a; }
-inline void mxSetData(mxArray* a, void* p) { a->data = static_cast<double*>(p); }
-inline void mexErrMsgIdAndTxt(const char*, const char* m) { std::fprintf(stderr, "%s\n", m); std::exit(2); }
-"""
-
-_MAIN = r"""
-#include "mex.h"
-#include <vector>
-#include <cstdio>
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]);
-int main() {
-    unsigned Nmax; if (std::scanf("%u", &Nmax) != 1) return 1;
-    std::vector<double> pN(Nmax + 1);
-    for (unsigned i = 0; i <= Nmax; ++i) std::scanf("%lf", &pN[i]);
-    double pG, Bg, Br, use; std::scanf("%lf %lf %lf %lf", &pG, &Bg, &Br, &use);
-    double nm = Nmax;
-    mxArray aN{&nm, 1}, apN{pN.data(), pN.size()}, apG{&pG, 1}, aBg{&Bg, 1}, aBr{&Br, 1}, aU{&use, 1};
-    const mxArray* in[6] = {&aN, &apN, &apG, &aBg, &aBr, &aU};
-    mxArray* out[1];
-    mexFunction(1, out, 6, in);
-    for (size_t i = 0; i < out[0]->n; ++i) std::printf("%.17g\n", out[0]->data[i]);
-    return 0;
-}
-"""
-
-_PAM_EXE = None
+FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "reference",
+                       "pda_pam_histogram_reference.npz")
 
 
-def _pam_exe():
-    """Compile PAM's PDA_histogram.cpp once; None when it cannot be had."""
-    global _PAM_EXE
-    if _PAM_EXE is not None:
-        return _PAM_EXE or None
-    if not os.path.exists(PAM_SRC):
-        _PAM_EXE = False
-        return None
-    cxx = shutil.which("c++") or shutil.which("g++") or shutil.which("clang++")
-    if cxx is None:
-        _PAM_EXE = False
-        return None
-    d = tempfile.mkdtemp(prefix="pam_pda_")
-    with open(os.path.join(d, "mex.h"), "w") as f:
-        f.write(_MEX_SHIM)
-    with open(os.path.join(d, "matrix.h"), "w") as f:
-        f.write('#pragma once\n#include "mex.h"\n')
-    with open(os.path.join(d, "main.cpp"), "w") as f:
-        f.write(_MAIN)
-    exe = os.path.join(d, "pam_pda")
-    r = subprocess.run([cxx, "-std=c++17", "-O2", "-I", d, os.path.join(d, "main.cpp"), PAM_SRC, "-o", exe],
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        _PAM_EXE = False
-        return None
-    _PAM_EXE = exe
-    return exe
-
-
-def _pam_s1s2(nmax, pF, p_ch1, bg1, bg2):
-    exe = _pam_exe()
-    inp = f"{nmax}\n" + " ".join(repr(float(x)) for x in pF) + f"\n{p_ch1!r} {bg1!r} {bg2!r} 1\n"
-    out = subprocess.run([exe], input=inp, capture_output=True, text=True, check=True).stdout.split()
-    return np.array([float(x) for x in out]).reshape(nmax + 1, nmax + 1)
-
-
-def _poisson_pf(lam, nmax):
-    p = np.array([np.exp(-lam) * lam ** i / factorial(i) for i in range(nmax + 1)])
-    return p / p.sum()
+def _pda(nmax, pf, bg, species):
+    pda = tttrlib.Pda(hist2d_nmax=int(nmax), hist2d_nmin=0,
+                      background_ch1=float(bg[0]), background_ch2=float(bg[1]), pF=np.asarray(pf).tolist())
+    for amplitude, p_ch1 in species:
+        pda.append(float(amplitude), float(p_ch1))
+    return np.asarray(pda.s1s2)
 
 
 class TestAgainstPam(unittest.TestCase):
+    """PAM's own S1/S2 matrices, recorded by ``gen_ab_pda_pam_reference.py``."""
 
-    def setUp(self):
-        if _pam_exe() is None:
-            self.skipTest("PAM PDA_histogram.cpp not available (needs ../chisurf/junk/PAM and a C++ compiler)")
+    @classmethod
+    def setUpClass(cls):
+        cls.ref = np.load(FIXTURE)
 
     def test_single_species(self):
-        nmax = 14
-        pf = _poisson_pf(5.0, nmax)
-        for p1 in (0.05, 0.3, 0.5, 0.95):
-            for bg1, bg2 in ((0.0, 0.0), (1.5, 0.8), (3.0, 3.0), (0.0, 2.2)):
-                with self.subTest(p_ch1=p1, bg=(bg1, bg2)):
-                    pda = tttrlib.Pda(hist2d_nmax=nmax, hist2d_nmin=0,
-                                      background_ch1=bg1, background_ch2=bg2, pF=pf.tolist())
-                    pda.append(1.0, p1)
-                    ref = _pam_s1s2(nmax, pf, p1, bg1, bg2)
-                    np.testing.assert_allclose(pda.s1s2, ref, rtol=0, atol=1e-15)
+        z = self.ref
+        for i, p1 in enumerate(z["single_p_ch1"]):
+            for j, bg in enumerate(z["single_bg"]):
+                with self.subTest(p_ch1=float(p1), bg=tuple(bg)):
+                    got = _pda(z["single_nmax"], z["single_pf"], bg, [(1.0, p1)])
+                    np.testing.assert_allclose(got, z["single_s1s2"][i, j], rtol=0, atol=1e-15)
 
     def test_mixture_is_the_weighted_sum_of_pam_species(self):
-        nmax = 16
-        pf = _poisson_pf(6.0, nmax)
-        amps, probs = [0.5, 0.3, 0.2], [0.2, 0.55, 0.9]
-        for bg1, bg2 in ((0.0, 0.0), (2.0, 1.0)):
-            with self.subTest(bg=(bg1, bg2)):
-                pda = tttrlib.Pda(hist2d_nmax=nmax, hist2d_nmin=0,
-                                  background_ch1=bg1, background_ch2=bg2, pF=pf.tolist())
-                for a, p in zip(amps, probs):
-                    pda.append(a, p)
-                ref = sum(a * _pam_s1s2(nmax, pf, p, bg1, bg2) for a, p in zip(amps, probs))
-                np.testing.assert_allclose(pda.s1s2, ref, rtol=0, atol=1e-15)
+        z = self.ref
+        amps, probs = z["mix_amps"], z["mix_p_ch1"]
+        for j, bg in enumerate(z["mix_bg"]):
+            with self.subTest(bg=tuple(bg)):
+                got = _pda(z["mix_nmax"], z["mix_pf"], bg, zip(amps, probs))
+                ref = sum(a * m for a, m in zip(amps, z["mix_species_s1s2"][j]))
+                np.testing.assert_allclose(got, ref, rtol=0, atol=1e-15)
 
     def test_a_non_poisson_pf(self):
         # a bimodal P(F): PAM takes it as given, so must the library
-        nmax = 12
-        pf = np.zeros(nmax + 1)
-        pf[3] = 0.4; pf[9] = 0.6
-        pda = tttrlib.Pda(hist2d_nmax=nmax, hist2d_nmin=0, background_ch1=0.7, background_ch2=0.4, pF=pf.tolist())
-        pda.append(1.0, 0.35)
-        np.testing.assert_allclose(pda.s1s2, _pam_s1s2(nmax, pf, 0.35, 0.7, 0.4), rtol=0, atol=1e-15)
+        z = self.ref
+        got = _pda(z["bimodal_nmax"], z["bimodal_pf"], z["bimodal_bg"], [(1.0, z["bimodal_p_ch1"])])
+        np.testing.assert_allclose(got, z["bimodal_s1s2"], rtol=0, atol=1e-15)
 
 
 class TestThreeColourPhysics(unittest.TestCase):

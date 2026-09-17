@@ -11,8 +11,8 @@ compared with something the code was *not* ported from:
 * dual-channel (DCBS)   -- FRETBursts ``Bursts.and_gate`` on two streams vs
                            ``burst_search_coincident``
 * CUSUM / SPRT          -- Zhang & Yang 2005 in NumPy (continuous exponential
-                           form) and PAM's discretised implementation run in
-                           Octave, behaviourally
+                           form) and PAM's discretised implementation
+                           (Octave), recorded fixture, behaviourally
 * Kalman                -- ChiSurf's ``KalmanBurstDetector`` (an independent
                            Python detector: bin, filter, extract) live
 * BOCPD                 -- Adams & MacKay 2007 with the plug-in Poisson
@@ -55,9 +55,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 FRETBURSTS_PY = os.path.join(ROOT, "benchmarks", ".venvs", "fretbursts", "bin", "python")
 HAVE_FRETBURSTS = os.path.exists(FRETBURSTS_PY)
-OCTAVE = shutil.which("octave")
-PAM_M = os.path.abspath(os.path.join(ROOT, "..", "chisurf", "junk", "PAM", "PAM.m"))
-HAVE_PAM = OCTAVE is not None and os.path.exists(PAM_M)
+CUSUM_PAM_FIXTURE = os.path.join(ROOT, "test", "data", "reference", "cusum_pam_reference.npz")
 MT_FIXTURE = os.path.join(ROOT, "test", "data", "reference", "maxtree_skimage_reference.npz")
 BB_FIXTURE = os.path.join(ROOT, "test", "data", "reference",
                           "bayesian_blocks_astropy_reference.npz")
@@ -307,46 +305,34 @@ class TestCusumSprtAgainstZhangYang(unittest.TestCase):
                     np.testing.assert_array_equal(got, ref)
                     self.assertGreater(len(got), 0)
 
-    @unittest.skipUnless(HAVE_PAM, "Octave and ../chisurf/junk/PAM/PAM.m needed")
-    def test_behaviourally_against_pam_in_octave(self):
-        """PAM (Schrimpf et al. 2018) discretises the same Zhang & Yang search
-        (geometric inter-photon pmf, alpha = 1/N, offset heuristics), so edges
-        can differ by a few photons; every PAM burst must be matched by one of
-        ours with Jaccard >= 0.85 in photons, and vice versa."""
-        src = open(PAM_M, encoding="utf-8", errors="replace").read().splitlines()
-        i0 = next(i for i, l in enumerate(src) if l.startswith("function [START,STOP] = CUSUM_burstsearch"))
-        i1 = next(i for i in range(i0 + 1, len(src)) if src[i].startswith("function BurstSearch_Preview"))
-        body = [l for l in src[i0 + 1:i1] if not l.startswith("global FileInfo")]
-        body = [l.replace("FileInfo.ClockPeriod", "ClockPeriod") for l in body]
-        with tempfile.TemporaryDirectory() as d:
-            with open(os.path.join(d, "pam_cusum_ref.m"), "w") as f:
-                f.write("function [START,STOP] = pam_cusum_ref(Photons,IB,IT,ClockPeriod)\n")
-                f.write("\n".join(body) + "\n")
-            for seed in range(3):
-                ticks, _ = bursty_stream(seed, two_channels=False)
-                np.savetxt(os.path.join(d, "photons.txt"), ticks, fmt="%d")
-                IB_khz, IT_khz = 3.0, 15.0
-                cmd = (f"Photons=load('photons.txt'); [S,E]=pam_cusum_ref(Photons,{IB_khz},{IT_khz},{RES}); "
-                       f"dlmwrite('out.txt',[S E],' ');")
-                subprocess.run([OCTAVE, "--no-gui", "-q", "--eval", cmd], cwd=d, check=True,
-                               capture_output=True, timeout=600)
-                pam = np.loadtxt(os.path.join(d, "out.txt"), dtype=np.int64, ndmin=2) - 1  # 1-based
-                tttr = make_tttr(ticks)
-                got = pairs(tttr.burst_search_cusum_sprt(20, IB_khz * 1e3, IT_khz / IB_khz, 0.05, 0.05))
-                pam = pam[(pam[:, 1] - pam[:, 0] + 1) >= 20]
+    def test_behaviourally_against_pam(self):
+        """PAM (Schrimpf et al. 2018; gitlab.com/PAM-PIE/PAM at 7319d15d,
+        ``CUSUM_burstsearch`` in PAM.m) discretises the same Zhang & Yang
+        search (geometric inter-photon pmf, alpha = 1/N, offset heuristics),
+        so edges can differ by a few photons; every PAM burst must be matched
+        by one of ours with Jaccard >= 0.85 in photons, and vice versa. PAM's
+        output was recorded in Octave by ``gen_ab_cusum_pam_reference.py``."""
+        z = np.load(CUSUM_PAM_FIXTURE)
+        IB_khz, IT_khz, res = float(z["IB_khz"]), float(z["IT_khz"]), float(z["resolution"])
 
-                def best_overlap(b, others):
-                    s, e = b
-                    ov = [(min(e, e2) - max(s, s2) + 1) / (max(e, e2) - min(s, s2) + 1)
-                          for s2, e2 in others if min(e, e2) >= max(s, s2)]
-                    return max(ov) if ov else 0.0
+        def best_overlap(b, others):
+            s, e = b
+            ov = [(min(e, e2) - max(s, s2) + 1) / (max(e, e2) - min(s, s2) + 1)
+                  for s2, e2 in others if min(e, e2) >= max(s, s2)]
+            return max(ov) if ov else 0.0
 
-                with self.subTest(seed=seed):
-                    self.assertGreater(len(pam), 0)
-                    for b in pam:
-                        self.assertGreaterEqual(best_overlap(b, got), 0.85, (b.tolist(), got.tolist()))
-                    for b in got:
-                        self.assertGreaterEqual(best_overlap(b, pam), 0.85, (b.tolist(), pam.tolist()))
+        for seed in z["seeds"]:
+            ticks = z[f"seed{seed}_ticks"]
+            pam = z[f"seed{seed}_pam_start_stop"]
+            tttr = make_tttr(ticks, resolution=res)
+            got = pairs(tttr.burst_search_cusum_sprt(20, IB_khz * 1e3, IT_khz / IB_khz, 0.05, 0.05))
+            pam = pam[(pam[:, 1] - pam[:, 0] + 1) >= 20]
+            with self.subTest(seed=int(seed)):
+                self.assertGreater(len(pam), 0)
+                for b in pam:
+                    self.assertGreaterEqual(best_overlap(b, got), 0.85, (b.tolist(), got.tolist()))
+                for b in got:
+                    self.assertGreaterEqual(best_overlap(b, pam), 0.85, (b.tolist(), pam.tolist()))
 
 
 # ---------------------------------------------------------------------------
