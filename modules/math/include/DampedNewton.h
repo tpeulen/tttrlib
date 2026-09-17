@@ -325,6 +325,23 @@ class DampedNewton {
    */
   double line_search_below = std::numeric_limits<double>::infinity();
   double last_decrement = std::numeric_limits<double>::infinity();  //!< of the last accepted step
+  /**
+   * \brief Adapt the damping by the GAIN RATIO instead of the fixed x4 / /10 schedule.
+   *
+   * The classic schedule shrinks `mu` only after a step accepted at full length, so a run that
+   * backtracks at every step -- which is what happens on a stiff problem -- never relaxes its damping and
+   * crawls. Nielsen's rule instead measures how well the quadratic model predicted the improvement,
+   * `rho = (F(x) - F(x+h)) / (L(0) - L(h))` with `L(0) - L(h) = h' (mu D h + g) / 2`, and sets
+   * `mu *= max(1/3, 1 - (2 rho - 1)^3)` on acceptance, `mu *= nu` with `nu` doubling on rejection
+   * (Madsen, Nielsen & Tingleff, *Methods for Non-Linear Least Squares Problems*, 2nd ed. 2004, section
+   * 3.2; Nielsen, *Damping parameter in Marquardt's method*, IMM-REP-1999-05).
+   *
+   * **Measured on ucfret's twelve-histogram CBM56 fixture (dim 170) and rejected there**: 397 steps against
+   * the classic schedule's 314, ending 3 nats lower. It is kept, off by default, so that the next person to
+   * suspect the damping rule finds the measurement instead of repeating it.
+   */
+  bool gain_ratio_damping = false;
+  double nu = 2.0;              //!< the rejection multiplier of that rule, doubling while it rejects
 
   /**
    * \brief One step. On acceptance `theta` is advanced in place.
@@ -362,9 +379,28 @@ class DampedNewton {
           r.decrement = alpha * gs;
           r.alpha = alpha;
           last_decrement = r.decrement;
-          //  a full step means the quadratic model was good; a backtracked one
-          //  means it was not, and the damping should not be relaxed for it
-          if (alpha == 1.0) mu = std::max(mu / mu_down, mu_min);
+          if (gain_ratio_damping) {
+            //  Nielsen's rule: how well did the quadratic model predict what the step actually bought?
+            //  L(0) - L(h) = h' (mu D h + g) / 2 for the damped system (A + mu D) h = g
+            double pred = 0.0;
+            for (std::size_t i = 0; i < n; ++i) {
+              const double hi = alpha * s[i];
+              pred += hi * (mu * diag[i] * hi + grad[i]);
+            }
+            pred *= 0.5;
+            const double rho = pred > 0.0 ? (f_old - f_new) / pred : -1.0;
+            if (rho > 0.0) {
+              const double t_ = 2.0 * rho - 1.0;
+              mu = std::max(mu * std::max(1.0 / 3.0, 1.0 - t_ * t_ * t_), mu_min);
+              nu = 2.0;
+            } else {
+              mu *= nu; nu *= 2.0;
+            }
+          } else if (alpha == 1.0) {
+            //  a full step means the quadratic model was good; a backtracked one
+            //  means it was not, and the damping should not be relaxed for it
+            mu = std::max(mu / mu_down, mu_min);
+          }
           r.mu = mu;
           return r;
         }
@@ -376,7 +412,7 @@ class DampedNewton {
         //  grid it is used on went from 51 steps to 97 (measured 2026-09-09).
         alpha *= 0.5;
       }
-      mu *= mu_up;
+      if (gain_ratio_damping) { mu *= nu; nu *= 2.0; } else { mu *= mu_up; }
     }
 
     //  the curvature direction failed: a plain gradient step must still descend
