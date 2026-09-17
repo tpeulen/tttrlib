@@ -79,6 +79,13 @@ PLUMBING = {
         "pto_classify_path", "pto_events", "pto_mark_sidecar", "pto_read_events", "pto_read_store",
         "pto_store", "pto_store_columns", "pto_store_groups", "pto_store_region", "pto_update_store",
         "is_floating", "is_false_value", "is_feature_enabled_by_env", "edge_less",
+        # ptolib 0.4.0's own container internals (thirdparty/ptolib/ptolib.h), re-exported
+        # by io_pto.h's `using pto::...` and PtoFileBase (`%rename(PtoFileBase) pto::File`
+        # in ext/python/Ptolib.i) -- data structures and format/codec internals, not
+        # analyses. `pack8`/`popcount64`/`spread8` are BitMask's own bit-packing helpers.
+        "Element", "Encoding", "ExprColumn", "ExpressionEngine", "Problem", "PtoFileBase",
+        "StoreOptions", "classify_by_extension", "codecs", "element_name", "has_codec",
+        "pack8", "popcount64", "split_encoding", "spread8", "store_format_version",
     },
     "the registry itself": {
         "AlgorithmDescriptor", "algorithm_capabilities", "algorithm_key", "algorithm_operations_json",
@@ -91,7 +98,7 @@ PLUMBING = {
     "runtime / build introspection": {
         "configure_openmp", "detect_features", "get_avx_compiled", "get_avx_enabled",
         "get_fma_enabled", "get_neon_compiled", "get_neon_enabled", "get_openmp_enabled",
-        "get_openmp_num_threads",
+        "get_openmp_num_threads", "simd_tier", "set_simd_tier",
     },
     "random sampling primitives (used by the simulator and PDA, not analyses)": {
         "sample_from_cdf", "weighted_choice",

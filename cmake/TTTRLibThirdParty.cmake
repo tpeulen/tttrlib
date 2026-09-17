@@ -100,6 +100,11 @@ endif()
 if(BUILD_PHOTON_HDF)
     target_compile_definitions(tttrlib_build_config INTERFACE BUILD_PHOTON_HDF)
 endif()
+# The TTTRLIB_WINDOWS_SHARED_BUILD define (kTttrlibBanner's dllexport/dllimport
+# switch) is set in the top-level CMakeLists.txt, not here -- this file is
+# INCLUDE()-d before TTTRLibModule.cmake sets TTTRLIB_MODULE_TYPE's default, so
+# checking it here would always see an empty/unset variable. See CMakeLists.txt
+# right after `INCLUDE(TTTRLibModule)`.
 # OpenMP belongs here because it is genuinely project-wide: the top-level
 # CMakeLists puts ${OpenMP_CXX_FLAGS} into CMAKE_CXX_FLAGS, so *every*
 # translation unit compiles with it, whichever module it ends up in. The link
