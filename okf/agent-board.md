@@ -1905,6 +1905,14 @@ retired so nobody works the same thing twice.)*
   - Touching: ndxplorer `ndxplorer/app/features/overlays.py`, `ndxplorer/app/features/overlays/`, `ndxplorer/tests/test_app/test_overlays.py`, Qt-free `core/overlay_curves.py`, `analysis/curve_fit_setup.py`, `core/equation_table.py`, `core/store_edits.py` with Qt call sites; emtk `widgets/data_table.py`.
   - Resume: chisurf okf/plugins/ndxplorer-emtk-port.md "Where to pick this up" / overlays (browser blocked on chisurf parameters needing IMP.bff).
 
+- **T-20260923-ndxafret · [ndxplorer+chisurf] ndX emtk port: Accurate FRET UI (what the ChiSurf-hosted window adds)**
+  - Status: ⏸ waiting (library API)
+  - Owner: opus-5.5/ndx-accurate-fret
+  - Opened: 2026-09-23 · Picked: 2026-09-23
+  - Why: tpeulen "ndx, where is accurate FRET?": the Accurate FRET toolbar, calibration save/load, MMFDB open and Global View publishing exist only in the Qt window ChiSurf's plugin decorates; the parity baseline had only standalone ndX. The algorithms move to tttrlib (T-20260923-afret), so the emtk side is a UI shell against a small calibrate() interface for now.
+  - Touching: ndxplorer `tools/parity/capture_qt.py` (chisurf host mode), `tools/parity/scenarios.json` + `features.md` (hosted scenarios only), `ndxplorer/app/features/accurate_fret.py` + `accurate_fret/`, `ndxplorer/app/capture.py` (hosted ops), `ndxplorer/app/features/__init__.py`, tests; chisurf `okf/plugins/ndxplorer-emtk-port.md`, `okf/log.md`. NOT touching calibration_bridge / accurate.py (T-20260923-afret owns them).
+  - Progress: baseline + UI shell done. ndxplorer 631955d (hosted Qt baseline), 20fac6b (emtk FRET menu, options/report/save-load, backend contract `fret_calibration.calibrate`; options, report text and calibration_io moved in from the plugin); chisurf f055570d8 (plugin uses them; its deletions were swept into b3a7525af). Waiting for the library API to wire the backend. Resume: chisurf okf/plugins/ndxplorer-emtk-port.md "Accurate FRET".
+
 - **T-20260923-04 · [ndxplorer+emtk] ndX emtk port: settings group (menus Settings/View/Help, axis settings, performance, report tool)**
   - Status: ✅ done
   - Owner: opus-5.5/ndx-settings
