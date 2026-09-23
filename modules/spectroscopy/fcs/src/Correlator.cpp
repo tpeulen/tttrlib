@@ -393,15 +393,15 @@ static void ccf_wahl_correlate_avx(
         size_t start_1, size_t end_1, size_t p, size_t end_2,
         size_t i_casc, size_t n_bins, std::vector<double> &corr,
         const unsigned long long *t1, const double *w1,
-        const unsigned long long *t2, const double *w2, size_t offset
+        const unsigned long long *t2, const double *w2, unsigned long long offset
 ) {
     size_t index;
     for (size_t i1 = start_1; i1 < end_1; i1++) {
         if (w1[i1] == 0) continue;
 
         double w1_val = w1[i1];
-        size_t edge_l = t1[i1] + offset;
-        size_t edge_r = edge_l + n_bins;
+        unsigned long long edge_l = t1[i1] + offset;
+        unsigned long long edge_r = edge_l + n_bins;
 
         // Broadcast w1[i1] to all lanes of AVX register
         __m256d v_w1 = _mm256_set1_pd(w1_val);
@@ -461,14 +461,14 @@ static void ccf_wahl_correlate_neon(
         size_t start_1, size_t end_1, size_t p, size_t end_2,
         size_t i_casc, size_t n_bins, std::vector<double> &corr,
         const unsigned long long *t1, const double *w1,
-        const unsigned long long *t2, const double *w2, size_t offset
+        const unsigned long long *t2, const double *w2, unsigned long long offset
 ) {
     size_t index;
     for (size_t i1 = start_1; i1 < end_1; i1++) {
         if (w1[i1] == 0) continue;
         double w1_val = w1[i1];
-        size_t edge_l = t1[i1] + offset;
-        size_t edge_r = edge_l + n_bins;
+        unsigned long long edge_l = t1[i1] + offset;
+        unsigned long long edge_r = edge_l + n_bins;
 
         float64x2_t v_w1 = vdupq_n_f64(w1_val);
 
@@ -516,8 +516,8 @@ inline void ccf_wahl_correlate(
     end_1 = std::min(nt1, end_1);
     end_2 = std::min(nt2, end_2);
     auto scale = 1ULL << i_casc;
-    size_t tau_offset = taus[i_casc * n_bins];
-    size_t offset = tau_offset / scale;
+    // macro times, not indices: size_t is 32 bit on wasm32 and truncates them
+    unsigned long long offset = taus[i_casc * n_bins] / scale;
 
     p = start_2;
 
@@ -543,8 +543,8 @@ inline void ccf_wahl_correlate(
         // Scalar version (used when AVX disabled at runtime or non-x86 build)
         for (i1 = start_1; i1 < end_1; i1++) {
             if (w1[i1] == 0) continue;
-            size_t edge_l = t1[i1] + offset;
-            size_t edge_r = edge_l + n_bins;
+            unsigned long long edge_l = t1[i1] + offset;
+            unsigned long long edge_r = edge_l + n_bins;
             for (i2 = p; i2 < end_2; i2++) {
                 if (t2[i2] > edge_r) break;
                 if (t2[i2] > edge_l) {
@@ -611,7 +611,7 @@ if (is_verbose()) {
             const double* w2 = s2.weights.data();
             // same offset computation as ccf_wahl_correlate
             auto scale = 1ULL << i_casc;
-            size_t offset = ((size_t) taus[i_casc * n_bins]) / scale;
+            unsigned long long offset = taus[i_casc * n_bins] / scale;
             size_t block = (nt1 + n_threads - 1) / n_threads;
             std::vector<std::vector<double>> local(n_threads);
             std::vector<std::thread> workers;
@@ -1196,16 +1196,16 @@ void ccf_wahl_species_block(
 ) {
     const size_t n_pair = n_species * n_species;
     const size_t scale = (size_t) 1 << i_casc;
-    const size_t offset = (size_t) taus[i_casc * n_bins] / scale;
+    const unsigned long long offset = taus[i_casc * n_bins] / scale;
     size_t p = start_2;
     for (size_t i1 = start_1; i1 < end_1; i1++) {
         const double* wa = w + i1 * n_species;
-        const size_t edge_l = (size_t) t[i1] + offset;
-        const size_t edge_r = edge_l + n_bins;
+        const unsigned long long edge_l = t[i1] + offset;
+        const unsigned long long edge_r = edge_l + n_bins;
         for (size_t i2 = p; i2 < end_2; i2++) {
-            if ((size_t) t[i2] > edge_r) break;
-            if ((size_t) t[i2] > edge_l) {
-                const size_t index = (size_t) t[i2] - edge_l + i_casc * n_bins;
+            if (t[i2] > edge_r) break;
+            if (t[i2] > edge_l) {
+                const size_t index = (size_t) (t[i2] - edge_l) + i_casc * n_bins;
                 const double* wb = w + i2 * n_species;
                 double* c = corr + index * n_pair;
                 for (size_t a = 0; a < n_species; a++) {
@@ -1240,7 +1240,7 @@ void ccf_wahl_species_matrix(
                                    taus, corr.data(), t.data(), w.data());
         } else {
             const size_t scale = (size_t) 1 << i_casc;
-            const size_t offset = (size_t) taus[i_casc * n_bins] / scale;
+            const unsigned long long offset = taus[i_casc * n_bins] / scale;
             const size_t block = (n + n_threads - 1) / n_threads;
             const unsigned long long* tp = t.data();
             const double* wp = w.data();
