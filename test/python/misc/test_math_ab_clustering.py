@@ -10,13 +10,20 @@ cannot pass:
 * scikit-learn's `NearestNeighbors` for the k-th neighbour distance,
 * SciPy's `minimum_spanning_tree` for the MST weight multiset (an MST is not
   unique under ties, its weight multiset is),
-* scikit-learn's `HDBSCAN` for the condense-and-label half -- fed the *same*
-  single-linkage tree, both sides must return the same partition, and they do;
+* scikit-learn's `HDBSCAN` for the condense-select-and-label half -- fed the
+  *same* single-linkage tree, both sides must return the same partition and the
+  same membership strengths, under either selection policy and every
+  combination of its options, and they do;
   the full pipelines are compared too, and there the only admissible difference
   is which of several equal-weight MSTs each side picked (sklearn sorts its MST
   with an unstable `argsort`, so its tie order is not reproducible),
 * scikit-learn's `KMeans(algorithm="lloyd")` from the same initial centres, and
   as a fixed-point check from our final centres,
+* the standalone `hdbscan` package (McInnes, Healy & Astels — the reference
+  implementation of the 2013 paper) for **cluster persistence**, from a
+  recorded fixture, because scikit-learn does not report persistence at all and
+  on Apple silicon the conda-forge build of that package is x86_64 and will not
+  import,
 * ChiSurf's pure-Python `_hdbscan.py` / `_kmeans.py` (the implementations the
   kernels were ported from) bit for bit, where ChiSurf is importable. Those
   tests skip loudly (their names say `chisurf`) when it is not.
@@ -82,23 +89,33 @@ HAVE_CHISURF = _CHISURF is not None
 # ---------------------------------------------------------------------------
 
 def sorted_mst(x, k, alpha=1.0):
-    """tttrlib's MST as (low, high, weight), in the total order the linkage wants."""
+    """tttrlib's MST split into (source, target, weight) columns.
+
+    The kernel returns the rows in the total order already; this only splits and
+    retypes them. The lexsort that used to be here is kept below, as an
+    assertion, because "the order the linkage wants" is a contract and a silent
+    regression to Boruvka's round order would change the dendrogram.
+    """
     mst = np.asarray(tttrlib.mutual_reachability_mst(x, k, alpha))
     lo = np.minimum(mst[:, 0], mst[:, 1])
     hi = np.maximum(mst[:, 0], mst[:, 1])
-    order = np.lexsort((hi, lo, mst[:, 2]))
-    return (np.ascontiguousarray(lo[order].astype(np.int64)),
-            np.ascontiguousarray(hi[order].astype(np.int64)),
-            np.ascontiguousarray(mst[order, 2].astype(np.float64)))
+    assert np.array_equal(np.lexsort((hi, lo, mst[:, 2])), np.arange(len(mst))), \
+        "mutual_reachability_mst stopped returning its edges in the total order"
+    return (np.ascontiguousarray(mst[:, 0].astype(np.int64)),
+            np.ascontiguousarray(mst[:, 1].astype(np.int64)),
+            np.ascontiguousarray(mst[:, 2].astype(np.float64)))
 
 
 def eom_select(parent, child, value, size, n_points):
     """Excess-of-mass cluster selection with allow_single_cluster=False.
 
-    Cluster selection is deliberately *not* in the kernel (it is policy), so the
-    reference policy is written out here: stability = sum over a cluster's rows
-    of (lambda - lambda_birth) * size; bottom-up, a cluster is selected when it
-    is at least as stable as its selected descendants, and the root never is.
+    `tttrlib.hdbscan_select_clusters` does this; this is the third opinion it is
+    held to. Written straight off the definition -- stability = sum over a
+    cluster's rows of (lambda - lambda_birth) * size; bottom-up, a cluster is
+    selected when it is at least as stable as its selected descendants, and the
+    root never is -- with dicts and no attempt to be quick, so that a shared
+    mistake between the kernel and scikit-learn would still have to survive
+    this.
     """
     nodes = np.unique(np.concatenate([[n_points], child[child >= n_points]]))
     birth = {int(n_points): 0.0}
@@ -138,21 +155,71 @@ def eom_select(parent, child, value, size, n_points):
     return out
 
 
-def labels_from_edges(src, tgt, w, n_points, min_cluster_size):
-    """tttrlib condense -> EOM selection -> tttrlib label read-off -> flat labels."""
+def labels_from_edges(src, tgt, w, n_points, min_cluster_size,
+                      method="eom", allow_single_cluster=False, epsilon=0.0,
+                      max_cluster_size=0):
+    """tttrlib condense -> select -> label read-off -> flat labels and strengths.
+
+    All four kernels, so these tests fail if any of them drifts.
+    """
     parent, child, value, size = tttrlib.hdbscan_condensed_tree(
         src, tgt, w, min_cluster_size)
-    selected = eom_select(parent, child, value, size, n_points)
+    selected = tttrlib.hdbscan_select_clusters(
+        parent, child, value, size, method, allow_single_cluster, epsilon,
+        max_cluster_size)
     roots = np.asarray(tttrlib.hdbscan_label_points(parent, child, selected, n_points))
+    strength = np.asarray(
+        tttrlib.hdbscan_membership_strengths(parent, child, value, roots))
     labels = np.full(n_points, -1, dtype=np.int64)
-    for i, r in enumerate(np.unique(roots[roots != n_points])):
-        labels[roots == r] = i
-    return labels
+    claimed = roots != n_points
+    if claimed.any():
+        for i, r in enumerate(np.unique(roots[claimed])):
+            labels[roots == r] = i
+    elif allow_single_cluster and selected[n_points]:
+        point_lambda = np.zeros(n_points)
+        rows = child < n_points
+        point_lambda[child[rows]] = value[rows]
+        threshold = (1.0 / epsilon if epsilon != 0.0
+                     else value[parent == n_points].max())
+        labels[point_lambda >= threshold] = 0
+    strength[labels < 0] = 0.0
+    return labels, strength
+
+
+def labels_strength_persistence(src, tgt, w, n_points, min_cluster_size, method):
+    """Labels, membership strengths and per-cluster persistence from an edge list.
+
+    Persistence is `stability / (points in the cluster * max lambda)` — the
+    normalisation that makes the mass excess-of-mass optimises comparable
+    between clusters of different sizes, and what the reference implementation
+    reports as `cluster_persistence_`.
+    """
+    labels, strength = labels_from_edges(src, tgt, w, n_points, min_cluster_size,
+                                         method)
+    parent, child, value, size = tttrlib.hdbscan_condensed_tree(
+        src, tgt, w, min_cluster_size)
+    stability = np.asarray(
+        tttrlib.hdbscan_cluster_stability(parent, child, value, size))
+    roots = np.asarray(tttrlib.hdbscan_label_points(
+        parent, child,
+        tttrlib.hdbscan_select_clusters(parent, child, value, size, method,
+                                        False, 0.0, 0),
+        n_points))
+    n_clusters = int(labels.max()) + 1
+    persistence = np.ones(n_clusters)
+    max_lambda = float(value.max())
+    order = np.unique(roots[roots != n_points])
+    for label in range(n_clusters):
+        in_cluster = int((labels == label).sum())
+        if np.isinf(max_lambda) or max_lambda == 0.0 or in_cluster == 0:
+            continue
+        persistence[label] = stability[order[label]] / (in_cluster * max_lambda)
+    return labels, strength, persistence
 
 
 def tttrlib_hdbscan(x, min_cluster_size, min_samples):
     src, tgt, w = sorted_mst(x, min_samples)
-    return labels_from_edges(src, tgt, w, len(x), min_cluster_size)
+    return labels_from_edges(src, tgt, w, len(x), min_cluster_size)[0]
 
 
 def same_partition(a, b):
@@ -259,20 +326,36 @@ class TestHdbscanAgainstSklearn(unittest.TestCase):
                 np.array(w, dtype=np.float64))
 
     def test_condense_and_label_reproduce_sklearn_from_its_own_tree(self):
-        """The decisive comparison: hand tttrlib's condense + EOM + label the
+        """The decisive comparison: hand tttrlib's condense + select + label the
         exact single-linkage tree sklearn built, and require sklearn's labels.
-        This isolates the kernels under test from the MST tie order."""
+        This isolates the kernels under test from the MST tie order.
+
+        Isolating them matters most under leaf selection: it cuts the tree into
+        many small clusters, so one differently-broken tie between two equal
+        mutual-reachability weights moves a whole fragment and drops the
+        end-to-end agreement to an ARI around 0.5 while *these* kernels are
+        still exact. Ties are not rare -- a mutual-reachability weight is
+        usually a core distance, and one core distance is the weight of every
+        edge it dominates."""
         for name, x in self.sets.items():
             for mcs, ms in HDBSCAN_SETTINGS:
-                with self.subTest(data=name, min_cluster_size=mcs, min_samples=ms):
-                    est = SkHDBSCAN(min_cluster_size=mcs, min_samples=ms).fit(x)
-                    slt = getattr(est, "_single_linkage_tree_", None)
-                    if slt is None:
-                        self.skipTest("sklearn no longer exposes _single_linkage_tree_")
-                    src, tgt, w = self.edges_from_single_linkage(slt, len(x))
-                    ours = labels_from_edges(src, tgt, w, len(x), mcs)
-                    self.assertTrue(same_partition(ours, est.labels_),
-                                    "ARI %.4f" % adjusted_rand_score(ours, est.labels_))
+                for method in ("eom", "leaf"):
+                    with self.subTest(data=name, min_cluster_size=mcs,
+                                      min_samples=ms, method=method):
+                        est = SkHDBSCAN(min_cluster_size=mcs, min_samples=ms,
+                                        cluster_selection_method=method).fit(x)
+                        slt = getattr(est, "_single_linkage_tree_", None)
+                        if slt is None:
+                            self.skipTest(
+                                "sklearn no longer exposes _single_linkage_tree_")
+                        src, tgt, w = self.edges_from_single_linkage(slt, len(x))
+                        ours, strength = labels_from_edges(src, tgt, w, len(x), mcs,
+                                                           method)
+                        self.assertTrue(
+                            same_partition(ours, est.labels_),
+                            "ARI %.4f" % adjusted_rand_score(ours, est.labels_))
+                        np.testing.assert_allclose(strength, est.probabilities_,
+                                                   rtol=0, atol=1e-12)
 
     def test_sklearn_downstream_reproduces_ours_from_our_tree(self):
         """The mirror image: sklearn's condense/select/label on tttrlib's MST
@@ -294,7 +377,7 @@ class TestHdbscanAgainstSklearn(unittest.TestCase):
                     edges["distance"] = w
                     theirs = tree_to_labels(make_single_linkage(edges), mcs,
                                             "eom", False, 0.0, None)[0]
-                    ours = labels_from_edges(src, tgt, w, len(x), mcs)
+                    ours = labels_from_edges(src, tgt, w, len(x), mcs)[0]
                     self.assertTrue(same_partition(ours, theirs))
 
     def test_full_pipeline_agrees_up_to_mst_ties(self):
@@ -316,6 +399,175 @@ class TestHdbscanAgainstSklearn(unittest.TestCase):
                     exact += same_partition(ours, theirs)
         self.assertGreaterEqual(exact, total // 3,
                                 "only %d of %d partitions exact" % (exact, total))
+
+
+@unittest.skipUnless(HAVE_SKLEARN, "scikit-learn not installed")
+class TestClusterSelectionAgainstSklearn(unittest.TestCase):
+    """`hdbscan_select_clusters` and `hdbscan_membership_strengths`.
+
+    Selection is the step that decides how many clusters there are, so it is
+    also the step where being *nearly* right is invisible: a wrong policy still
+    returns a plausible partition. It is therefore swept over every option
+    scikit-learn has -- both methods, `allow_single_cluster`, three epsilons,
+    `max_cluster_size` -- on both sides of the same spanning tree, and the
+    membership strengths are compared with it, not just the labels.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.sets = {k: np.ascontiguousarray(v, dtype=np.float64)
+                    for k, v in ground_truth_sets().items()}
+        # Duplicated points make the merge distance zero and the lambda
+        # infinite, which is the branch where a strength is defined as 1.
+        rng = np.random.default_rng(11)
+        cls.sets["duplicates"] = np.repeat(rng.normal(size=(60, 2)), 4, axis=0)
+
+    def sklearn_downstream(self, src, tgt, w, mcs, method, allow, epsilon, max_size):
+        """sklearn's own condense/select/label on the same MST edge list."""
+        try:
+            import sklearn.cluster._hdbscan.hdbscan as skh
+        except Exception:
+            self.skipTest("sklearn private HDBSCAN helpers not available")
+        edges = np.empty(len(w), dtype=skh.MST_edge_dtype)
+        edges["current_node"] = src
+        edges["next_node"] = tgt
+        edges["distance"] = w
+        return skh.tree_to_labels(skh.make_single_linkage(edges), mcs, method,
+                                  allow, epsilon,
+                                  None if max_size == 0 else max_size)
+
+    def test_every_policy_reproduces_sklearn(self):
+        for name, x in self.sets.items():
+            for mcs, ms in HDBSCAN_SETTINGS:
+                src, tgt, w = sorted_mst(x, ms)
+                for method in ("eom", "leaf"):
+                    for allow in (False, True):
+                        for epsilon in (0.0, 0.5, 1.5):
+                            max_sizes = (0, 40) if method == "eom" else (0,)
+                            for max_size in max_sizes:
+                                with self.subTest(data=name, min_cluster_size=mcs,
+                                                  min_samples=ms, method=method,
+                                                  allow_single_cluster=allow,
+                                                  epsilon=epsilon,
+                                                  max_cluster_size=max_size):
+                                    ours, strength = labels_from_edges(
+                                        src, tgt, w, len(x), mcs, method, allow,
+                                        epsilon, max_size)
+                                    theirs, their_strength = self.sklearn_downstream(
+                                        src, tgt, w, mcs, method, allow, epsilon,
+                                        max_size)
+                                    self.assertTrue(
+                                        same_partition(ours, theirs),
+                                        "ARI %.4f" % adjusted_rand_score(ours, theirs))
+                                    np.testing.assert_allclose(
+                                        strength, their_strength, rtol=0, atol=1e-12)
+
+    def test_the_kernel_matches_the_definition_written_out_in_python(self):
+        """The kernel against `eom_select` above -- the same mathematics with
+        dicts and no cleverness, so a bug shared with scikit-learn would still
+        have to survive an implementation that never saw scikit-learn."""
+        for name, x in self.sets.items():
+            for mcs, ms in HDBSCAN_SETTINGS:
+                with self.subTest(data=name, min_cluster_size=mcs, min_samples=ms):
+                    src, tgt, w = sorted_mst(x, ms)
+                    parent, child, value, size = tttrlib.hdbscan_condensed_tree(
+                        src, tgt, w, mcs)
+                    reference = eom_select(parent, child, value, size, len(x))
+                    ours = np.asarray(tttrlib.hdbscan_select_clusters(
+                        parent, child, value, size, "eom", False, 0.0, 0))
+                    np.testing.assert_array_equal(ours[:len(reference)], reference)
+                    self.assertFalse(ours[len(reference):].any())
+
+    def test_the_convenience_wrapper_is_the_pipeline(self):
+        """`tttrlib.hdbscan` must be exactly the five calls, not a second
+        implementation that can drift from them."""
+        for name, x in self.sets.items():
+            for method in ("eom", "leaf"):
+                with self.subTest(data=name, method=method):
+                    result = tttrlib.hdbscan(x, 10, 5, 1.0, method)
+                    src, tgt, w = sorted_mst(x, 5)
+                    labels, strength = labels_from_edges(src, tgt, w, len(x), 10, method)
+                    np.testing.assert_array_equal(result.labels, labels)
+                    np.testing.assert_array_equal(result.probabilities, strength)
+
+
+class TestPersistenceAgainstTheReferenceImplementation(unittest.TestCase):
+    """`hdbscan_cluster_stability`, against the `hdbscan` package's
+    `cluster_persistence_`, from `test/data/reference/`.
+
+    Recorded rather than live: scikit-learn reports no persistence, and the
+    package that does cannot be imported on this platform (its conda-forge
+    build is x86_64). `gen_math_ab_clustering_reference.py` regenerates the
+    fixture and says how. The recorded MST travels with the answers, so the
+    comparison is on one spanning tree and the tie order cannot enter — and
+    the first assertion below is that today's kernel still produces that tree.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "..", "..", "data", "reference",
+                            "math_ab_clustering_reference.npz")
+        if not os.path.exists(path):
+            raise unittest.SkipTest("clustering reference fixture not recorded")
+        cls.ref = np.load(path)
+        cls.tags = [str(t) for t in cls.ref["tags"]]
+
+    def test_the_recorded_spanning_tree_is_still_the_one_we_build(self):
+        """The fixture is only a same-tree comparison while this holds."""
+        for name, x in ground_truth_sets().items():
+            for mcs, ms in HDBSCAN_SETTINGS:
+                tag = "%s_%d_%d_eom" % (name.replace("+", "_"), mcs, ms)
+                if tag not in self.tags:
+                    continue
+                with self.subTest(data=name, min_cluster_size=mcs, min_samples=ms):
+                    src, tgt, w = sorted_mst(np.ascontiguousarray(x, dtype=np.float64), ms)
+                    ours = np.column_stack([src, tgt, w])
+                    np.testing.assert_allclose(ours, self.ref["edges_" + tag],
+                                               rtol=0, atol=0)
+
+    def test_persistence_matches_the_reference(self):
+        for tag in self.tags:
+            with self.subTest(case=tag):
+                method = tag.rsplit("_", 1)[1]
+                edges = self.ref["edges_" + tag]
+                mcs = int(self.ref["min_cluster_size_" + tag])
+                n_points = len(edges) + 1
+                labels, strength, persistence = labels_strength_persistence(
+                    np.ascontiguousarray(edges[:, 0].astype(np.int64)),
+                    np.ascontiguousarray(edges[:, 1].astype(np.int64)),
+                    np.ascontiguousarray(edges[:, 2]),
+                    n_points, mcs, method)
+                theirs = self.ref["labels_" + tag]
+                self.assertTrue(same_partition(labels, theirs),
+                                "ARI %.4f" % adjusted_rand_score(labels, theirs))
+                np.testing.assert_allclose(strength,
+                                           self.ref["probabilities_" + tag],
+                                           rtol=0, atol=1e-12)
+                np.testing.assert_allclose(persistence,
+                                           self.ref["persistence_" + tag],
+                                           rtol=0, atol=1e-12)
+
+    def test_the_duplicated_point_case_is_in_the_fixture(self):
+        """Duplicates make the maximum lambda infinite and persistence
+        undefined; both sides answer 1.0 by convention, and a fixture without
+        them would not be holding anyone to that."""
+        duplicate_cases = [t for t in self.tags if t.startswith("duplicates_")]
+        self.assertTrue(duplicate_cases)
+        for tag in duplicate_cases:
+            self.assertTrue(np.all(self.ref["persistence_" + tag] == 1.0),
+                            "%s: the infinite-lambda convention changed" % tag)
+
+    def test_the_convenience_wrapper_reports_the_same_persistence(self):
+        for name, x in ground_truth_sets().items():
+            x = np.ascontiguousarray(x, dtype=np.float64)
+            for method in ("eom", "leaf"):
+                with self.subTest(data=name, method=method):
+                    result = tttrlib.hdbscan(x, 10, 5, 1.0, method)
+                    src, tgt, w = sorted_mst(x, 5)
+                    _, _, persistence = labels_strength_persistence(
+                        src, tgt, w, len(x), 10, method)
+                    np.testing.assert_array_equal(result.persistence, persistence)
 
 
 # ---------------------------------------------------------------------------

@@ -173,69 +173,16 @@ def kmeanspp_seed(X, n_clusters, uniforms):
 
 # --------------------------------------------------------------------------- run
 
-def eom_select(parent, child, value, size, n_points):
-    """Excess-of-mass cluster selection, allow_single_cluster=False -- the policy
-    the kernel deliberately leaves to the caller; verbatim the validated copy in
-    test/python/misc/test_math_ab_clustering.py (identical partitions to sklearn
-    from the same tree)."""
-    parent = np.asarray(parent); child = np.asarray(child)
-    value = np.asarray(value); size = np.asarray(size)
-    nodes = np.unique(np.concatenate([[n_points], child[child >= n_points]]))
-    birth = {int(n_points): 0.0}
-    for c, v in zip(child, value):
-        if c >= n_points:
-            birth[int(c)] = float(v)
-    stability = {int(c): 0.0 for c in nodes}
-    for p, v, s_ in zip(parent, value, size):
-        stability[int(p)] += (float(v) - birth[int(p)]) * float(s_)
-    children = {int(c): [] for c in nodes}
-    for p, c in zip(parent, child):
-        if c >= n_points:
-            children[int(p)].append(int(c))
-    selected = {}
-    for c in sorted(int(c) for c in nodes)[::-1]:
-        if c == n_points:
-            selected[c] = False
-            continue
-        if not children[c]:
-            selected[c] = True
-            continue
-        sub = sum(stability[k] for k in children[c])
-        if sub > stability[c]:
-            stability[c] = sub
-            selected[c] = False
-        else:
-            selected[c] = True
-            stack = list(children[c])
-            while stack:
-                k = stack.pop()
-                selected[k] = False
-                stack.extend(children[k])
-    out = np.zeros(int(parent.max()) + 1, dtype=np.uint8)
-    for k, v in selected.items():
-        if v:
-            out[k] = 1
-    return out
-
-
 def hdbscan_labels(x, min_cluster_size, k):
-    """core distances -> mutual-reachability MST -> (low, high, weight) in the
-    total order the linkage wants -> condensed tree -> EOM -> labels."""
-    n = x.shape[0]
-    mst = np.asarray(tttrlib.mutual_reachability_mst(x, k, 1.0))
-    lo = np.minimum(mst[:, 0], mst[:, 1])
-    hi = np.maximum(mst[:, 0], mst[:, 1])
-    order = np.lexsort((hi, lo, mst[:, 2]))
-    src = np.ascontiguousarray(lo[order].astype(np.int64))
-    tgt = np.ascontiguousarray(hi[order].astype(np.int64))
-    w = np.ascontiguousarray(mst[order, 2].astype(np.float64))
-    parent, child, value, size = tttrlib.hdbscan_condensed_tree(src, tgt, w, min_cluster_size)
-    selected = eom_select(parent, child, value, size, n)
-    roots = np.asarray(tttrlib.hdbscan_label_points(parent, child, selected, n))
-    labels = np.full(n, -1, dtype=np.int64)
-    for i, r in enumerate(np.unique(roots[roots != n])):
-        labels[roots == r] = i
-    return labels
+    """The whole pipeline: core distances -> mutual-reachability MST ->
+    condensed tree -> excess-of-mass selection -> labels.
+
+    This used to carry a pure-Python excess-of-mass pass, because the kernel for
+    it did not exist; timing it against sklearn therefore timed a Python loop
+    against Cython. `tttrlib.hdbscan` is the same five calls with the selection
+    compiled, which is what a caller writes now.
+    """
+    return tttrlib.hdbscan(x, min_cluster_size, k).labels
 
 
 def main():

@@ -14,13 +14,15 @@ bit-for-bit from ChiSurf and validated against scikit-learn:
     the kernel draws no randomness. From the same seed it lands on the same
     fixed point as scikit-learn's ``KMeans(algorithm="lloyd")`` to 1e-14.
 
-**HDBSCAN** (Campello, Moulavi & Sander 2013)
-    Density-based, no ``k``: ``core_distances`` → ``mutual_reachability_mst`` →
-    ``hdbscan_condensed_tree`` → *cluster selection* → ``hdbscan_label_points``.
-    The selection step (excess of mass) is deliberately **not** in the kernel:
-    it is policy — which clusters to keep — and different tools make different
-    choices, so it lives in the caller. Fed either side's tree, tttrlib and
-    scikit-learn's ``HDBSCAN`` produce identical partitions.
+**HDBSCAN** (`tttrlib.hdbscan`, Campello, Moulavi & Sander 2013)
+    Density-based, no ``k``. One call runs the whole pipeline —
+    ``core_distances`` → ``mutual_reachability_mst`` →
+    ``hdbscan_condensed_tree`` → ``hdbscan_select_clusters`` →
+    ``hdbscan_label_points`` → ``hdbscan_membership_strengths`` — and those
+    kernels stay separate so a caller with its own cluster-selection policy can
+    step in between them. Fed either side's tree, tttrlib and scikit-learn's
+    ``HDBSCAN`` produce identical partitions and identical membership
+    strengths, under excess-of-mass and leaf selection alike.
 
 This example simulates two FRET populations plus noise bursts and runs both.
 """
@@ -73,72 +75,34 @@ labels_km = np.asarray(labels_km)
 print(f"k-means: inertia {stats[0]:.1f}, {int(stats[1])} Lloyd sweeps in the winning restart")
 
 # %%
-# HDBSCAN: the kernels plus the excess-of-mass selection policy
-# --------------------------------------------------------------
-def eom_select(parent, child, value, size, n_points):
-    """Excess-of-mass selection, allow_single_cluster=False (the sklearn/hdbscan
-    policy). Stability = sum over a cluster's rows of (lambda - lambda_birth) *
-    size; bottom-up, keep a cluster when it beats its selected descendants."""
-    parent = np.asarray(parent); child = np.asarray(child)
-    value = np.asarray(value); size = np.asarray(size)
-    nodes = np.unique(np.concatenate([[n_points], child[child >= n_points]]))
-    birth = {int(n_points): 0.0}
-    for c, v in zip(child, value):
-        if c >= n_points:
-            birth[int(c)] = float(v)
-    stability = {int(c): 0.0 for c in nodes}
-    for p, v, s_ in zip(parent, value, size):
-        stability[int(p)] += (float(v) - birth[int(p)]) * float(s_)
-    children = {int(c): [] for c in nodes}
-    for p, c in zip(parent, child):
-        if c >= n_points:
-            children[int(p)].append(int(c))
-    selected = {}
-    for c in sorted(int(c) for c in nodes)[::-1]:
-        if c == n_points:
-            selected[c] = False
-            continue
-        if not children[c]:
-            selected[c] = True
-            continue
-        sub = sum(stability[q] for q in children[c])
-        if sub > stability[c]:
-            stability[c] = sub
-            selected[c] = False
-        else:
-            selected[c] = True
-            stack = list(children[c])
-            while stack:
-                q = stack.pop()
-                selected[q] = False
-                stack.extend(children[q])
-    out = np.zeros(int(parent.max()) + 1, dtype=np.uint8)
-    for q, v in selected.items():
-        if v:
-            out[q] = 1
-    return out
+# HDBSCAN, and what it says about the bursts it is unsure of
+# ----------------------------------------------------------
+# ``min_cluster_size`` is the smallest population worth calling one, and
+# ``min_samples`` how conservative the density estimate is. Nothing else is
+# chosen: the number of clusters comes out of the data, and a burst that
+# belongs to no population comes back labelled ``-1`` rather than forced into
+# the nearest one.
+#
+# ``probabilities`` is the membership strength — the density at which a burst
+# left its cluster over the density at which that cluster died. Thresholding it
+# is how one drops the bursts on a population's edge before pooling photons,
+# which is usually what a burst-wise classification is *for*.
+result = tttrlib.hdbscan(Xs, min_cluster_size=25, min_samples=10)
+labels_hd, strength = result.labels, result.probabilities
+print(f"HDBSCAN: {labels_hd.max() + 1} clusters, "
+      f"{np.sum(labels_hd < 0)} bursts labelled noise, "
+      f"{np.sum(strength > 0.9)} core members (strength > 0.9)")
 
+# %%
+# The other selection policy in the same paper, ``"leaf"``, follows the density
+# peaks rather than the mass: where excess of mass keeps a broad population
+# whole, leaf selection splits it at its sub-peaks. Neither is more correct —
+# on populations as separated as these they agree, and on a table with a
+# shoulder they will not.
+labels_leaf = tttrlib.hdbscan(Xs, 25, 10, cluster_selection_method="leaf").labels
+print(f"leaf selection: {labels_leaf.max() + 1} clusters, "
+      f"{np.sum(labels_leaf < 0)} noise")
 
-def hdbscan_labels(x, min_cluster_size, min_samples):
-    n = x.shape[0]
-    mst = np.asarray(tttrlib.mutual_reachability_mst(x, min_samples, 1.0))
-    # (low, high, weight) in the total order the single linkage wants
-    lo, hi = np.minimum(mst[:, 0], mst[:, 1]), np.maximum(mst[:, 0], mst[:, 1])
-    order = np.lexsort((hi, lo, mst[:, 2]))
-    src = np.ascontiguousarray(lo[order].astype(np.int64))
-    tgt = np.ascontiguousarray(hi[order].astype(np.int64))
-    w = np.ascontiguousarray(mst[order, 2].astype(np.float64))
-    parent, child, value, size = tttrlib.hdbscan_condensed_tree(src, tgt, w, min_cluster_size)
-    selected = eom_select(parent, child, value, size, n)
-    roots = np.asarray(tttrlib.hdbscan_label_points(parent, child, selected, n))
-    labels = np.full(n, -1, dtype=np.int64)
-    for i, r in enumerate(np.unique(roots[roots != n])):
-        labels[roots == r] = i
-    return labels
-
-
-labels_hd = hdbscan_labels(Xs, min_cluster_size=25, min_samples=10)
-print(f"HDBSCAN: {labels_hd.max() + 1} clusters, {np.sum(labels_hd < 0)} points labelled noise")
 
 # %%
 # The two partitions against the truth

@@ -37,7 +37,7 @@ every competitor), so the wall-clock numbers are directly comparable.
 | Watershed / marching squares | `watershed`, `marching_squares` | scikit-image | 1024×1024 — **identical** |
 | Richardson–Lucy | `richardson_lucy_2d` | scikit-image | 512×512, 15×15 PSF, 30 iterations — **identical** |
 | k-means | `kmeans` (k-means++ + Lloyd) | scikit-learn `KMeans` (same job, and Lloyd-only from the same centres) | n=200k, d=8, k=10 — **identical** |
-| HDBSCAN | `core_distances` + `mutual_reachability_mst` + `hdbscan_condensed_tree` + `hdbscan_label_points` | scikit-learn `HDBSCAN` | n=20k, d=4 — **identical partition** |
+| HDBSCAN | `tttrlib.hdbscan` (`core_distances` + `mutual_reachability_mst` + `hdbscan_condensed_tree` + `hdbscan_select_clusters` + `hdbscan_label_points`) | scikit-learn `HDBSCAN` | n=20k, d=4 — **identical partition** |
 | Kalman filter | `kalman_filter` | filterpy | 50k steps × 2 channels — **identical** |
 | HMM lattice | `hmm_forward_log` / posteriors / Viterbi | hmmlearn `_hmmc` | T=200k, K=4 — **identical** |
 | Phasor | `DecayPhasor.compute_phasor_bincounts_batch` | phasorpy | 100k decays × 256 bins — **identical** |

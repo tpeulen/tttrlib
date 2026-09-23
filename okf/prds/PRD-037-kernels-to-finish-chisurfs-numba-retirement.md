@@ -274,6 +274,14 @@ Five of the thirteen ChiSurf files are ChiSurf's own work and need nothing here:
       1.4 ms @ n=20k / 9.1 ms @ n=100k against 72/380 ms for the Python path
       ChiSurf runs today (42–51×, ~10× over the old numba numbers). What
       remains of B1 is the ChiSurf delegation, not the kernel.)*
+      *(**Amended 2026-09-08**: leaving selection to the caller left the three
+      functions uncomposable — `is_selected` had no producer, so every caller
+      reimplemented Campello §4, and the in-tree example did. Both published
+      policies are now `hdbscan_select_clusters`, with
+      `hdbscan_membership_strengths` beside it and `tttrlib.hdbscan` for the
+      whole pipeline; selection stays a separate call so a caller can still
+      substitute one. Identical to `sklearn.cluster.HDBSCAN` — labels and
+      strengths — over 378 option combinations on the same tree.)*
 - [x] B2 `kmeans` with caller-supplied seeding uniforms.
       *(Kernel, binding, fixture and tests landed — this check was unticked
       briefly while the FMA-contraction contract moved out of the build and
