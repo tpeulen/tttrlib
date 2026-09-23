@@ -187,8 +187,8 @@ def test_auto_calibrate_cal1_measurement(cal1_columns):
 
 
 def test_transcription_matches_chisurf():
-    acc = live.load("core.fluorescence.fret.accurate")
-    cal = live.load("core.fluorescence.fret.calibration")
+    acc = live.load("core.fluorescence.fret.accurate", "classify_es_populations")
+    cal = live.load("core.fluorescence.fret.calibration", "global_es_correction")
     if acc is None or cal is None:
         pytest.skip("chisurf's accurate.py is gone; the transcription stands on its own")
     dd, da, aa = _alex_bursts(1)

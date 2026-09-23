@@ -136,7 +136,7 @@ def test_refine_gamma():
 
 
 def test_transcription_matches_chisurf():
-    acc = live.load("core.fluorescence.fret.accurate")
+    acc = live.load("core.fluorescence.fret.accurate", "accurate_fret", "efficiency_uncertainty")
     if acc is None:
         pytest.skip("chisurf's accurate.py is gone; the transcription stands on its own")
     dd, da, aa = _alex_bursts(4)

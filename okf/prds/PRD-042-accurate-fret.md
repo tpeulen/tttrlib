@@ -232,6 +232,14 @@ species factors invented, BIC keeps the shared model); the cal1 .pto.
   suites predate this branch (`can_compress`/`can_decompress` from ptolib,
   `Correlator` missing from the API index of the split build).
 
+- **Stage 6, wheels (2026-09-23):** arm64 wheel built with the given `pip
+  wheel` command and installed with `pip install --force-reinstall` (no dylib
+  copied); the corrections suite passes against the installed wheel;
+  `import IMP.bff` works against it. Pyodide wheel from
+  `tools/pyodide/build_wheel.sh` (3.15 MB); `smoke_test.mjs` gained an
+  accurate-FRET check: synthetic ALEX bursts drawn by numpy's PCG64 give the
+  native arm64 factors and bootstrap sigmas to rtol 1e-9 under Node.
+
 Result structure (`result["species"]`), for vector-valued constants in ndX:
 
 ```

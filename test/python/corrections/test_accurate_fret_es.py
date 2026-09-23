@@ -152,7 +152,7 @@ def test_corrected_es_general_rejects_unknown_unmix():
 
 
 def test_transcription_matches_chisurf():
-    es = live.load("core.fluorescence.burst.es")
+    es = live.load("core.fluorescence.burst.es", "corrected_es", "corrected_es_matrix", "corrected_es_general")
     if es is None:
         pytest.skip("chisurf's es.py is gone; the transcription stands on its own")
     dd, da, aa = _bursts(7)

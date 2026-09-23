@@ -11,8 +11,9 @@ import sys
 import types
 
 
-def load(name):
-    """Return ``chisurf.<name>`` or ``None`` when chisurf (or that module) is gone."""
+def load(name, *required):
+    """Return ``chisurf.<name>``, or ``None`` when chisurf, that module or any of
+    the ``required`` attributes is gone (the algorithms moved to tttrlib)."""
     stubbed = False
     try:
         import IMP.bff  # noqa: F401
@@ -22,7 +23,8 @@ def load(name):
         sys.modules["IMP.bff"] = types.ModuleType("IMP.bff")
         stubbed = True
     try:
-        return importlib.import_module("chisurf." + name)
+        module = importlib.import_module("chisurf." + name)
+        return module if all(hasattr(module, a) for a in required) else None
     except Exception:
         return None
     finally:
