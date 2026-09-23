@@ -67,6 +67,20 @@ def test_corrected_es_broadcasts_scalars_and_shapes():
     np.testing.assert_allclose(got["S"], want["S"], **TOL)
 
 
+@pytest.mark.parametrize("alex", [True, False])
+def test_corrected_es_per_burst_background(alex):
+    dd, da, aa = _bursts(8)
+    rng = np.random.default_rng(8)
+    bg = [rng.uniform(0, 3, dd.size) for _ in range(3)]
+    kw = dict(gamma=0.7, alpha=0.06, beta=1.1, delta=0.08)
+    got = tttrlib.corrected_es(dd, da, aa if alex else None, bg_dd=bg[0], bg_da=bg[1],
+                               bg_aa=bg[2], **kw)
+    want = ref.corrected_es(dd, da, aa if alex else None, bg_dd=bg[0], bg_da=bg[1],
+                            bg_aa=bg[2], **kw)
+    for key in ("E", "fc") + (("S",) if alex else ()):
+        np.testing.assert_allclose(got[key], want[key], **TOL, err_msg=key)
+
+
 def test_corrected_es_rejects_ragged_input():
     with pytest.raises(ValueError):
         tttrlib.corrected_es(np.ones(3), np.ones(4), np.ones(3))

@@ -68,8 +68,9 @@ def corrected_es(i_dd, i_da, i_aa=None, *, gamma=1.0, alpha=0.0, beta=1.0, delta
         ``F_aa`` is 0, ``delta`` has no effect and ``S`` is ``None``.
     gamma, alpha, beta, delta : float
         Correction factors.
-    bg_dd, bg_da, bg_aa : float
-        Per-burst channel backgrounds.
+    bg_dd, bg_da, bg_aa : float or array_like
+        Channel backgrounds: one number for every burst, or one per burst
+        (broadcast against the counts).
 
     Returns
     -------
@@ -79,6 +80,15 @@ def corrected_es(i_dd, i_da, i_aa=None, *, gamma=1.0, alpha=0.0, beta=1.0, delta
     """
     np = _afret_np()
     arrays = [i_dd, i_da] + ([] if i_aa is None else [i_aa])
+    backgrounds = [bg_dd, bg_da] + ([] if i_aa is None else [bg_aa])
+    if any(np.ndim(b) for b in backgrounds):
+        # a per-burst background (a rate times each burst's duration) only ever
+        # enters as counts - background: subtract it here, exactly as numpy would
+        arrays = np.broadcast_arrays(*[np.asarray(a, dtype=float) for a in arrays],
+                                     *[np.asarray(b, dtype=float) for b in backgrounds])
+        k = len(backgrounds)
+        arrays = [a - b for a, b in zip(arrays[:k], arrays[k:])]
+        bg_dd = bg_da = bg_aa = 0.0
     arrays = np.broadcast_arrays(*[np.asarray(a, dtype=float) for a in arrays])
     shape = arrays[0].shape
     flat = [_afret_vec(a) for a in arrays]
