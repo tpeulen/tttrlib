@@ -11,8 +11,29 @@ _AFRET_FACTOR_ALIASES = {
 _AFRET_OPTION_KEYS = (
     "gamma_source", "n_iterations", "tolerance", "n_bootstrap", "seed", "use_priors",
     "assume_one_to_one", "min_population", "max_fret_populations", "donor_only_above",
-    "acceptor_only_below",
+    "acceptor_only_below", "donor_lifetime", "min_probability", "max_components_nd",
 )
+
+#: The declared per-burst dimensions the multidimensional gating understands:
+#: name -> (column keys accepted in ``columns``, meaning). "S" and "E" are
+#: computed from the counts with the current factors on every pass.
+AFRET_DIMENSIONS = {
+    "S": ((), "corrected stoichiometry"),
+    "E": ((), "corrected FRET efficiency"),
+    "tau_d": (("tau_d", "tau_f"), "donor fluorescence lifetime, ns"),
+    "tau_a": (("tau_a",), "acceptor fluorescence lifetime, ns"),
+    "r_d": (("r_d",), "donor steady-state anisotropy"),
+    "r_a": (("r_a",), "acceptor steady-state anisotropy"),
+}
+
+
+def _afret_dimension_column(columns, name):
+    keys = AFRET_DIMENSIONS.get(name, ((name,), ""))[0]
+    for key in keys:
+        if columns.get(key) is not None:
+            return _afret_vec(columns[key])
+    raise ValueError(f"auto_calibrate: dimension {name!r} was declared but no column "
+                     f"{' or '.join(map(repr, keys))} was given")
 
 
 def _afret_factor_dict(f):
@@ -40,6 +61,8 @@ def _afret_options(constants, options):
         mu, sigma = prior
         setattr(o, name + "_prior_mu", float(mu))
         setattr(o, name + "_prior_sigma", float(sigma))
+    if options.get("dimensions"):
+        o.dimensions = VectorString([str(d) for d in options["dimensions"]])
     lt, le = _afret_line(options.get("line"))
     o.line_tau_f = VectorDouble([float(v) for v in lt])
     o.line_efficiency = VectorDouble([float(v) for v in le])
@@ -63,6 +86,8 @@ def _afret_calibration_dict(st):
         "estimated": {"alpha": bool(st.estimated_alpha), "delta": bool(st.estimated_delta),
                       "gamma": bool(st.estimated_gamma)},
         "split": _afret_split_dict(st.split) if st.has_split else None,
+        "tau_d0": float(st.tau_d0),
+        "tau_a": float(st.tau_a),
         "populations": [_afret_population_dict(p) for p in st.populations],
         "iterations": int(st.iterations),
         "converged": bool(st.converged),
@@ -119,8 +144,14 @@ def auto_calibrate(columns, constants=None, options=None, progress=None):
     options = dict(options or {})
     o = _afret_options(constants, options)
     vec = lambda key: [] if columns.get(key) is None else _afret_vec(columns[key])
-    st = _afret_auto_calibrate_start(vec("i_dd"), vec("i_da"), vec("i_aa"), vec("tau_f"),
+    tau = vec("tau_f") if columns.get("tau_f") is not None else vec("tau_d")
+    st = _afret_auto_calibrate_start(vec("i_dd"), vec("i_da"), vec("i_aa"), tau,
                                      _afret_factors_from(constants), o)
+    extra = [d for d in (options.get("dimensions") or []) if d not in ("S", "E")]
+    if extra:
+        np = _afret_np()
+        matrix = np.stack([_afret_dimension_column(columns, d) for d in extra], axis=1)
+        _afret_auto_calibrate_set_dimensions(st, _afret_vec(matrix), VectorString(extra))
     total = int(o.n_iterations) + int(o.n_bootstrap)
     it = 0
     for it in range(1, int(o.n_iterations) + 1):

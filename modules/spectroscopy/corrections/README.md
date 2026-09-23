@@ -44,6 +44,16 @@ Correction utilities for single-molecule fluorescence.
     resample whose positions can be injected so a caller reproduces a given
     bootstrap exactly, otherwise drawn by the counter-based `Random`;
     `refine_gamma`, the precision-weighted gamma of a labelled FRET sample)
+  - `AccurateFretMultiDim.h` — `AccurateFretMixtureNd.cpp` (diagonal-covariance
+    Gaussian mixture over standardised columns, missing values marginalised,
+    one deterministic start per dimension, BIC selection) and
+    `AccurateFretClassifyNd.cpp` (`classify_populations_nd`: donor-only /
+    acceptor-only / FRET from every declared dimension -- S, E, donor and
+    acceptor lifetimes, anisotropies -- with per-burst FRET sub-population
+    probabilities). `auto_calibrate` uses it when `dimensions` is set, derives
+    tau_D(0) from the donor-only and tau_A from the acceptor-only class, and
+    falls back to the no-linker line E = 1 - tau/tau_D(0) for the lifetime
+    gamma when no static FRET line is given
   - Known inherited quirk: the mixture's width update weights squared
     residuals by the *squared* responsibility, `sum((r (x - mu))^2) / N_k`,
     as chisurf's spherical `GaussianMixture` did; the standard EM update is

@@ -189,3 +189,22 @@ species factors invented, BIC keeps the shared model); the cal1 .pto.
   sigmas equal to the reference to 1e-13 relative; FRET populations at
   E = 0.360 (R = 57.24 +- 0.12 A) and E = 0.802 (R = 41.21 +- 0.06 A).
   `test_accurate_fret_uncertainty.py`, 16 cases.
+- **Extension E1, multidimensional gating (2026-09-23):**
+  `gaussian_mixture_nd`, `best_gaussian_mixture_nd`, `classify_populations_nd`,
+  `auto_calibrate(options={"dimensions": [...]})`, declared vocabulary
+  `tttrlib.AFRET_DIMENSIONS` (S, E, tau_d, tau_a, r_d, r_a). Missing values
+  are marginalised (donor-only bursts have no acceptor lifetime); corrected
+  S/E outside [-0.5, 1.5] count as missing (acceptor-only E is noise over
+  noise and otherwise widened one component over the axis); FRET components
+  within one width of a larger one in every dimension are the same species
+  (shot noise skews E) and are merged; for the 1/S vs E fit, sub-populations
+  closer than 0.05 in E are pooled (a lifetime-only split carries no gamma
+  information on that line). tau_D(0) from the donor-only class; without a
+  line the no-linker line E = 1 - tau/tau_D(0). Ground truth (synthetic MFD
+  with lifetimes): reference classes > 99% pure, 2 FRET species found, tau_D(0)
+  and tau_A within 0.05 ns, alpha/delta within 0.005, gamma/beta within 5%;
+  two species at equal E but different donor lifetime are split (S-only finds
+  one); lifetime gamma of a single species within 5%. cal1 with
+  `dimensions=["S","E"]`: 24.6 s for 44 270 bursts (S-only: 2.4 s), 4 FRET
+  populations, gamma 0.731 vs 0.826 S-only -- not validated against anything
+  on real data yet. `test_accurate_fret_multidim.py`, 6 cases.

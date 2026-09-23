@@ -4,6 +4,7 @@
 #include "AccurateFretPopulations.h"
 #include "AccurateFretCalibrate.h"
 #include "AccurateFretUncertainty.h"
+#include "AccurateFretMultiDim.h"
 %}
 
 // the raw kernels take flat vectors and return structs; the Python layer in
@@ -33,6 +34,10 @@
 %rename(_afret_distance_from_efficiency) tttrlib::distance_from_efficiency;
 %rename(_afret_accurate_fret) tttrlib::accurate_fret;
 %rename(_afret_refine_gamma) tttrlib::refine_gamma;
+%rename(_afret_gaussian_mixture_nd) tttrlib::gaussian_mixture_nd;
+%rename(_afret_best_gaussian_mixture_nd) tttrlib::best_gaussian_mixture_nd;
+%rename(_afret_classify_populations_nd) tttrlib::classify_populations_nd;
+%rename(_afret_auto_calibrate_set_dimensions) tttrlib::auto_calibrate_set_dimensions;
 
 namespace tttrlib {};
 %include "AccurateFret.h"
@@ -40,8 +45,10 @@ namespace tttrlib {};
 %include "AccurateFretCalibrate.h"
 %template(VectorFretPopulation) std::vector<tttrlib::FretPopulation>;
 %include "AccurateFretUncertainty.h"
+%include "AccurateFretMultiDim.h"
 
 #ifdef SWIGPYTHON
 %pythoncode "./ext/python/AccurateFret.py"
 %pythoncode "./ext/python/AccurateFretCalibrate.py"
+%pythoncode "./ext/python/AccurateFretMultiDim.py"
 #endif

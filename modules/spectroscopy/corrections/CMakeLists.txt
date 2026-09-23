@@ -15,6 +15,8 @@ tttrlib_add_module(
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretAuto.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretUncertainty.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretBootstrap.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretMixtureNd.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretClassifyNd.cpp"
     HEADERS  "${CMAKE_CURRENT_SOURCE_DIR}/include"
     DEPENDS  core util math
     SWIG_INTERFACES SpectralCrosstalk.i BackgroundEstimation.i AccurateFret.i

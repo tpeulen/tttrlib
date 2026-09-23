@@ -255,6 +255,16 @@ def _afret_split_dict(r):
         }
     fret_labels = np.asarray(r.fret_labels, dtype=int)
     fret = np.asarray(r.fret, dtype=bool)
+    n_fret = int(r.n_fret_populations)
+    if len(r.component_means) and str(r.method) == "mixture_nd":
+        d = len(r.dimensions)
+        components = {
+            "dimensions": list(r.dimensions),
+            "means": np.asarray(r.component_means, dtype=float).reshape(-1, d).tolist(),
+            "weights": list(r.component_weights),
+            "sigmas": np.asarray(r.component_sigmas, dtype=float).reshape(-1, d).tolist(),
+            "bic_by_k": {int(k): float(b) for k, b in zip(r.bic_k, r.bic_values)},
+        }
     donor_only = np.asarray(r.donor_only, dtype=bool)
     acceptor_only = np.asarray(r.acceptor_only, dtype=bool)
     return {
@@ -265,6 +275,8 @@ def _afret_split_dict(r):
         "thresholds": (float(r.threshold_lo), float(r.threshold_hi)),
         "method": str(r.method),
         "components": components,
+        "fret_probabilities": (np.asarray(r.fret_probabilities, dtype=float).reshape(-1, n_fret)
+                               if n_fret else None),
         "counts": {
             "donor_only": int(donor_only.sum()),
             "acceptor_only": int(acceptor_only.sum()),

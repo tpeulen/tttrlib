@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: BSD-3-Clause
 #include "AccurateFretCalibrate.h"
 #include "AccurateFretUncertainty.h"
+#include "AccurateFretMultiDim.h"
 #include "AccurateFretDetail.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <limits>
+#include <map>
 #include <set>
 #include <stdexcept>
 
@@ -93,8 +95,103 @@ AutoCalibration auto_calibrate_start(const std::vector<double>& i_dd,
     s.gamma_es = s.gamma_lifetime = s.gamma_prior = s.gamma_posterior = kNaN;
     s.gamma_lifetime_sigma = s.gamma_data = kNaN;
     s.previous = {s.factors.alpha, s.factors.delta, s.factors.gamma, s.factors.beta};
+    s.tau_d0 = s.tau_a = kNaN;
+    s.line_tau_f = o.line_tau_f;
+    s.line_efficiency = o.line_efficiency;
     return s;
 }
+
+void auto_calibrate_set_dimensions(AutoCalibration& s, const std::vector<double>& columns,
+                                   const std::vector<std::string>& names) {
+    if (columns.size() != s.data_dd.size() * names.size())
+        throw std::invalid_argument("auto_calibrate_set_dimensions: columns must be (n_bursts, len(names))");
+    s.data_extra = columns;
+    s.extra_names = names;
+}
+
+namespace {
+
+// the 1/S vs E line learns gamma only from populations at different E: the
+// multidimensional gating separates species by lifetime too, so sub-populations
+// closer than 0.05 in mean E are pooled for the fit (the 1-D splitter never
+// produces them)
+std::vector<int> es_fit_groups(const std::vector<int>& labels, const std::vector<double>& e) {
+    std::map<int, std::vector<double>> by;
+    for (size_t b = 0; b < labels.size(); ++b) by[labels[b]].push_back(e[b]);
+    std::vector<std::pair<double, int>> centres;
+    for (auto& kv : by) centres.push_back({np_mean(kv.second), kv.first});
+    std::sort(centres.begin(), centres.end());
+    std::map<int, int> group;
+    int g = 0;
+    for (size_t i = 0; i < centres.size(); ++i) {
+        if (i > 0 && centres[i].first - centres[i - 1].first >= 0.05) ++g;
+        group[centres[i].second] = g;
+    }
+    std::vector<int> out(labels.size());
+    for (size_t b = 0; b < labels.size(); ++b) out[b] = group[labels[b]];
+    return out;
+}
+
+// the (n, d) matrix of the declared dimensions for this pass
+std::vector<double> dimension_matrix(const AutoCalibration& s, const EsResult& es,
+                                     const std::vector<std::string>& names) {
+    const size_t n = s.data_dd.size(), d = names.size(), m = s.extra_names.size();
+    std::vector<double> x(n * d);
+    for (size_t j = 0; j < d; ++j) {
+        const std::string& name = names[j];
+        if (name == "S" && !es.has_s)
+            throw std::invalid_argument("auto_calibrate: dimension S needs an acceptor-excitation channel");
+        const size_t e = std::find(s.extra_names.begin(), s.extra_names.end(), name) - s.extra_names.begin();
+        if (name != "S" && name != "E" && e == m)
+            throw std::invalid_argument("auto_calibrate: no column for dimension '" + name + "'");
+        for (size_t b = 0; b < n; ++b) {
+            double v = name == "S" ? es.S[b] : name == "E" ? es.E[b] : s.data_extra[b * m + e];
+            // a ratio of near-empty channels (E of an acceptor-only burst after the
+            // delta correction) is noise over noise; its outliers would widen one
+            // component over the whole axis
+            if ((name == "S" || name == "E") && !(v >= -0.5 && v <= 1.5)) v = kNaN;
+            x[b * d + j] = v;
+        }
+    }
+    return x;
+}
+
+double mean_where(const std::vector<double>& v, const std::vector<int>& mask) {
+    double sum = 0.0;
+    size_t n = 0;
+    for (size_t b = 0; b < v.size(); ++b)
+        if (mask[b] && std::isfinite(v[b])) { sum += v[b]; ++n; }
+    return n ? sum / static_cast<double>(n) : kNaN;
+}
+
+// tau_D(0), tau_A and, without a given line, the no-linker line from tau_D(0)
+void update_lifetimes(AutoCalibration& s, const AutoCalibrateOptions& o) {
+    const size_t m = s.extra_names.size();
+    const size_t ia = std::find(s.extra_names.begin(), s.extra_names.end(), "tau_a") - s.extra_names.begin();
+    if (ia < m && any(s.split.acceptor_only)) {
+        std::vector<double> ta(s.data_dd.size());
+        for (size_t b = 0; b < ta.size(); ++b) ta[b] = s.data_extra[b * m + ia];
+        s.tau_a = mean_where(ta, s.split.acceptor_only);
+    }
+    if (s.data_tau.empty()) return;
+    if (o.donor_lifetime > 0) {
+        s.tau_d0 = o.donor_lifetime;
+        s.tau_d0_source = "given";
+    } else if (any(s.split.donor_only)) {
+        s.tau_d0 = mean_where(s.data_tau, s.split.donor_only);
+        s.tau_d0_source = "donor-only bursts";
+    } else {
+        s.tau_d0 = -std::numeric_limits<double>::infinity();
+        for (double t : s.data_tau)
+            if (std::isfinite(t)) s.tau_d0 = std::max(s.tau_d0, t);
+        s.tau_d0_source = "longest observed lifetime";
+    }
+    if (!o.line_tau_f.empty() || !(s.tau_d0 > 0)) return;
+    s.line_tau_f = {0.0, s.tau_d0};
+    s.line_efficiency = {1.0, 0.0};
+}
+
+} // namespace
 
 bool auto_calibrate_iterate(AutoCalibration& s, const AutoCalibrateOptions& o) {
     s.iterations += 1;
@@ -119,11 +216,17 @@ bool auto_calibrate_iterate(AutoCalibration& s, const AutoCalibrateOptions& o) {
         p.threshold_hi = 1.0;
         p.method = "none";
         s.split = p;
-    } else {
+    }
+    if (!o.dimensions.empty()) {
+        s.split = classify_populations_nd(dimension_matrix(s, es, o.dimensions), static_cast<int>(dd.size()),
+                                          o.dimensions, o.donor_only_above, o.acceptor_only_below,
+                                          o.max_components_nd, o.min_population, o.min_probability);
+    } else if (alex) {
         s.split = classify_es_populations(es.S, es.E, o.donor_only_above, o.acceptor_only_below, 4,
                                           o.max_fret_populations, o.min_population);
     }
     s.has_split = true;
+    update_lifetimes(s, o);
     const PopulationSplit& sp = s.split;
 
     // alpha, then delta with the new alpha
@@ -151,6 +254,7 @@ bool auto_calibrate_iterate(AutoCalibration& s, const AutoCalibrateOptions& o) {
     for (size_t b = 0; b < dd.size(); ++b) fret_only[b] = sp.fret[b] && sp.fret_labels[b] >= 0;
     for (size_t b = 0; b < dd.size(); ++b)
         if (fret_only[b]) fl.push_back(sp.fret_labels[b]);
+    if (sp.method == "mixture_nd") fl = es_fit_groups(fl, pick(es.E, fret_only));
     if (alex && fl.size() >= 2 && std::set<int>(fl.begin(), fl.end()).size() >= 2) {
         std::vector<double> est = global_es_correction(pick(dd, fret_only), pick(da, fret_only),
                                                        pick(aa, fret_only), fl, s.factors.alpha,
@@ -160,10 +264,10 @@ bool auto_calibrate_iterate(AutoCalibration& s, const AutoCalibrateOptions& o) {
     }
     s.gamma_es = gamma_es;
 
-    if (!s.data_tau.empty() && !o.line_tau_f.empty()) {
+    if (!s.data_tau.empty() && !s.line_tau_f.empty()) {
         std::vector<int> labels(dd.size());
         for (size_t b = 0; b < dd.size(); ++b) labels[b] = sp.fret[b] ? sp.fret_labels[b] : -1;
-        LifetimeGamma lt = gamma_from_lifetime(dd, da, s.data_tau, o.line_tau_f, o.line_efficiency,
+        LifetimeGamma lt = gamma_from_lifetime(dd, da, s.data_tau, s.line_tau_f, s.line_efficiency,
                                                aa, s.factors, labels, o.min_population);
         s.gamma_lifetime = lt.gamma;
         s.gamma_lifetime_sigma = lt.sigma;
@@ -197,6 +301,9 @@ void auto_calibrate_cancel(AutoCalibration& s) {
 }
 
 void auto_calibrate_finish(AutoCalibration& s, const AutoCalibrateOptions& o) {
+    if (o.line_tau_f.empty() && !s.line_tau_f.empty())
+        s.messages.push_back(fmt4("no static FRET line given: the no-linker line E = 1 - tau/tau_D(0) "
+                                  "was used, tau_D(0) = %.3f ns from the ", s.tau_d0) + s.tau_d0_source);
     s.messages.insert(s.messages.end(), s.iteration_messages.begin(), s.iteration_messages.end());
     s.gamma_data = s.factors.gamma;
     // bootstrap spread, where there were more than two resampled values
@@ -254,7 +361,7 @@ void auto_calibrate_finish(AutoCalibration& s, const AutoCalibrateOptions& o) {
         for (size_t b = 0; b < labels.size(); ++b) labels[b] = s.split.fret[b] ? s.split.fret_labels[b] : -1;
     AccurateFretResult fin = accurate_fret(s.data_dd, s.data_da, s.data_aa, s.factors, s.sigma_gamma,
                                            s.sigma_alpha, s.sigma_delta, s.sigma_r0, s.data_tau,
-                                           o.line_tau_f, o.line_efficiency, labels);
+                                           s.line_tau_f, s.line_efficiency, labels);
     s.populations.clear();
     for (const FretPopulation& p : fin.populations)
         if (p.label != -1) s.populations.push_back(p);

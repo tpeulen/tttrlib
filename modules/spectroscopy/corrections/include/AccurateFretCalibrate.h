@@ -109,7 +109,17 @@ std::vector<double> lightpath_correction_factors(
  * "lifetime" or "combined" (mean of the two). Factors are clamped to the
  * `*_lo`/`*_hi` bounds whenever they are written, as the parameter group of
  * the original implementation did. The static FRET line enables the lifetime
- * route when per-burst lifetimes are given.
+ * route when per-burst lifetimes are given; without one, the no-linker line
+ * E = 1 - tau/tau_D(0) is used, with tau_D(0) = `donor_lifetime` when
+ * positive, else the mean lifetime of the donor-only class, else the longest
+ * observed lifetime.
+ *
+ * `dimensions` switches the gating to the multidimensional mixture
+ * (`classify_populations_nd`) over the named columns: "S" and "E" are the
+ * corrected values of the current pass, every other name a column set with
+ * `auto_calibrate_set_dimensions`. Empty keeps the stoichiometry gating.
+ * Corrected S or E outside [-0.5, 1.5] (a ratio of nearly empty channels)
+ * counts as missing for the gating.
  */
 struct AutoCalibrateOptions {
     std::string gamma_source = "auto";
@@ -134,6 +144,10 @@ struct AutoCalibrateOptions {
     double delta_lo = 0.0, delta_hi = 1.0;
     double bg_lo = 0.0, bg_hi = 1e6;
     double r0_lo = 1.0, r0_hi = 200.0;
+    std::vector<std::string> dimensions;
+    double donor_lifetime = -1.0;
+    double min_probability = 0.9;
+    int max_components_nd = 6;
 };
 
 /*!
@@ -185,6 +199,11 @@ struct AutoCalibration {
     int boot_resamples = 0;
     unsigned long long boot_draws = 0;
     std::vector<FretPopulation> populations;
+    std::vector<double> data_extra;
+    std::vector<std::string> extra_names;
+    double tau_d0 = 0.0, tau_a = 0.0;
+    std::string tau_d0_source;
+    std::vector<double> line_tau_f, line_efficiency;
 };
 
 /*!
@@ -199,6 +218,17 @@ AutoCalibration auto_calibrate_start(
     const std::vector<double>& i_dd, const std::vector<double>& i_da,
     const std::vector<double>& i_aa, const std::vector<double>& tau_f,
     const FretFactors& factors, const AutoCalibrateOptions& options
+);
+
+/*!
+ * \brief Attach the extra per-burst columns of the multidimensional gating.
+ *
+ * \param columns row-major (n_bursts, names.size()); lifetimes in ns.
+ * \throws std::invalid_argument on a size mismatch.
+ */
+void auto_calibrate_set_dimensions(
+    AutoCalibration& state, const std::vector<double>& columns,
+    const std::vector<std::string>& names
 );
 
 /*!

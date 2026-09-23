@@ -88,8 +88,14 @@ MixtureResult best_gaussian_mixture_1d(
  * Masks are per burst (1 = member). `fret_labels` is the FRET sub-population
  * index per burst, -1 for every burst outside the FRET class. `threshold_lo`
  * and `threshold_hi` are the stoichiometry cuts of the FRET class; `method`
- * is "mixture", "threshold" or "none". The `component_*` vectors describe
- * the stoichiometry mixture that placed the cuts (empty for "threshold").
+ * is "mixture", "threshold", "none" or "mixture_nd". The `component_*`
+ * vectors describe the stoichiometry mixture that placed the cuts (empty for
+ * "threshold"); for "mixture_nd" `component_means`/`component_sigmas` are
+ * row-major (n_components, n_dimensions) in the units of `dimensions`.
+ * `fret_probabilities` is row-major (n_bursts, n_fret_populations): each
+ * FRET burst's probability of belonging to each FRET sub-population (rows of
+ * other bursts are 0). The multidimensional gating fills it from the
+ * mixture's responsibilities; the stoichiometry gating with one-hot rows.
  */
 struct PopulationSplit {
     std::vector<int> donor_only;
@@ -104,6 +110,9 @@ struct PopulationSplit {
     std::vector<double> component_sigmas;
     std::vector<int> bic_k;
     std::vector<double> bic_values;
+    std::vector<std::string> dimensions;
+    int n_fret_populations = 0;
+    std::vector<double> fret_probabilities;
 };
 
 /*!

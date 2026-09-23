@@ -85,10 +85,10 @@ void auto_calibrate_bootstrap(AutoCalibration& st, const AutoCalibrateOptions& o
                                                        take(aa, idx_f, s), labels, f.alpha, f.delta);
         if (std::isfinite(est[0])) st.boot_gamma.push_back(est[0]);
         if (std::isfinite(est[1])) st.boot_beta.push_back(est[1]);
-    } else if (!st.data_tau.empty() && !o.line_tau_f.empty()) {
+    } else if (!st.data_tau.empty() && !st.line_tau_f.empty()) {
         LifetimeGamma lt = gamma_from_lifetime(
-            take(dd, idx_f, s), take(da, idx_f, s), take(st.data_tau, idx_f, s), o.line_tau_f,
-            o.line_efficiency, aa.empty() ? aa : take(aa, idx_f, s), f, labels, o.min_population);
+            take(dd, idx_f, s), take(da, idx_f, s), take(st.data_tau, idx_f, s), st.line_tau_f,
+            st.line_efficiency, aa.empty() ? aa : take(aa, idx_f, s), f, labels, o.min_population);
         if (std::isfinite(lt.gamma)) st.boot_gamma.push_back(lt.gamma);
     }
 }
