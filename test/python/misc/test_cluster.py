@@ -131,6 +131,30 @@ class TestMutualReachabilityMST(unittest.TestCase):
                         err_msg=f"n={n_samples} d={n_features} seed={seed}",
                     )
 
+    def test_the_edges_come_back_in_the_total_order(self):
+        """Sorted, not merely a valid tree.
+
+        The next step (`hdbscan_condensed_tree`) rejects an unsorted edge list,
+        and a caller who sorted by weight alone got a different dendrogram on
+        tied weights than one who sorted by the whole order -- so the order is
+        produced here rather than left to each caller to reinvent.
+        """
+        for n_features in (1, 3, 8):
+            data = blobs(500, n_features, seed=5)
+            tree = tttrlib.KDTree(data, tttrlib.KDTree.default_leaf_size(n_features))
+            core = tree.core_distances(5)
+            for name, mst in (("boruvka", tree.mutual_reachability_mst(core, 1.0)),
+                              ("prim", tree.mst_prim(core, 1.0)),
+                              ("flat", tttrlib.mutual_reachability_mst(data, 5, 1.0))):
+                rows = np.asarray(mst, dtype=float).reshape(-1, 3)
+                keys = np.column_stack((rows[:, 2],
+                                        np.minimum(rows[:, 0], rows[:, 1]),
+                                        np.maximum(rows[:, 0], rows[:, 1])))
+                order = np.lexsort((keys[:, 2], keys[:, 1], keys[:, 0]))
+                np.testing.assert_array_equal(
+                    order, np.arange(len(rows)),
+                    err_msg="%s edges are not in the total order (d=%d)" % (name, n_features))
+
     def test_weight_is_never_below_either_core_distance(self):
         """Every edge weight is a mutual reachability, so it obeys its definition."""
         data = blobs(400, 3)

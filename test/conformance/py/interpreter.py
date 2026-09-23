@@ -432,20 +432,11 @@ def _op_mask_array(on, args):
 
 
 # ---------------------------------------------------------------------------
-# nn.* / csvfile.* / feature.*
+# csvfile.* / feature.*
 # ---------------------------------------------------------------------------
 #
-# Three subsystems that reached only Python and JavaScript until the R and Java
+# Two subsystems that reached only Python and JavaScript until the R and Java
 # modules gained them. Cases here are what stops that from silently regressing.
-
-def _op_nn_from_json(on, args):
-    return tttrlib.NeuralNet.from_json_string(str(args[0]))
-
-
-def _op_nn_predict(on, args):
-    return np.asarray(on.predict(tttrlib.VectorDouble([float(v) for v in args[0]])),
-                      dtype=np.float64)
-
 
 def _op_csv_write(on, args):
     # _write_csv_native, not write_csv: the latter is a %pythoncode convenience
@@ -903,13 +894,6 @@ _OPS = {
     "mask.size": lambda on, a: int(on.size()),
     "mask.mask_array": _op_mask_array,
 
-    # neural net
-    "nn.from_json": _op_nn_from_json,
-    "nn.predict": _op_nn_predict,
-    "nn.n_layers": lambda on, a: int(on.n_layers()),
-    "nn.n_inputs": lambda on, a: int(on.n_inputs()),
-    "nn.n_outputs": lambda on, a: int(on.n_outputs()),
-
     # csv files
     "csvfile.write": _op_csv_write,
     "csvfile.read": _op_csv_read,
@@ -1067,7 +1051,6 @@ YIELDS_COMPARABLE = {
     "tttr.macro_time_at", "tttr.micro_time_at", "tttr.routing_channel_at",
     "tttr.micro_time_resolution", "tttr.macro_time_resolution",
     "correlator.curve_size", "phasor.g", "phasor.s", "mask.size",
-    "nn.n_layers", "nn.n_inputs", "nn.n_outputs",
     "clsm.n_frames", "clsm.n_lines", "clsm.n_pixel",
     "fit.names", "fit.setup_names", "fit.result_names", "fit.objective",
     "ds.n_rows", "ds.n_columns", "ds.n_groups", "ds.column_names",
@@ -1109,7 +1092,7 @@ RAW_MATERIAL = {
     "burst.new", "burst.find", "burst.properties",
     "correlator.new", "correlator.set_tttr", "correlator.x_axis",
     "correlator.correlation", "phasor.from_bincounts",
-    "nn.from_json", "nn.predict", "csvfile.write", "csvfile.read",
+    "csvfile.write", "csvfile.read",
     "feature.new", "feature.compute", "feature.values",
     "mask.new", "mask.select_channels", "mask.select_count_rate", "mask.mask_array",
     "tiff.write_f64", "tiff.read_f64",

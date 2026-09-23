@@ -85,6 +85,7 @@ PLUMBING = {
         # analyses. `pack8`/`popcount64`/`spread8` are BitMask's own bit-packing helpers.
         "Element", "Encoding", "ExprColumn", "ExpressionEngine", "Problem", "PtoFileBase",
         "StoreOptions", "classify_by_extension", "codecs", "element_name", "has_codec",
+        "can_compress", "can_decompress",
         "pack8", "popcount64", "split_encoding", "spread8", "store_format_version",
     },
     "the registry itself": {
@@ -163,8 +164,8 @@ def test_every_api_symbol_exists(covered):
     module: `Class.method`, with a dot. C++ notation (`Class::method`) is the
     mistake this catches most often -- it resolves to nothing, so the entry
     silently documents an API that cannot be reached. A nested C++ type is
-    named by what SWIG calls it, not by its C++ path: `NeuralNet::Backward`
-    crosses as `NeuralNetBackward`."""
+    named by what SWIG calls it, not by its C++ path: `BurstML::FitResult`
+    crosses as `BurstMLFitResult`."""
     reg = json.loads(tttrlib.registry_json())
     missing = []
     for category, entries in reg.items():

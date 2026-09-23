@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Split Python extension `tttrlib.kernels`: the array kernels that depend on
-// nothing but NumPy -- neural net, k-d tree / k-means / HDBSCAN pieces, Kalman,
+// nothing but NumPy -- k-d tree / k-means / HDBSCAN pieces, Kalman,
 // watershed and marching squares, deconvolution, jitter, the HMM lattice,
 // sampling.
 %module(directors="1", package="tttrlib") kernels
@@ -34,10 +34,10 @@ from tttrlib.core import *
     }
 }
 #ifndef TTTRLIB_WITHOUT_MATH
-%include "NeuralNet.i"
 %include "Cluster.i"
 %include "Kalman.i"
 %include "Watershed.i"
+%include "ImageOps.i"
 %include "Deconvolution.i"
 %include "Jitter.i"
 %include "HmmLattice.i"

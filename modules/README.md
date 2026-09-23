@@ -16,7 +16,7 @@ cli
       │    │
       │    └── simulation (SimEngine, SimGrid, SimSystem, SimVectorGrid)
       │
-      └── util (Verbose, ProgressMonitor, ProgressTicker, NeuralNet, L-BFGS, RNGs, SIMD)
+      └── util (Verbose, ProgressMonitor, ProgressTicker, L-BFGS, RNGs, SIMD)
 ```
 
 ## Subdirectories
@@ -25,7 +25,8 @@ cli
   feature detection, SHA-256.
 - **`math/`**: Numerical kernels shared by everything above — dense linear
   algebra, optimisers, RNGs, clustering, segmentation, deconvolution, the HMM
-  lattice, the neural network. Knows nothing about photons.
+  lattice. Knows nothing about photons, and holds no learned models (neural
+  networks live in IMP.bff).
 - **`streaming/`**: Online consumers that take photons one at a time and keep
   incremental state (live CLSM image, correlator, burst detector, decay
   histogram, phasor, intensity trace).

@@ -17,9 +17,6 @@ Hidden Markov Model (HMM) algorithms for state transition analysis in single-mol
   of the two.
 - **`HMMState.cpp`**: the state object: its emission, its dwell statistics and
   the sidecar a decoded stream is written back as.
-- **`HMMSurrogate.h` / `HMMSurrogate.cpp`**: the neural surrogate that predicts
-  a starting HMM from stream features, so EM begins near the answer
-  (`NeuralNet` from [`math`](../../math), trained on simulated streams).
 
 ## Dependencies
 

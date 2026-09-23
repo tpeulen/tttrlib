@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+- **Removed: the neural network and the HMM surrogate. They live in IMP.bff
+  now.** `NeuralNet` (with `TrainOptions`, `DenseLayer`, the JSON, ONNX and
+  safetensors loaders), the header-only core `MlpCore.h` (`MlpModel`,
+  `StandardScaler`) and `HmmSurrogate` are gone from the C++ library and from
+  every binding, together with their tests, the `nn.*` conformance operations,
+  the physics-informed and differentiable-network examples and
+  `benchmarks/bench_nn.py`. Use `IMP.bff.NeuralNet` and `IMP.bff.HmmSurrogate`.
+  tttrlib is now ML-free: learned models and neural networks live in IMP.bff,
+  even when their inputs are photons. `Dual.h` and `GradVec.h` stay in tttrlib
+  unchanged; the `Dual` operator checks the network tests used to carry moved to
+  `test/cpp/test_ad_gradient.cpp`.
+
 - **ptolib is a compiled library now, vendored as its source package.**
   `thirdparty/ptolib` holds ptolib's CMake project (public header
   `include/ptolib/ptolib.h`, sources in `src/`, codecs bundled or taken from the
@@ -26,6 +38,162 @@
   `target_converged` result fields; `kTikhonov` is now exact non-negative least
   squares on the augmented system `[A; sqrt(lambda) I]`, checked against
   `scipy.optimize.nnls`.
+
+- **Performance: the hand-written SIMD convolutions were slower than plain
+  scalar code, and are rewritten — 3.4–6.4×.** All three (`fconv`, `fconv_per`,
+  `fconv_per_cs`), on both instruction sets. The old
+  NEON and AVX kernels put 2 (NEON) or 4 (AVX) lifetimes in a single register.
+  The recursion `fitcurr = fitcurr * e + l2[i]` is a serial dependency chain, so
+  one register is one chain, and the machine spent the FMA latency with no other
+  work to hide it; the kernels also reduced the register to a scalar — on AVX by
+  storing it to memory and adding four doubles back — and did a
+  read-modify-write of the output once per channel *per species-group*, which
+  for 33 lifetimes is 17 passes over the whole array. The result was that
+  `fconv_per_cs_ad<double>`, the plain blocked scalar kernel in the same file,
+  beat both of them by 2.6–3.1×. Both now advance several registers at once (2R
+  lifetimes for R registers, R chosen from the species count) and do one
+  horizontal add and one output update per channel per block. At 1563 channels
+  and 33 lifetimes: `fconv` 0.0609 → **0.0136 ms**, `fconv_per` 0.0962 →
+  **0.0240**, `fconv_per_cs` 0.0959 → **0.0246**; at 64 lifetimes 0.1145 →
+  **0.0178**, 0.1813 → **0.0319**, 0.1817 → **0.0330**. The optimized path is now
+  the fastest path at every species count, which is the actual requirement and
+  was not true before. `benchmarks/bench_convolution_kernels.cpp`; numbers and
+  what was deliberately left alone are in `PERF.md`.
+
+  The AVX rewrite is the same transformation but its speedup is inferred rather
+  than measured — this is developed on AArch64. Its correctness is checked on
+  x86 in CI by the tests that compare the two dispatch paths. Summation order
+  changes, so curves move by 2.1e-16 relative to the peak — the same class of
+  change as the AD kernel's documented 5e-16, inside every pinned tolerance
+  here, and `fconv_per` and `fconv_per_cs` still agree bit for bit.
+
+- **Fixed: `fconv_per` read past the end of a heap buffer and was not a pure
+  function.** The precomputed `dt/2 * lamp` array was sized by `stop`, but the
+  recursion runs to `stop1`, which is bounded by the *point count* and not by
+  `stop`. Any caller passing a stop short of the point count — `stop =
+  n_points - 1` is enough, and that is the natural thing to pass — read past the
+  end of that array and convolved with whatever the heap held there. All three
+  kernels had it (scalar, AVX, NEON), so no dispatch path was safe.
+
+  It presented as state, which is what made it hard to see: with a freshly
+  allocated response and a freshly zeroed output on every call, the answer still
+  grew by about one species' worth per call, because the arrays freed by the
+  previous call were what lay past the end. A caller in a fit loop got a first
+  call that was right and every later one wrong by a growing amount, while any
+  test that calls it once passes — one did, at 1.9e-15. Reported with a
+  ten-line reproducer at 33 lifetimes; the buffers are now sized by the point
+  count, and `test_simd_convolution_correctness.py` asserts repeat calls are
+  identical on both dispatch paths.
+
+- **`fconv_per_cs_jacobian`: the decay and its exact derivatives in one pass.**
+  The `_ad` kernels in `DecayConvolution.h` are templates on the scalar type,
+  written to be instantiated with `tttrlib::Dual` — but only the `double`
+  instantiation reached the bindings, so a caller wanting derivatives finite-
+  differenced the model (`2 * n_parameters` evaluations, and a step size to
+  choose) or wrapped it in an external autograd (which then owns the gradient,
+  and a hand-written backward has no second derivative). The new entry point
+  fills the model curve and a `(n_points, 2*numexp + 1)` Jacobian: one column
+  per lifetime-spectrum entry in `x`'s own interleaved order, then
+  `d fit / d time_shift`. Forward-mode, exact to round-off. `GradVec<N>` is
+  sized at compile time, so rather than a `switch` over parameter counts the
+  columns are filled `FCONV_JAC_BLOCK = 8` at a time — any number of lifetimes,
+  one instantiation. Measured at 1563 channels: 3.4× faster than the central
+  differences it replaces at 33 lifetimes, 3.6× at 16, a wash below about eight
+  parameters (where the reason to use it is exactness, not speed). Validated
+  column by column against central differences of the shipped scalar route.
+
+  Two latent defects had to be fixed to get a dual through the model, both in
+  code whose comments claimed it already worked. `shift_lamp_ad` was documented
+  as templated so "the *shift* may carry a derivative under `tttrlib::Dual`,
+  and then the interpolated output does too" — it could not: its output array
+  was `double*`, and it called `floor` on the shift, for which no `Dual`
+  overload exists. It had therefore never been instantiated with anything but
+  `double`. Its output is now `T*`, and the integer part of the shift comes from
+  the new `tttrlib::ad_value()` (piecewise constant, so the fractional part
+  carries the derivative). `fconv_per_cs_ad` gained a second, defaulted template
+  parameter for the response's sample type; every existing call site is
+  unchanged and the `double` instantiation is the same code it was.
+
+- **Fixed: `fconv_per` overwrote its output on some calls and accumulated into
+  it on others, on the same machine.** The scalar kernel never cleared `fit`
+  while both SIMD kernels did, so which contract you got depended on `numexp`
+  and on the host CPU: one lifetime is below the SIMD threshold and so always
+  took the scalar path, meaning a **single-exponential model accumulated into
+  the caller's buffer while a two-exponential one did not**. A fit loop reusing
+  its model buffer got a curve that grew without bound in the first case and
+  was correct in the second, with no error and no environment variable
+  involved. The scalar kernel now clears `fit`, matching the documented `[out]`
+  contract and the two SIMD kernels; the maths was never in question (the paths
+  agree bit for bit on a cleared buffer). Every convolution in
+  `DecayConvolution.h` now overwrites, and none accumulates.
+
+  Three things hid it, all worth knowing. `test_simd_convolution_correctness.py`
+  compared `fconv_per` against `fconv_per_simd`, which have been the *same
+  function* since the SIMD alias was deprecated — a test that cannot fail. Every
+  class in that file is `skipUnless(get_avx_enabled())`, so on AArch64, the
+  platform this is developed on, all fifteen skip, and a skip reads like a pass.
+  And the divergence is invisible to any test that clears its buffer first,
+  which every one of them did. The new class in that file drives both dispatch
+  paths through `TTTRLIB_USE_NEON` / `TTTRLIB_USE_AVX` in a subprocess, is not
+  gated on any CPU feature, and asserts overwrite semantics at `numexp` 1, 2
+  and 4.
+
+- **HDBSCAN can now be composed into a clustering without reimplementing the
+  paper.** `mutual_reachability_mst` and `hdbscan_condensed_tree` were exposed
+  without the *cluster selection* step between condensation and labelling, so
+  `hdbscan_label_points`' `is_selected` argument had no producer and every
+  caller had to write the excess-of-mass optimisation themselves — which is
+  what the example in this tree did. Two new kernels close it:
+  `hdbscan_select_clusters(parent, child, lambda, size, method,
+  allow_single_cluster, cluster_selection_epsilon, max_cluster_size)`, with
+  `method` either `"eom"` (excess of mass, Campello, Moulavi & Sander, PAKDD
+  2013 §4) or `"leaf"`, and `hdbscan_membership_strengths(parent, child, lambda,
+  roots)`, which is scikit-learn's `probabilities_` — the value to threshold on
+  when the points at a cluster's edge matter. Python also gets
+  `tttrlib.hdbscan(x, min_cluster_size, min_samples=None, ...)`, the whole
+  pipeline in one call, returning `(labels, probabilities)`. Fed the same
+  spanning tree, the selection, the labels and the strengths are identical to
+  `sklearn.cluster.HDBSCAN` over both methods, `allow_single_cluster`, three
+  epsilons and `max_cluster_size` — 378 combinations in
+  `test/python/misc/test_math_ab_clustering.py`, plus the definition written out
+  a third time in Python in the same file. `hdbscan_cluster_stability` came out
+  of the same request: the mass excess of mass optimises, which normalised is
+  the reference implementation's `cluster_persistence_` (returned by
+  `tttrlib.hdbscan` as `persistence`): how much of the density range a cluster
+  survives. Pinned to the
+  standalone `hdbscan` package from a recorded fixture, 42/42 exact —
+  scikit-learn does not report persistence at all.
+
+  Note which of the two per-cluster numbers is which. `probabilities` is a rank
+  *within* a cluster — the denominator is that cluster's own death, so every
+  cluster reaches 1.0 however diffuse it is. A threshold tuned under `"eom"`
+  goes quietly inert under `"leaf"`, whose small dense clusters pile their
+  strengths up near one (measured on one table: 0.16–1.00 against 0.92–1.00).
+  `persistence` is the across-cluster quantity — but it is not a purity signal
+  either: two overlapping populations are one density mode and persist as one,
+  so a merged mixture can top the ranking (measured: 0.45–0.66 for a 50 %-pure
+  merge against 0.44–0.46 for a pure population). Whether a cluster is one
+  population or two is answered by its cluster children in the condensed tree.
+
+- **`mutual_reachability_mst` returns its edges sorted** in the total edge order
+  (weight, then the sorted endpoint pair) rather than in Borůvka's round order.
+  `hdbscan_condensed_tree` rejects an unsorted edge list, so every caller was
+  sorting already — and a caller that sorted by weight alone silently got a
+  different dendrogram on tied weights, which is the common case here, than one
+  that sorted by the whole order. The endpoints are normalised to
+  `source < target` in the same pass: an MST edge is undirected, but the linkage
+  reads the orientation as left and right and that decides the order the
+  condensation numbers its clusters in, so two callers who passed the same tree
+  with the endpoints the other way round got the same partition under different
+  cluster ids. `mst_prim` matches.
+
+- **Performance: the HDBSCAN benchmark was partly timing a Python loop.** The
+  excess-of-mass selection had no kernel, so `benchmarks/bench_sciref.py`
+  carried its own inside the timed region. With `hdbscan_select_clusters` it is
+  compiled, and the `PERF.md` row is re-measured with both sides in one session: **72.7 → 69.8 ms**
+  at n=20 000, d=4 against scikit-learn's 1649 ms (21× → 24×), same partition.
+  A few per cent, because `min_samples=25` leaves the spanning tree the bulk of
+  the run; the point is that the number now describes the shipped code.
 
 - **The PTO container and the DataStore moved to ptolib**
   (https://github.com/tpeulen/ptolib, private for now), one C++17 header that
@@ -80,15 +248,12 @@
   as `std::invalid_argument`, so Python callers see `ValueError` rather than
   `RuntimeError`.
 
-- **Image kernels and MLP inference paths ported from ermig1979/Simd's
+- **Image kernels ported from ermig1979/Simd's
   concepts** (`junk/Simd`, MIT — credited in each header; re-expressed
   std-only, nothing linked; survey in `okf/design/simd-port-survey.md`),
-  then made fast and re-measured: `MlpGemm.h` (the `MatGemm` policy extracted
-  from `NeuralNet.cpp`, now threaded over row tiles — the OpenMP path
-  previously bypassed the micro-kernel entirely, so the MLP hot GEMMs ran
-  single-threaded; 2.7× the portable path at batch 512 wall-clock, and
-  1.7–2.6× behind Eigen, both recorded), `MlpQuant.h` (dynamic-range int8
-  MLP inference), `RankFilters.h` (2-D median/min/max/midpoint; integer
+  then made fast and re-measured: `Mat.h`'s GEMM is now threaded over row
+  tiles (`gemm_nn_core_mt` — the OpenMP path previously bypassed the
+  micro-kernel entirely), `RankFilters.h` (2-D median/min/max/midpoint; integer
   medians ride a sliding histogram — exact by construction, 2.4× a naive
   window-sort), `IntegralImage.h` (summed-area tables, ~1100× on repeated
   rectangle sums), `ResizeImage.h` (separable table-driven area + bilinear,
@@ -96,7 +261,6 @@
   ~10× the direct convolution at σ=4 on 512²), and `DriftEstimator.h`
   (pyramid SAD translation search with parabolic sub-pixel refinement —
   recovers synthetic shifts to < 0.05 px, ~0.5 ms at 192×160).
-  `MlpCore.h` is untouched (imp.bff's vendored copy stays byte-identical).
   Completing the survey's flagged-useful list, also: `Gradients.h` (Sobel
   x/y and Laplace-8, clamped-column borders), `WarpAffine.h`
   (inverse-mapped bilinear affine warp, OpenCV 2x3 convention), bicubic
@@ -110,16 +274,12 @@
   brute-force references for every kernel in `test/cpp/` (also in the
   header-only CI job), binding-level parity in
   `test/python/misc/test_image_ops.py`, the example's smoke test in
-  `test/python/misc/test_image_kernel_examples.py`, benchmarks in
-  `benchmarks/bench_mlp_gemm.cpp` (wall clock — the kernels are threaded,
-  which CLOCK_THREAD_CPUTIME_ID cannot see) and
+  `test/python/misc/test_image_kernel_examples.py`, benchmark in
   `benchmarks/bench_image_kernels.cpp` (results consumed so nothing is
   optimised away). SIMD pass, measured at 512², OpenMP builds: median 5×5
   3.5 ms (19× naive, row-striped sliding histogram), Sobel 0.04 ms and
   affine warp 0.08 ms (row threading), gaussian ~10× direct convolution,
-  area resize 6× its first draft; the MLP GEMM's remaining 2–2.5× gap to
-  Eigen is recorded as the standing blocked-GEMM project (a K×2 micro-kernel
-  unroll measured at noise level and is not counted as a win).
+  area resize 6× its first draft.
 
 - **`NeuralNet.from_onnx_file` and `from_safetensors_file`: a network trained
   anywhere loads here (and in imp.bff), no ONNX/protobuf library involved.**

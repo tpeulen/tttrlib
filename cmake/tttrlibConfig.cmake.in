@@ -1,0 +1,33 @@
+# Package config for C++ consumers of tttrlib.
+#
+# Header and library installation has worked for a long time (BUILD_LIBRARY and
+# INSTALL are both ON by default, and 172 headers land in include/tttrlib/).
+# What was missing was any way to *find* them: without this file a consumer had
+# to hardcode an include path and a library path, which is why there was no
+# supported way to be a C++ consumer of tttrlib at all. See T-20260831-14.
+#
+# Usage:
+#     find_package(tttrlib REQUIRED)
+#     target_link_libraries(mytarget PRIVATE tttrlib::tttrlib)
+#
+# `tttrlib::tttrlib` is the shared aggregate over every enabled module, and
+# carries its own include directory, so `#include <tttrlib/ExpressionEngine.h>`
+# resolves with no further path setting. `tttrlib::tttrlib_static` is the same
+# code as an archive, for consumers that need one (the R package does).
+#
+# A module switched off at build time with WITH_<NAME>=OFF is absent from the
+# aggregate, exactly as it is from the Python bindings.
+
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(ptolib CONFIG)
+
+# The third-party libraries tttrlib links are resolved at *its* build time and
+# recorded in the target file below. They are listed here only when a consumer
+# would otherwise have to find them itself.
+set(TTTRLIB_WITH_HDF5 @BUILD_PHOTON_HDF@)
+
+include("${CMAKE_CURRENT_LIST_DIR}/tttrlibTargets.cmake")
+
+check_required_components(tttrlib)

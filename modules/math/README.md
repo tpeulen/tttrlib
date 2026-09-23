@@ -1,17 +1,15 @@
 # `math` — Numerical Kernels and Linear Algebra
 
-The `math` module houses tttrlib's shared numerical infrastructure: dense linear algebra, optimisers, random number generators, and the feed-forward neural network. None of these knows what a photon is — they are pure mathematics, shared across spectroscopy, imaging, and simulation modules.
+The `math` module houses tttrlib's shared numerical infrastructure: dense linear algebra, optimisers, and random number generators. None of these knows what a photon is — they are pure mathematics, shared across spectroscopy, imaging, and simulation modules.
 
 ## Contents
 
 - **`Mat.h`**: Standalone, dependency-free dense matrix library with Armadillo-flavoured syntax. SIMD GEMM (NEON / SSE2 / AVX) with register-blocked micro-kernel, cache-blocked transpose, and zero-copy transpose proxy. Element-wise math, reductions, broadcasting. Also the shared dense solvers: `mat_solve` (Gaussian elimination with partial pivoting), `mat_lstsq_minnorm` (one-sided Jacobi SVD, minimum-norm least squares), `mat_inverse_inplace` (Gauss-Jordan, with an allocation-free overload for per-bin loops) and `mat_power`.
 - **`QREigen.h`**: Eigendecomposition of real non-symmetric matrices — Parlett-Reinsch balancing, Householder Hessenberg reduction, Francis double-shift QR with LAPACK's exceptional shift, and eigenvectors by inverse iteration on the Hessenberg form. Plus the complex dense kernels (`zmatmul`, `zmatvec`, `zinv`). Used by `BurstML` and `GopichSzabo`.
 - **`NelderMead.h`**: Header-only simplex optimiser for derivative-free problems.
-- **`NeuralNet.h` / `NeuralNet.cpp`**: Feed-forward multilayer perceptron with Adam training, explicit backprop, StandardScaler, JSON serialisation, and the derivative entry points a caller needs to use the network as one term of a larger differentiable model: `backward` (adjoint of the outputs → adjoint of the weights and inputs, for any loss), `predict_derivatives` / `backward_derivatives` (the same for a loss on `dy/dx` and `d²y/dx²`, e.g. a PDE residual), `jacobian` / `hessian`, `get_parameters` / `set_parameters` (the flat vector an outside optimiser such as L-BFGS works on). Uses `Mat.h` for the batch GEMMs. All the arithmetic is in `MlpCore.h`.
 - **`LatticeDiffusion.h`**: Explicit propagation of a density on a masked cubic lattice — `dp/dt = ∇·(D∇p) − kp`, 7-point stencil, rate as the factor `e^{−k dt}`, Smoluchowski or Itô flux — and its **adjoint**: the transposed stencil run backwards through √n-checkpointed forward states, returning `dL/dD`, `dL/dk`, `dL/dp₀` for every voxel from one pass (no tape). Header-only, std-only; imp.bff vendors it verbatim as the field model of dye quenching (`GridDiffusionSolver`) and its gradient. See below.
-- **`MlpCore.h`**: Header-only, std-only kernels of the dense network — activations with derivatives to third order (sklearn's four plus `softplus`, `silu`, `sin`), the batch forward and reverse passes, and both augmented with a directional Taylor expansion of the input to second order (so `J v` and `vᵀ H v` come out of the forward pass and a loss on them can be backpropagated to the weights), a scalar-templated single-sample forward for `Dual`, and the flat parameter layout. The GEMM is a template policy: `NeuralNet.cpp` plugs in `Mat.h`, and imp.bff carries a verbatim copy of this header that runs on the portable loops. See below.
 - **`i_lbfgs.h`**: Header-only limited-memory BFGS optimiser with central-difference numerical gradients and Armijo backtracking line search. A consumer may supply an exact gradient instead; `imaging/localization` does.
-- **`AdamUpdate.h`**: One Adam step (Kingma & Ba, ICLR 2015) with its state — the one implementation shared by network training, the model-search self-play value model, and a first-order pre-optimiser in front of a Fisher-scoring fit. Header-only, std-only; imp.bff carries a verbatim copy.
+- **`AdamUpdate.h`**: One Adam step (Kingma & Ba, ICLR 2015) with its state — the one implementation shared by the model-search self-play value model and a first-order pre-optimiser in front of a Fisher-scoring fit. Header-only, std-only; imp.bff carries a verbatim copy.
 - **`DampedNewton.h`**: Given a curvature and a gradient, a step that actually improves the objective — Cholesky solves, the SPD log determinant, ridge least squares on a kept factor, and a damped Newton (Fisher scoring, Levenberg-Marquardt) stepper with backtracking. Header-only, std-only; imp.bff carries a verbatim copy.
 - **`PoissonScore.h`**: A Poisson count model's goodness and its derivatives — the deviance, the deviance residuals, and the gradient and information matrix a Fisher scoring (or Newton-Raphson) step needs. Header-only, std-only; imp.bff carries a verbatim copy.
 - **`Dual.h`**: Forward-mode dual number, `val + eps*grad` with `eps^2 = 0`, templated on what sits in the derivative slot. `Dual<double>` is one directional derivative; `Dual<GradVec<N>>` is a whole gradient from one pass. See below.
@@ -20,7 +18,10 @@ The `math` module houses tttrlib's shared numerical infrastructure: dense linear
 - **`Random.h`**: Centralised counter-based RNG (Philox / PCG / SplitMix64 / MT19937) with thread-safe deterministic parallel draws.
 - **`Cluster.h` / `Cluster.cpp`**: Single-linkage bundling on a mutual-reachability
   MST (the reader and the union-find in one pass, sorted edge list in, node
-  counts out), plus the HDBSCAN condensed tree and per-point label read-off.
+  counts out), plus the whole of HDBSCAN downstream of it: condensed tree,
+  cluster selection (excess of mass and leaf, with `allow_single_cluster`,
+  `cluster_selection_epsilon` and `max_cluster_size`), per-point label read-off
+  and membership strengths.
   The MST end of the pipeline is called by `spectroscopy/burst`, the HDBSCAN
   end was ported verbatim from ChiSurf's pure-Python implementation and must
   agree with it bit for bit — which is why the translation unit compiles with
@@ -52,33 +53,70 @@ The `math` module houses tttrlib's shared numerical infrastructure: dense linear
   `sample_from_cdf` and `weighted_choice`, both on caller-supplied uniforms so
   the consumer owns the reproducibility contract.
 - **`SimPcgRandom.h`**: Compact inline PCG32 PRNG for per-stream reproducible randomness.
+- **`RankFilters.h`, `IntegralImage.h`, `ResizeImage.h`, `FastGaussian.h`,
+  `DriftEstimator.h`, `Gradients.h`, `WarpAffine.h`, `ImageStat.h`**:
+  2-D image kernels ported as *concepts* from ermig1979/Simd (MIT,
+  `junk/Simd`, survey in `okf/design/simd-port-survey.md`) — median/min/max/
+  midpoint filters over the reference's window shapes with replicated edges
+  (the median on integer pixels rides a sliding histogram — the histogram
+  *is* the window multiset, so exactness is structural; 2.4× a naive
+  window-sort on 5×5, with the row-transition subtlety that the window must
+  slide back to column 0 before each vertical step, a bug the brute-force A/B
+  caught in one run); summed-area tables (`(rows+1)x(cols+1)`, sum and
+  sum-of-squares in one pass, ~1100× on repeated rectangle sums); area,
+  bilinear and bicubic (Keys a = −0.5) resizers — the area kernel is
+  separable over precomputed per-axis weight tables and threaded, 6× its
+  first per-pixel-weight draft; a 3-box gaussian (σ-independent cost, running
+  sums, threaded: ≤ 5% of a direct gaussian on band-limited input for σ ≤ 2,
+  10% at σ = 6 — the box widths are quantised to odd integers — and ~10× the
+  direct convolution at σ=4 on 512²); a pyramid shift estimator
+  (coarse-to-fine SAD + parabolic sub-pixel refinement) that recovers synthetic
+  translations to < 0.05 px and costs ~0.5 ms at 192×160; Sobel-x/y and
+  Laplace-8 derivatives with clamped-column borders; an inverse-mapped
+  bilinear affine warp (2×3 forward matrix, OpenCV convention, singular
+  matrix refused); and the value histogram plus intensity-weighted image
+  moments (m00…m02; the centroid primitive that seeds Gaussian fits).
+  Benchmarks and the honest caveats (the 3×3 min/max keeps the plain 9-tap
+  gather — the separable two-pass measured *slower* there and was reverted;
+  the general area resizer is ~2.5× a hardcoded 2×2 mean loop now, the price
+  of fractional scales) in `benchmarks/bench_image_kernels.cpp`; A/B against
+  brute-force references in `test/cpp/`.
+- **`ImageOps.h` / `ImageOps.cpp` + `ext/python/ImageOps.i`**: the concrete, non-template
+  facade and the SWIG interface that expose all of the above to Python as
+  NumPy-in/NumPy-out calls — `tttrlib.median_filter/min_filter/max_filter/
+  midpoint_filter` (float64 and uint16, window by name), `resize` (area /
+  bilinear / bicubic), `gaussian_blur`, `sobel_dx/sobel_dy/laplace`,
+  `warp_affine`, `estimate_drift`, `integral_image_u16` + `rect_sum_u64`,
+  `image_histogram`, `moments`. Outputs come back as ARGOUTVIEWM views (no
+  per-element marshalling — the ~50 ns/element lesson of the seam), every
+  long-running entry releases the GIL. Binding-level parity:
+  `test/python/misc/test_image_ops.py` (14 tests against numpy references);
+  the end-to-end tutorial with its own smoke test:
+  `examples/miscellaneous/plot_image_kernels.py` +
+  `test/python/misc/test_image_kernel_examples.py`.
 
 ## Examples
 
 - `examples/miscellaneous/plot_watershed_marching_squares.py` (+ `.ipynb`): `watershed` and `marching_squares` on a simulated field of touching cells -- markers, mask, labels as ROIs, iso-contour outlines, connectivity 1 vs 2.
-- `examples/miscellaneous/plot_neural_net_differentiable.py` (+ `.ipynb`): `NeuralNet` as a differentiable building block -- XOR and a sine by `train`, `backward` / `jacobian` / `hessian` checked against finite differences, and a Sobolev fit (values *and* derivative in the loss) through `backward_derivatives` + SciPy L-BFGS on `parameters`.
-- `examples/miscellaneous/plot_pinn_heat_equation.py` (+ `.ipynb`): physics-informed fit of `u_t = α u_xx` -- `u_xx` from an order-2 pass along `(1,0)`, `u_t` from an order-1 pass along `(0,1)`, residual + initial/boundary loss, gradient assembled from three `backward` calls; scored against `sin(πx) e^{-απ²t}` (5e-3 in ~5 s).
-- `examples/miscellaneous/plot_pinn_burgers.py` (+ `.ipynb`): the canonical PINN benchmark, viscous Burgers `u_t + u u_x = ν u_xx` (Raissi et al. 2019), scored against the Cole-Hopf solution by Gauss-Hermite quadrature; sized to `ν = 0.05`, 2-20-20-20-1, 2000 points, ~1 min, 1e-3 relative error.
 - `examples/miscellaneous/plot_richardson_lucy_deconvolution.py` (+ `.ipynb`): `richardson_lucy_2d` on a simulated blurred, Poisson-noised image -- the iteration count as the regularisation (error-vs-truth minimum), `wiener_deconvolve_2d` for comparison, and the list-mode `richardson_lucy_events_2d` on photon coordinates.
-- `examples/single_molecule/plot_burst_feature_clustering.py` (+ `.ipynb`): `kmeans` (caller-owned uniforms) and the HDBSCAN pipeline `core_distances` -> `mutual_reachability_mst` -> `hdbscan_condensed_tree` -> excess-of-mass selection (in the caller) -> `hdbscan_label_points` on a simulated burst table with two FRET populations and noise.
+- `examples/single_molecule/plot_burst_feature_clustering.py` (+ `.ipynb`): `kmeans` (caller-owned uniforms) and `hdbscan` (the whole pipeline in one call, plus membership strengths and the leaf policy) on a simulated burst table with two FRET populations and noise.
 - `examples/single_molecule/plot_kalman_burst_detection.py` (+ `.ipynb`): `kalman_filter` on a simulated two-channel count trace -- filtered background rate, Mahalanobis distance as burst score, and `TTTR.burst_search_kalman` on the same photons.
 - `examples/single_molecule/plot_hmm_lattice_two_state.py` (+ `.ipynb`): `hmm_forward_log`, `hmm_backward_posteriors_xi`, `hmm_viterbi_log` on a simulated two-state Poisson trace -- the caller builds `log_frameprob`, the lattice returns log-likelihood, posteriors, xi sums (one M-step shown) and the Viterbi path.
 
 ## Dependencies
 
 - `util` (for CPU feature detection, verbose output)
-- nlohmann/json (for NeuralNet serialisation)
 
 No Eigen, no autodiff, and no other external numerics. `Mat.h` and `GradVec.h`
 between them removed the last two Eigen consumers, and `Dual.h` removed the
 vendored autodiff package; see below and `benchmarks/bench_mat.cpp`.
-`MlpCore.h` and `LatticeDiffusion.h` have no dependency at all, not even on the
-rest of this module: that is the condition for imp.bff to vendor them (see
-below).
+`Dual.h`, `GradVec.h` and `LatticeDiffusion.h` have no dependency at all, not
+even on the rest of this module: that is the condition for imp.bff to vendor
+them (see below).
 
 ## Why a separate module?
 
-Previously these files lived in `util`, which meant every module that needed `Verbose.h` also transitively pulled the matrix library and neural net. The split separates "stuff that does math" from "stuff that does plumbing" (logging, progress, byte order, bit ops).
+Previously these files lived in `util`, which meant every module that needed `Verbose.h` also transitively pulled the matrix library. The split separates "stuff that does math" from "stuff that does plumbing" (logging, progress, byte order, bit ops).
 
 ## `Dual.h` + `GradVec.h` — vectorized forward-mode AD
 
@@ -138,97 +176,18 @@ requires agreement. The layering matters because the failure mode here is
 silent: a sign, an aliasing bug in `*=`, a missing term in the product rule
 compiles, runs, and converges to the wrong place.
 
-## `MlpCore.h` — the network as a differentiable building block
+## Neural networks live in IMP.bff
 
-`NeuralNet` used to be a regressor: train on `(X, Y)`, predict. That is enough
-for a surrogate that replaces an EM fit, and not enough for a network that
-*parametrises an unknown field inside a physical model* — a potential of mean
-force, a position-dependent rate, an orienting potential — where the loss is
-computed by a solver downstream of the network and the network's derivatives
-with respect to its **input** are part of that loss. `MlpCore.h` is what that
-takes, and nothing more:
-
-- **`backward(dL/dy)`**: the reverse pass with the upstream adjoint supplied by
-  the caller instead of a target. Returns `dL/dparams` (flat) and `dL/dx`. The
-  training loop is a caller of this same function.
-- **Taylor-augmented passes**: give each sample a direction `v` and the forward
-  pass carries `a1 = da/dv` and `a2 = d²a/dv²` next to every activation, so
-  `J v` and `vᵀ H v` come out of the output layer at ~3× the cost of a plain
-  forward. Because the companions are ordinary elementwise and linear
-  operations, the adjoint of the augmented pass is another backward pass with
-  the same GEMMs plus `f''` and `f'''` — which is what a loss on `y`, `∇y`
-  and `Δy` (a PDE residual) needs to be differentiated with respect to the
-  weights. A Laplacian is `n_in` unit-direction passes. **No tape.** A tape
-  for this problem would be four orders of magnitude too large once the
-  network sits inside a lattice solver; the Taylor adjoint is O(batch).
-- **Smooth activations**: `softplus`, `silu`, `sin` alongside sklearn's four,
-  each with `f'`, `f''`, `f'''`. ReLU has `f'' ≡ 0`, so a diffusion residual
-  cannot train through it — that is the reason these exist.
-- **`predict_scalar<T>`**: the single-sample forward templated on the scalar,
-  so `Dual<GradVec<N>>` returns the full input Jacobian in one pass. This is
-  the *independent* reference the reverse pass is tested against (forward mode
-  and reverse mode share no code beyond `f`), through the dot-product
-  identity `<w, J v> = <Jᵀ w, v>`; and it is what a Dual-templated objective
-  elsewhere in the library calls when a network is one of its terms.
-- **Flat parameters**: `flatten` / `unflatten`, layer by layer, weight then
-  bias — the vector `i_lbfgs.h` or scipy's L-BFGS works on.
-- **Standard formats in**: `model_from_onnx` reads the MLP subset of ONNX
-  (Gemm / MatMul+Add, Relu/Tanh/Sigmoid/Softplus/Sin, the SiLU and
-  softplus-threshold patterns, pass-through reshapes — what PyTorch's two
-  exporters, Keras, JAX and skl2onnx emit) through a minimal protobuf
-  wire-format reader, so no ONNX or protobuf library; `model_from_safetensors`
-  reads a PyTorch `state_dict` (weights only, activations from `__metadata__`
-  or an argument). Checked against PyTorch's own outputs on committed fixtures
-  (`test/python/misc/fixtures/nn/`) and live when PyTorch is installed. So
-  the network need not be trained here at all: train anywhere, export, load.
-- **A whole model, and its file format**: `MlpModel` = layers + input/output
-  `StandardScaler`s; `model_predict` / `model_backward` apply the scalers and
-  their chain rule so a consumer stays in physical units; `model_from_json` /
-  `model_to_json` are templated on the JSON type (any nlohmann-compatible
-  object) so the header stays std-only while both repositories deserialise
-  the `tttrlib.neural_net` document with the nlohmann copy they vendor.
-  `NeuralNet` is now a shell over `MlpModel` (`get_model()`).
-
-The GEMM is a template policy. `NeuralNet.cpp` plugs in `Mat.h`'s SIMD
-kernels; the header itself ships portable loops. That split is what makes it
-shareable: **imp.bff carries a verbatim copy** of `MlpCore.h` under its
-`include/internal/` (the way pcg and nlohmann/json are vendored there) and a
-test that fails when the copies diverge, so a network trained here can be
-evaluated and differentiated inside a coordinate-space solver without linking
-tttrlib. Keep the header free of anything that would break the copy: no
-`Mat.h`, no json include, no registry, no OpenMP beyond the `simd` hint.
-imp.bff's `test/test_vendored_mlpcore.py` compiles a program against its
-vendored nlohmann copy + `MlpCore.h` (namespace `IMP::bff::internal` via
-`TTTRLIB_MLPCORE_NAMESPACE`), loads a model trained here and checks
-predictions to 1e-12 and the gradients against finite differences — that is
-the contract.
-
-Numerics: the refactor of `NeuralNet::train` onto these kernels reproduces the
-previous implementation's predictions to 1e-15 on the same seed (same GEMM
-kernels, same operation order). Performance was measured the way `AGENTS.md`
-asks — thread CPU time (`CLOCK_THREAD_CPUTIME_ID`), the pre-refactor
-`NeuralNet.cpp` extracted from git and compiled into the same benchmark,
-interleaved runs — because the first wall-clock numbers said "faster" while
-the machine was idle and "slower" while it was loaded, and neither was true.
-The first version *was* 10–45 % slower on training and 22 % on `predict_batch`
-for a ReLU 2-32-32-2 net: a per-element `switch` on the activation inside the
-hot loops (no vectorisation) and a fresh workspace per call. With the switch
-hoisted (`act_apply`, `act_derivs_n`) and a thread-local workspace in the
-model entry points, old vs new over four interleaved runs: train 2-32-32-2 ×
-200 epochs relu 109 → 107 ms, tanh 244 → 238 ms, logistic 617 → 596 ms; the
-256-256-128 default × 30 epochs 2 614 → 2 690 ms (±10 % run to run under
-load); `predict_batch(1500×2)` × 200: relu 116 → 109 ms, tanh 435 → 429 ms,
-logistic 340 → 345 ms. Parity within noise, and the derivative kernels
-(order-2 forward + backward, 5000 × 2-20×8-1) got 3–9 % faster than their
-first version in the same pass. Every gradient path is checked in
-`test/cpp/test_mlp_core.cpp`; the end-to-end demonstration is
-`test/python/test_neural_net.py::test_pinn_poisson_1d` — a 1-16-16-1 tanh net
-fitted to `u'' = -π² sin(πx)`, `u(0) = u(1) = 0`, by L-BFGS on the residual
-loss, gradient from `backward_derivatives`: max error 9e-6 in 0.5 s.
+The feed-forward network (`NeuralNet`, with its header-only core MlpCore.h) and
+the HMM surrogate built on it moved to IMP.bff, as `IMP.bff.NeuralNet` and
+`IMP.bff.HmmSurrogate`. tttrlib is ML-free: learned models and neural networks
+live in imp.bff even when their inputs are photons. The forward-mode AD
+headers `Dual.h` and `GradVec.h` stay here; imp.bff vendors them verbatim.
 
 ## `LatticeDiffusion.h` — a differentiable field solver, shared with imp.bff
 
-The other half of the "learned physics" toolkit next to `MlpCore.h`. imp.bff's
+The field-solver half of the "learned physics" toolkit whose network half lives
+in imp.bff. imp.bff's
 dye-quenching field model is `dp/dt = ∇·(D∇p) − kp` on the accessible-volume
 lattice, and calibrating it — or a network that parametrises `D(r)`, `k(r)` —
 needs `dL/dD`, `dL/dk` for every voxel. Finite differences cost one solve per
@@ -245,8 +204,8 @@ against the forward (`test/cpp/test_lattice_diffusion.cpp`, 1e-8–1e-12).
 
 Why here and not only in imp.bff: it is a numerical kernel with no notion of a
 dye, the same family as the 3-D deconvolution and the HMM lattice already in
-this module, and imp.bff's rule (one shared NN codebase; header vendored,
-tttrlib the source) applies to it verbatim. imp.bff's `src/DiffusionSolver.cpp`
+this module, and imp.bff's rule (header vendored, tttrlib the source) applies
+to it verbatim. imp.bff's `src/DiffusionSolver.cpp`
 is a thin IMP-facing wrapper over the copy; `test/test_vendored_headers.py`
 there fails when the copies diverge.
 
@@ -277,7 +236,7 @@ declared regular, and returns components of size 1e24. Likewise
 small matrix and returns zero.
 
 **The kernels have their own benchmark and baseline.** A change here moves
-the Kalman burst search, the HMM surrogate, Gopich-Szabo and BurstML at
+the Kalman burst search, the HMMs, Gopich-Szabo and BurstML at
 once, and none of their benchmarks would say which kernel did it:
 
 ```bash
@@ -311,9 +270,57 @@ time in:
   makes it what the Borůvka is checked against: the two must agree edge for
   edge. Nothing dispatches to it.
 
+Both return their edges **sorted in the total order below**, which is what the
+linkage downstream requires — it rejects an unsorted edge list rather than
+building a plausible, wrong dendrogram from one.
+
 It lives here rather than in an analysis module because none of it knows what a
 photon is, and because a k-d tree over a table of doubles is wanted in several
 places at once.
+
+### Downstream of the MST: the rest of HDBSCAN
+
+Four calls, because the third of them is *policy* and a caller must be able to
+substitute its own:
+
+* `hdbscan_condensed_tree(sources, targets, weights, min_cluster_size)` — union-find
+  single linkage over the sorted edge list, condensed into
+  `(parent, child, lambda, size)`. `n_samples` is the root and cluster ids run
+  upward from it; `lambda` is `1 / merge distance`.
+* `hdbscan_select_clusters(parent, child, lambda, size, method, allow_single_cluster,
+  cluster_selection_epsilon, max_cluster_size)` — which clusters to keep, as one
+  byte per node id. `"eom"` is the excess-of-mass optimisation of Campello,
+  Moulavi & Sander (PAKDD 2013, §4); `"leaf"` takes every leaf of the cluster
+  tree. The corner cases follow `sklearn.cluster.HDBSCAN` deliberately: it is
+  what the A/B test compares against, and matching it is worth more than being
+  tidy.
+* `hdbscan_label_points(parent, child, is_selected, n_points)` — collapse the
+  unselected clusters into their parents and read a root off per point. A point
+  left at the root cluster was claimed by nothing; calling that noise is again
+  the caller's policy.
+* `hdbscan_cluster_stability(parent, child, lambda, size)` — each cluster's
+  stability, `sum over its rows of (lambda - lambda_birth) * size`: the mass
+  excess of mass optimises, indexed by node id like the selection is. It scales
+  with cluster size, so the comparable form is the reference implementation's
+  *persistence*, `stability / (points in the cluster * max lambda)`, which
+  `tttrlib.hdbscan` returns: how much of the density range a cluster survives.
+  It is **not** a purity signal — two overlapping populations are one density
+  mode and persist as one, which is why excess of mass merges them, and in
+  simulation the merged mixture outscored the pure population. Whether a cluster
+  is one population or two is answered by its *cluster children* in the
+  condensed tree, not by this.
+* `hdbscan_membership_strengths(parent, child, lambda, roots)` — how firmly each
+  point sits in the cluster it landed in, `lambda_point / lambda_death` clamped
+  to one. This is scikit-learn's `probabilities_`, and it is what one thresholds
+  to drop the points at a cluster's edge.
+
+Python has `tttrlib.hdbscan(x, min_cluster_size, ...)`, which is those four plus
+the MST and the label numbering — the five lines every caller would otherwise
+write. It returns `(labels, probabilities, persistence)`. Mind which of the last
+two is which: `probabilities` ranks points *within* a cluster (every cluster
+reaches one, however diffuse) and `persistence` compares clusters. The kernels stay separate because a
+caller with its own selection rule has to be able to step in between them; that
+they are separate is not a reason for the standard policies to be missing.
 
 ### The edge order is part of the contract
 

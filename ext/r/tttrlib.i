@@ -137,31 +137,27 @@ TTTRLIB_R_UINT64_TYPEMAPS
 %include "TwoCDE.i"
 %include "BurstML.i"
 #endif
-/* Hidden Markov models. Restraints and constraints first: HMM.i names both.
-   HmmSurrogate.i must follow NeuralNet.i -- the surrogate IS a neural net, and
-   an earlier %include emits an unqualified `NeuralNet` that does not compile. */
+/* Hidden Markov models. Restraints and constraints first: HMM.i names both. */
 #ifndef TTTRLIB_WITHOUT_HMM
 %include "HMMRestraints.i"
 %include "HMMConstraints.i"
 %include "HMM.i"
 #endif
 #ifndef TTTRLIB_WITHOUT_MATH
-%include "NeuralNet.i"
 /* k-d tree nearest neighbours, and the mutual-reachability MST behind HDBSCAN */
 %include "Cluster.i"
 /* Kalman filter recursion over a count-rate trace */
 %include "Kalman.i"
 /* Watershed flood and marching-squares contours -- region segmentation */
 %include "Watershed.i"
+/* image kernels: rank filters, resize, blur, gradients, warp, drift */
+%include "ImageOps.i"
 /* Richardson-Lucy and Wiener deconvolution over the vendored FFT */
 %include "Deconvolution.i"
 %include "Jitter.i"
 /* the log-domain HMM lattice over a caller-supplied frame matrix */
 %include "HmmLattice.i"
 %include "Sampling.i"
-#endif
-#ifndef TTTRLIB_WITHOUT_HMM
-%include "HMMSurrogate.i"
 #endif
 %include "MicrotimeLinearization.i"
 #ifndef TTTRLIB_WITHOUT_KINETICS

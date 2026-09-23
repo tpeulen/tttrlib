@@ -4,7 +4,7 @@
 
 // Validation: A/B-TESTED 2026-08-19 -- vs autodiff (A/B before autodiff was deleted), a long-double dual and central
 //   differences on the localization objective; tanh/sin/cos/sqrt/pow/min/max vs hand derivatives and central
-//   differences. test/cpp/test_ad_gradient.cpp, test/cpp/test_mlp_core.cpp.
+//   differences. test/cpp/test_ad_gradient.cpp.
 //   Register: okf/testing/math-kernel-validation.md
 
 #include <cmath>
@@ -45,8 +45,8 @@
 ///
 /// Only the operators the objectives use are defined: `+ - * /` in every
 /// dual/scalar combination, unary minus, compound assignment, comparison on the
-/// value, `exp`, `log`, and -- for the network activations in MlpCore.h --
-/// `tanh`, `sin`, `cos`, `sqrt`, `pow(dual, double)`, `min`, `max`. Nothing
+/// value, `exp`, `log`, and -- for nonlinear objectives and their consumers in
+/// imp.bff -- `tanh`, `sin`, `cos`, `sqrt`, `pow(dual, double)`, `min`, `max`. Nothing
 /// speculative -- an operator with no consumer has no test that would notice
 /// it being wrong, which is the trap this header is replacing.
 

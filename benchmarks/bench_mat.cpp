@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
-// A/B benchmark: Mat.h (self-contained) vs Eigen on the GEMM patterns the
-// neural net actually executes.
+// A/B benchmark: Mat.h (self-contained) vs Eigen on the GEMM patterns of a
+// batched dense layer (forward NN, backward NT and TN).
 //
 // Build (from the repo root):
 //   clang++ -std=c++17 -O3 -I modules/util/include \

@@ -47,6 +47,7 @@ Cross-cutting first, then the JavaScript binding (PRD-016).
 * [Folding chisurf's PDA3c into tttrlib's `pda` module](design/pda-3colour-fold-in.md) - implemented as `PdaBurstLikelihood`; the plan, what was done, and what stays in chisurf
 * [Photon Simulator subsystem plan (PRD-005)](design/plan-005-photon-simulator.md) - architecture and guardrails for the additive `Sim`-prefixed simulation engine
 * [Sim\* integration notes and gotchas](design/sim-integration-notes.md) - what driving the simulator from an outside project actually cost: anisotropy parameters silently destroying channel routing on a non-polarized instrument, a TAC window narrower than the laser period eating the decay, and the macOS OpenMP import failure. Includes the old→new API rename table.
+* [Porting from junk/Simd — survey](design/simd-port-survey.md) - which ermig1979/Simd techniques beat what tttrlib has, ranked: blocked/packed GEMM for MlpCore (P1), int8 MLP inference (P2), sorting-network rank filters (P3), ShiftDetector drift (P4), resizers/integral (P5); plus what is explicitly not worth porting.
 
 # ImageJ / Fiji plugin
 

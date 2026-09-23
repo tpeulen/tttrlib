@@ -1213,7 +1213,9 @@ jobs:
           D=modules/spectroscopy/decay/include
           U=modules/util/include
           # header-only, math only
-          for t in test_mat_linalg test_qreigen test_mlp_core test_lattice_diffusion; do
+          for t in test_mat_linalg test_qreigen test_lattice_diffusion \
+                   test_rank_filters test_image_kernels test_drift_estimator \
+                   test_gradients_warp; do
             echo "== $t"
             c++ -std=c++17 -O1 -Wall -I"$M" -o "$out/$t" "test/cpp/$t.cpp"
             "$out/$t"

@@ -1,5 +1,21 @@
 # Bundle update log
 
+## 2026-09-23 — the neural net and the HMM surrogate leave tttrlib for imp.bff (T-20260923-nn)
+
+tttrlib is ML-free: learned models and neural nets live in imp.bff even when
+their inputs are photons (rule added to `AGENTS.md`). Removed outright, no
+shims: `NeuralNet` (`NeuralNet.h/.cpp/.i`), `MlpCore.h`, `HmmSurrogate`
+(`HMMSurrogate.h/.cpp/.i`), their Python/C++ tests and ONNX fixtures, the
+`nn.*` conformance ops and `neuralnet.json` cases in all four runners, the JS
+`layerWeights`/`layerBias` helpers, the three network examples, the surrogate
+example and `benchmarks/bench_nn.py`. They continue as `IMP.bff.NeuralNet` and
+`IMP.bff.HmmSurrogate`. `Dual.h`, `GradVec.h` and `LatticeDiffusion.h` are
+byte-identical (imp.bff's `test_vendored_headers.py` SHA-checks them), so their
+comments still name `MlpCore.h`. `test_dual_ops` moved from `test_mlp_core.cpp`
+into `test/cpp/test_ad_gradient.cpp`. The math module no longer links
+nlohmann/json. [PRD-010](prds/PRD-010-neural-net-and-surrogate-models.md) is
+marked superseded.
+
 ## 2026-09-17 — 2D-FLC harvest part 2: nothing of the MATLAB is left
 
 The four pieces the first harvest found unported are in: `TK_CreateExpCurve` (the
@@ -63,6 +79,109 @@ builders, the gallery example and its figure, and `decay_pattern_fit`'s MaxEnt
 modes; `kTikhonov` is now `nnls` on the augmented system. The uncommitted
 `converged`/`dgrad`/`chisq_pearson` work on MaxEntTcspc is superseded by the
 same outputs on imp.bff's MaxEntSpectrum and maxent_solve.
+
+## 2026-09-01 — `fconv_per_cs_ad` interleaves its species: the recursion stops waiting for itself
+
+`DecayConvolution.h`'s templated periodic reconvolution advanced one species
+at a time. Each species is a **serial dependency chain** over the channels --
+`fitcurr = (fitcurr + deltathalf*lamp[i-1]) * expcurr + deltathalf*lamp[i]`
+-- so a spectrum of many species spent most of its time waiting on FMA
+latency with the pipeline empty. **The species are independent of one
+another**, so `FCONV_AD_BLOCK = 8` of their recursions are now advanced
+together.
+
+**Measured before it was written.** Serial against blocked, min-of-many,
+interleaved in one process, 512 channels:
+
+```
+species    serial     B=2      B=4      B=8
+      1    2.0 us    1.9      2.0      2.5
+      2    3.9 us    1.9      2.0      2.5
+      4    7.8 us    3.8      2.0      2.5
+     53  103.2 us   50.3     27.6     17.4     <- 5.9x
+     97  188.2 us   91.2     49.3     32.4     <- 5.8x
+```
+
+**It is ILP, not vectorisation**: plain `-O3` gives the same figures as
+`-mcpu=native`. That matters here more than it looks -- `fconv_per_cs()` has
+a NEON kernel vectorised over lifetimes but **no AVX one**, so x86 takes the
+scalar path for the plain-`double` case as well, and this is the first thing
+that helps it. It is also why SIMD over *channels* would not have helped: the
+channels are the dependency.
+
+**What moves.** Interleaving changes the order the per-species contributions
+are summed into `fit[i]` -- a block is summed and added once rather than each
+species being added in turn. Measured **5e-16** relative to the curve peak
+against the serial body. The consumers that pin curves do so at 1e-10 to
+1e-14, so it sits four orders inside them, but it is a real change and not no
+change.
+
+**`FCONV_AD_BLOCK_MIN = 2` keeps the plain recursion below two species**, for
+two reasons that agree: there is nothing to interleave, B=8 is genuinely
+*slower* there (2.5 vs 2.0 us), and it leaves **every single-exponential
+result bit-identical** -- which is the case `DecayFitNExp` calls this with.
+The old body survives as `fconv_per_cs_ad_serial<T>`, named rather than
+deleted, because it is both the fallback and the reference.
+
+**Tests.** `test/cpp/test_fconv_interleave.cpp`, header-only and runnable by
+hand like its neighbours: bit-identity below the threshold, a few ULP above
+it, and that appending zero-amplitude species changes nothing -- which is the
+failure a padding lane would produce and the one a curve comparison alone
+would not localise. `test/cpp/test_ad_gradient.cpp` passes unchanged,
+including the `Dual<GradVec<N>>` instantiation and DecayFit23/24's objective
+gradients, so the forward-mode path is intact. All four decay translation
+units compile clean under CMake's own flags.
+
+**Rebuilt and tested.** The editable install is
+`-Ceditable.rebuild=false`, so the extension was stale by design and would
+have stayed so; it was rebuilt through the supported on-demand hook
+(`tttrlib.__loader__.rebuild()`, which reruns the same CMake build/install
+against `build/cp312-cp312-macosx_26_0_arm64`). All four decay translation
+units recompiled -- `DecayConvolution.cpp`, `DecayFit23.cpp`,
+`DecayFit24.cpp`, `DecayFitNExp.cpp` -- so the compiled library now carries
+the interleaved kernel rather than only the header doing so.
+`test/python/decayfit` **172 passed, 1 skipped**, 56 subtests. The extension
+was backed up first, because a half-finished install in a shared environment
+breaks every sibling checkout at once (the hazard the board's build lock is
+for); it was not needed.
+
+**Who asked for it.** `imp.bff` vendors this header byte for byte
+(`imp.bff/include/internal/DecayConvolution.h`, kept in step by
+`imp.bff/test/decay/test_decay_convolution_copy_is_identical.py`) and
+evaluates a TCSPC decay through it as a graph node. Profiling that node found
+98.6% of a FRET objective was this function and estimated ~62 us of its 106
+us was FMA latency; recovering 86 us says the estimate was right. Downstream
+that is a **FRET fit at 18.6 -> 6.18 ms**. Ticket `T-20260901-12`; the
+downstream numbers are in `imp.bff/okf/log.md` 2026-09-01 (18).
+
+## 2026-09-01 — `shift_lamp`'s body moves into the header, so a consumer can reach it
+
+`DecayConvolution.h` gains `shift_lamp_ad<T>`; `shift_lamp` in the `.cpp` now
+calls it. Nothing about the shift changes — this is a body move, and the
+translation unit compiles clean.
+
+**Why.** `imp.bff` evaluates a TCSPC decay as a node in its model graph
+(`TcspcDecay`, imp.bff `okf/log.md` 2026-09-01 (12)), where the **timeshift is
+a fit parameter**, so the shift has to run once per iteration on that side of
+the boundary. imp.bff vendors this header byte for byte rather than linking —
+the arrangement the expression engine already uses, and the one that keeps
+imp.bff's build needing nothing outside IMP — so anything it calls has to be
+reachable *from the header*. The choices were: move ten lines up into the
+header, or let imp.bff write a third implementation of a linear
+interpolation. `fconv_per_cs_ad` above it is the same decision, made for
+automatic differentiation; this one is for the same header-only reason.
+
+**A fact about the two libraries, found on the way and worth keeping.**
+`shift_lamp(out, v, -s)` is *exactly* chisurf's `shift_array(v, s)` — 0.0
+difference for every shift tested, integer and fractional, both signs. The two
+index in opposite directions and interpolate toward opposite neighbours, and
+the flips cancel. The single exception is `s = 0`: `shift_lamp` zeroes the
+last sample there, because `out_right = tsint + 1` is 1 when `tsint` is 0,
+while `shift_array` returns its input untouched. chisurf short-circuits a zero
+shift before calling, so the two never actually disagree in use — but a caller
+that does not short-circuit will lose a sample, and that is the kind of thing
+worth knowing before it is diagnosed as a lifetime bias. chisurf's
+`shift_array` is therefore a numpy duplicate of this kernel.
 
 ## 2026-08-19 (50th entry)
 
@@ -2074,3 +2193,218 @@ same outputs on imp.bff's MaxEntSpectrum and maxent_solve.
   functions against Python's 1507; only macOS arm64 has been built; the CI job
   has never run; there are no prebuilt binaries; the copy-fallback path has never
   executed; nothing has been run under a sanitiser.
+
+- 2026-09-02 (one evaluator — ExprTk retired) — **The ExprTk fallback behind
+  `DataStore.select_expression` is gone, with the vendored header
+  (T-20260831-13; owner: "it was just a test that should not be there").**
+  Its multi-argument functions evaluated at element 0 and broadcast — a gate
+  like `hypot(g, r) > 5` silently kept the wrong rows. The engine now widens
+  Bool/String columns into the program's own double buffer instead of dropping
+  the whole query to a second interpreter, gained `root`/`logn`/`frac`
+  (ExprTk's semantics, so the fallback's last correct uses keep working), and
+  everything else it does not implement is refused with a `ValueError` at
+  compile time — the reserved-name list stays long precisely so an
+  unimplemented name fails loudly rather than becoming a column. The
+  expression-engine feature itself (authored 2026-08-31, left uncommitted)
+  landed in the same commit. 84 datastore tests + 5,000 numpy fuzz cases
+  agree exactly. Part of chisurf PRD-105 phase 0.
+
+- 2026-09-07 (ptolib — one container core) — **The PTO container, the
+  DataStore and the `.dstore` encoding left tttrlib for a header-only library
+  both tttrlib and IMP.bff vendor: ptolib (github.com/tpeulen/ptolib,
+  T-20260907-07).** Ruling (user, 2026-09-07): one C++ core, carried as a
+  single header because the repo is private and no CI can clone it; the C99
+  reader and tool retired in favour of C++ tools on the header. The extraction
+  found the two implementations already disagreeing — tttrlib's reader wanted
+  two SeekHeads and one object per `Attachments` and so could not open a
+  `.drot.pto`; ptolib's reader takes both layouts, opens a single-index file
+  read-only, and `compact()` is the way to an editable copy (an in-place
+  upgrade would have no valid index during the write). `verify()` now does what
+  the C `verify` only pretended to. All goldens validate under libebml 2.0.
+  Public API unchanged; PRD-040's "one core per language, vendored" rule is
+  amended to name ptolib as that core.
+
+- 2026-09-08 (HDBSCAN — the missing middle) — **`hdbscan_select_clusters` and
+  `hdbscan_membership_strengths` close the gap between the condensed tree and
+  the labels.** Reported by another agent classifying smFRET bursts: the three
+  exposed functions could not be composed into a clustering, because
+  `hdbscan_label_points`' `is_selected` argument had no producer — the caller
+  had to write the excess-of-mass optimisation of Campello et al. §4 itself, as
+  the example in this tree in fact did. Being *substitutable* policy (which it
+  is, and it stays its own call) was taken as a reason to ship it *missing*,
+  which left three-quarters of an algorithm on the public surface. Both
+  published policies are now kernels, with `allow_single_cluster`,
+  `cluster_selection_epsilon` and `max_cluster_size`, matching
+  `sklearn.cluster.HDBSCAN` exactly over 378 option combinations on the same
+  tree, strengths included; Python also has `tttrlib.hdbscan(x, ...)` for the
+  five-line composition. Second finding from the same report:
+  `mutual_reachability_mst` returned Borůvka's round order while
+  `hdbscan_condensed_tree` demands ascending weight, so every caller sorted —
+  and one sorting by weight alone got a different dendrogram on tied weights
+  (the common case here) than one sorting by the documented total order. It now
+  returns the rows sorted. Follow-ups the same day, from the reporter
+  putting it to use: the membership strengths are normalised per cluster, so a
+  cut tuned under excess of mass goes inert under leaf selection — documented
+  before it shipped — and `hdbscan_cluster_stability` was added so there is an
+  across-cluster quantity at all (`persistence`, pinned to the standalone
+  `hdbscan` package's `cluster_persistence_` from a recorded fixture, since
+  scikit-learn reports none). The leaf tie divergence does not scale with
+  dimension: ties *fall* with d, and it is partition fragmentation that drives
+  it. Correction the next day: the motivation
+  written into four files for exposing persistence — that it tells a population
+  from the leftover overlap — was the requester's hypothesis taken on trust and
+  is false (a merged mixture is one density mode and persists as one, which is
+  why excess of mass merged it; measured, the mixture tops the ranking). Text
+  fixed everywhere, both the negative and the positive result pinned in
+  `TestWhatPersistenceDoesAndDoesNotSay`: what answers the question is whether
+  the selected cluster has cluster children in the condensed tree, 12/12.
+
+- 2026-09-09 (fconv_per — one function, two contracts) — **`fconv_per` cleared
+  its output buffer on the SIMD path and accumulated into it on the scalar
+  one**, so a single-exponential model (always scalar: one lifetime is below
+  `kSimdMinNumexp`) grew without bound in a reused buffer while a
+  two-exponential one was correct, on the same machine with no environment
+  override. Found while checking a performance report from another agent, not
+  by a test — and the reason no test caught it is worth more than the bug:
+  `test_simd_convolution_correctness.py` compares `fconv_per` with
+  `fconv_per_simd`, which are the same function since the alias was deprecated,
+  and every class in it is `skipUnless(get_avx_enabled())` so the whole file
+  skips on the machine it is developed on. Two ways to write a check that
+  cannot fail, in one file. The scalar kernel now clears; the paths agree bit
+  for bit; the new test drives both through the env override in a subprocess and
+  is gated on nothing. Same visit: the reported binding overhead was not real
+  (the native kernel is 0.0987 ms against 0.102 ms through Python, so SWIG costs
+  ~3 µs on `INPLACE_ARRAY1` typemaps that never copy), and the NEON kernel is
+  selected and worth 1.87× over scalar at every lifetime count measured.
+
+- 2026-09-09 (derivatives leave the library) — **`fconv_per_cs_jacobian`: the
+  decay model and its exact Jacobian in one forward-mode pass (T-20260909-01,
+  owner-approved).** The `_ad` kernels were written as templates on the scalar
+  type precisely so a dual could be pushed through them, and then only the
+  `double` instantiation was ever exposed — so every caller wanting derivatives
+  finite-differenced the model or handed it to someone else's autograd. Two
+  things had to be fixed to get a dual through, and both were in code whose own
+  comments said it already worked: `shift_lamp_ad`'s output array was `double*`
+  and it called `floor` on its templated shift, so it had never once been
+  instantiated with a dual; `fconv_per_cs_ad` hard-coded the response as
+  `double`. A comment describing an intent is not evidence the intent compiles.
+  Blocked at 8 columns per pass rather than dispatched on the parameter count,
+  because a spectrum has any number of lifetimes. 3.4× over central differences
+  at 33 lifetimes and exact; a wash below eight parameters, which is documented
+  rather than hidden.
+
+  Measured in the same visit and **not** acted on: `fconv_per_cs_ad<double>` —
+  the AD kernel's own scalar instantiation, 8-way species blocking — is 2.6×
+  faster than the hand-written NEON `fconv_per` at 33 lifetimes and 3.1× at 64.
+  Eight-way ILP beats two-lane float64 SIMD, and the fastest periodic
+  convolution in the tree is the one nothing dispatches to. Switching moves
+  every curve by ~5e-16, so it is T-20260909-02 on the board for the owner
+  rather than a patch.
+
+- 2026-09-09 (fconv_per read past a buffer) — **The `dt/2 * lamp` array in all
+  three `fconv_per` kernels was sized by `stop` while the recursion runs to
+  `stop1`, which is bounded by the point count.** `stop = n_points - 1` — the
+  natural thing for a caller to pass — walked one element off the end; a shorter
+  stop walked further. Reported by another agent with a ten-line reproducer
+  after tpeulen asked them to put the kernel in a forward model.
+
+  The lesson is in how it presented. It looked like *state*: fresh response,
+  fresh zeroed output, and the answer still grew by one species' worth per
+  call, because the previous call's freed arrays were what lay past the end.
+  Their diagnosis was "the state lives inside the library, probably the
+  typemap"; mine, for a while, was "reusing `x`", because passing a fresh
+  spectrum made it stable — it did, but only because that changed the
+  allocation pattern, and `x` was bit-identical before and after. Reading
+  recycled memory imitates history dependence, and both of us went looking for
+  a cache first. The tell was that the *contents* of everything handed in were
+  unchanged.
+
+  Also why it survived: a caller that calls the kernel once gets the right
+  answer, so their own accuracy check passed at 1.9e-15, and every in-tree test
+  called it once. The new test asserts repeat calls are identical, on both
+  dispatch paths — and, separately, that `fconv_per` over the full range equals
+  `fconv_per_cs` **bit for bit**, because stable is not the same as right. The
+  reporter's unfixed build returned that same value on its first call, which is
+  independent confirmation that only the calls after the first were wrong.
+
+- 2026-09-09 (the optimized path was the slow path) — **The hand-written NEON
+  and AVX periodic convolutions were slower than plain scalar code; rewritten,
+  3.8-5.6× (T-20260909-02).** Owner ruling: *"it cannot be that handwritten
+  convolution is slower. the optimized path MUST always be the fastest code
+  path."* That reframed the ticket I had written — I had advertised it as
+  "should we dispatch to the blocked scalar kernel", and the answer was that the
+  SIMD kernels were simply written wrong.
+
+  The mistake is a general one about vectorising a *recursion*: putting several
+  lifetimes in one register looks like the vectorisation, but the recursion is a
+  serial dependency chain, so one register is one chain and the FMA latency is
+  exposed with nothing to hide it. The fix is instruction-level parallelism —
+  several registers, several chains — plus not reducing to a scalar once per
+  species-group per channel (17 passes over the output for 33 species). The AD
+  kernel had had it right all along with 8 independent scalar chains, which is
+  why plain scalar code was beating intrinsics. All three kernels had it --
+  `fconv` as well as the two periodic ones -- on both instruction sets; 3.4-6.4×
+  once fixed, and `fconv_per_cs_ad<double>` is worth keeping as the yardstick,
+  because a hand-written SIMD kernel that does not beat plain blocked scalar
+  code has something wrong in it.
+
+  Also corrected: PERF.md said of these exact kernels "already SIMD-optimised
+  with runtime CPU dispatch; no further gains there". Being written in
+  intrinsics is a statement about the code, not about its speed, and nothing had
+  measured them against an alternative.
+
+- 2026-09-09 (a chi-square that can fail) — **`MaxEntTcspc` reports a second
+  chi-square, weighted by the model rather than the data.** Two defects met
+  here. The solver weights residuals by `sqrt(y)` — Neyman, which tttrlib's own
+  objective catalogue calls biased low at small counts, measured at −31 % at 3
+  counts/bin and −1 % at 100; and `run_mem_target_chisq` *drives* that number to
+  a requested target, so it cannot fail. A score you have guaranteed is not
+  evidence. Owner's instruction was to add a second output path rather than
+  change the weighting, which is the right order: `chisq_pearson` is formed at
+  the solution, never enters the objective, and moved no fitted number (28
+  fixtures unchanged), while giving the caller something that can disagree —
+  1.5155 against a guaranteed 0.9993 on sparse data, converging as counts rise.
+  The bias itself is untouched and its ticket stays open; fixing it moves every
+  MaxEnt result anyone holds, which is a decision rather than a patch.
+
+- 2026-09-09 (a stopping rule is not a result) — **`run_mem` reported success on
+  an exhausted solve.** 300 of 300 iterations, `dgrad` 3.06e-1 against a
+  tolerance of 1e-4, `success = True`; the quantity that would have said so was
+  computed each iteration and thrown away. Fixed additively: `converged` and
+  `dgrad` join `success`, which keeps its old meaning so no caller changes.
+
+  Found by an agent that had just made its own package *depend* on this solver,
+  and the general lesson is theirs: **delegating a solver is easy and delegating
+  its diagnostics is not.** An optimiser is a function of its inputs and ports
+  cleanly; "did it converge" is a claim about a stopping rule, and two libraries
+  can implement the same algorithm and mean different things by it. Their first
+  attempt returned our summaries directly and broke nine of their tests — not
+  because the optimisation disagreed (p agrees to 1e-16) but because the
+  *verdicts* did.
+
+- 2026-09-09 (a guard mistaken for a cure) — **`KMP_DUPLICATE_LIB_OK=TRUE` was
+  turning a legible OpenMP error into a silent segfault inside a tttrlib call.**
+  Reported as "import torch before numpy segfaults in tcspc_run_mem". It
+  reproduces, and the mechanism is two `libomp.dylib` *files* in one process —
+  tttrlib resolves `@rpath/libomp.dylib` to the conda env's, torch to the copy
+  it bundles. Counted with `_dyld_get_image_name`: numpy first loads one
+  runtime, torch first loads two.
+
+  The useful finding was the inversion. Without the flag, OpenMP detects the
+  second initialisation and prints `OMP: Error #15` naming the cause; the flag
+  suppresses that guard and the process walks into the undefined behaviour the
+  guard exists to prevent. So the variable everyone carries as the fix for
+  duplicate-runtime problems is what removed the only diagnostic there was —
+  and the reporter then measured that nothing in their stack needed it at all
+  (a full three-node fit runs unset, same evidences to every printed digit).
+  Their runbook sentence saying the env "needed" it had no measurement behind
+  it, which is the general lesson: an inherited environment flag is a claim, not
+  a fact, until someone unsets it.
+
+  Recorded in BUGS.md rather than fixed, by agreement — linking the env's
+  OpenMP is correct for a conda package and torch bundling its own is not ours
+  to fix. If it recurs the cheap version is an import-time image count that
+  *warns*; pinning the runtime is explicitly the wrong answer because it hides
+  the same problem again.
+
+- 2026-09-12 — modular ptolib and codec migration: linked the maintained source package; old implementation macros removed. Public header is 171 KB; BFF normal writes use Zstd level 3 with legacy Brotli import and explicit Brotli output. Fresh tttrlib 489 / IMP.bff 46 / chimol 37 tests pass; decoder-only bff validated. Detailed evidence: ../../ptolib/.omx/reports/ptolib-modular-codecs.md. Changes remain uncommitted.

@@ -46,6 +46,13 @@
 // (min(u,v), max(u,v)). Under a total edge order the MST is unique and every
 // correct algorithm returns the same one. `edge_less` below is that order and
 // must stay identical to the caller's.
+//
+// The returned rows are *sorted* in it, too. Boruvka finds edges by round and
+// Prim by chain, neither of which is an order anybody wants, and the very next
+// step -- `hdbscan_condensed_tree` -- rejects an unsorted edge list because the
+// linkage is order-dependent. Every caller was therefore sorting, and a caller
+// that sorted by weight alone silently got a different dendrogram on tied
+// weights than one that sorted by the full order. Sorting here ends that.
 
 #include <cstddef>
 #include <vector>
@@ -96,7 +103,10 @@ public:
     std::vector<double> core_distances(int k) const;
 
     /// Minimum spanning tree of the mutual-reachability graph, as `3 * (n-1)`
-    /// doubles laid out row-major as `[source, target, weight]`.
+    /// doubles laid out row-major as `[source, target, weight]` with
+    /// `source < target`, sorted in the total edge order (`edge_less`) -- which
+    /// is what the linkage downstream requires and what makes the result
+    /// reproducible under ties.
     ///
     /// `core` must hold one core distance per point (typically from
     /// `core_distances`); `alpha` divides the plain distance before the
@@ -107,7 +117,8 @@ public:
     std::vector<double> mutual_reachability_mst(const std::vector<double>& core,
                                                 double alpha = 1.0) const;
 
-    /// The same tree by Prim's algorithm: `O(n^2 d)`, no tree, no pruning,
+    /// The same tree, in the same order, by Prim's algorithm: `O(n^2 d)`, no
+    /// tree, no pruning,
     /// nothing clever. It is kept because it is *obviously* correct, which
     /// makes it the thing the Borůvka above is checked against — the two must
     /// return the same tree edge for edge, and that is what proves the total
@@ -189,19 +200,23 @@ void mutual_reachability_mst(double* input, int n_input1, int n_input2,
 // expressible in an array language: union-find, a breadth-first tree walk and a
 // dynamic compaction are pointer-chasing.
 //
-// **Two calls, not one, and that is deliberate.** The obvious surface is a
-// single `hdbscan_labels(mst, min_cluster_size)`. It does not fit: *cluster
-// selection* sits between condensation and labelling, and it is policy --
+// **Three calls, not one, and the split is at the policy boundary.** *Cluster
+// selection* sits between condensation and labelling and it is policy --
 // excess-of-mass or leaf selection, `allow_single_cluster`,
-// `cluster_selection_epsilon`, and the map from node id to output label. Those
-// are user-facing options that belong with the caller, not compiled in. So the
-// split is at the policy boundary:
+// `cluster_selection_epsilon`, `max_cluster_size`. A caller with its own rule
+// must be able to substitute it, so it is its own call rather than a flag
+// buried in a monolith:
 //
 //   hdbscan_condensed_tree()  MST edges -> condensed (parent, child, lambda, size)
-//   << caller selects clusters from the condensed tree's stabilities >>
+//   hdbscan_select_clusters() condensed tree + policy -> is_selected
 //   hdbscan_label_points()    condensed tree + selection -> a root per point
+//   hdbscan_membership_strengths()  ... + those roots -> a strength per point
 //
-// Both halves are one call each, so the loops stay whole in C++.
+// The middle call being *substitutable* is not the same as it being *absent*:
+// the two published policies (Campello et al. 2013 §4 excess of mass, and leaf
+// selection) ship here, because a caller who has to reimplement the paper to
+// get a label out has no working clustering, only three-quarters of one. Each
+// call is one loop, so nothing pointer-chasing crosses the language boundary.
 
 namespace tttrlib {
 
@@ -215,7 +230,17 @@ namespace tttrlib {
  *        this many points; otherwise the small side is recorded as points
  *        falling out of the surviving cluster, at that merge's lambda.
  * \param out_parent,out_child,out_value,out_size  the condensed edge list,
- *        allocated here. Node ids are renumbered so `n_samples` is the root.
+ *        allocated here, **in that order** -- a language binding returns them
+ *        as a four-tuple `(parent, child, lambda, size)` and the order is the
+ *        only thing naming them. One row per condensed edge:
+ *        - `parent` is always a cluster; `n_samples` is the root and cluster
+ *          ids run upward from it without gaps.
+ *        - `child` is a cluster (`>= n_samples`) when the row is a split, and
+ *          a point (`< n_samples`) when the row is that point falling out.
+ *        - `lambda` is `1 / merge distance`, so it *increases* with depth
+ *          (infinite for a zero distance, i.e. duplicate points).
+ *        - `size` is the child's point count: 1 exactly on the point rows.
+ *        Every point appears as a child exactly once.
  */
 void hdbscan_condensed_tree(
         long long* sources, int n_sources,
@@ -242,6 +267,130 @@ void hdbscan_label_points(
         unsigned char* is_selected, int n_is_selected,
         int n_points,
         long long** out, int* n_out);
+
+/*!
+ * \brief Which clusters of a condensed tree to keep: the `is_selected` that
+ *        `hdbscan_label_points` expects.
+ *
+ * The published policies, both of Campello, Moulavi & Sander, *Density-based
+ * clustering based on hierarchical density estimates*, PAKDD 2013 (§4 for the
+ * first), with the same defaults and the same corner cases as
+ * `sklearn.cluster.HDBSCAN` -- which is what the A/B test pins this against:
+ *
+ *   - `"eom"`  excess of mass. A cluster's stability is
+ *     `sum over its rows of (lambda - lambda_birth) * size`; walking the tree
+ *     bottom-up, a cluster is kept when its own stability is at least that of
+ *     its selected descendants, and taking it discards everything below it.
+ *   - `"leaf"` every leaf of the cluster tree, which fragments more and follows
+ *     the density peaks rather than the mass.
+ *
+ * \param parents,children,lambdas,sizes  the condensed tree, as
+ *        `hdbscan_condensed_tree` returned it. The root -- and so the point
+ *        count -- is `min(parents)`; there is no `n_points` parameter because
+ *        it would only be a second chance to disagree with the tree.
+ * \param method  `"eom"` or `"leaf"`.
+ * \param allow_single_cluster  let the root itself be selected, i.e. admit the
+ *        answer "this is one cluster". Off by default in every implementation
+ *        because with it on, data with no structure comes back as one cluster
+ *        rather than as noise.
+ * \param cluster_selection_epsilon  distance below which splits are not taken:
+ *        a selected cluster is walked back up while its parent was born closer
+ *        than this (Malzer & Baum 2020). `0.0` disables it.
+ * \param max_cluster_size  points; a candidate above it is rejected in favour
+ *        of its descendants (`"eom"` only). `0` disables it.
+ * \param out_selected  `[max(node id) + 1]` bytes, allocated here: 1 where a
+ *        node is a selected cluster. Sized so it covers every id in the tree,
+ *        which is what `hdbscan_label_points` requires of it.
+ */
+void hdbscan_select_clusters(
+        long long* parents, int n_parents,
+        long long* children, int n_children,
+        double* lambdas, int n_lambdas,
+        long long* sizes, int n_sizes,
+        const char* method,
+        bool allow_single_cluster,
+        double cluster_selection_epsilon,
+        long long max_cluster_size,
+        unsigned char** out_selected, int* n_out_selected);
+
+/*!
+ * \brief Each cluster's stability: the quantity excess of mass optimises.
+ *
+ * `sum over the cluster's rows of (lambda - lambda_birth) * size` -- the mass
+ * of Campello, Moulavi & Sander's excess of mass, and the number the selection
+ * weighs a cluster against its children with. Normalised (see below) it is how
+ * much of the density range a cluster survives: near one, it exists at every
+ * scale; near zero, only in a narrow band.
+ *
+ * **It is not a purity signal, and it does not tell a population from a
+ * mixture.** Two overlapping populations form *one* density mode, and that mode
+ * survives a wide range of densities -- which is exactly why excess of mass
+ * merged them. Measured on simulated two-population FRET tables at three
+ * separations: the merged, 50%-pure cluster scored 0.45-0.66 and the pure
+ * single population 0.44-0.46, so the mixture was at the *top* of the ranking
+ * and no threshold separated them. What does separate them is in the condensed
+ * tree the caller already has: a selected cluster that is a merged mixture has
+ * *cluster children* (rows whose parent is that cluster and whose child is
+ * `>= n_points`) and a genuinely single one has none -- 12 of 12 in the same
+ * simulation, with the children's share of the parent growing with separation.
+ *
+ * \param parents,children,lambdas,sizes  the condensed tree.
+ * \param out_stability  `[max(node id) + 1]` doubles, allocated here, indexed
+ *        by absolute node id exactly as `hdbscan_select_clusters`' output is:
+ *        zero at every point id, the stability at every cluster id. So the
+ *        roots that `hdbscan_label_points` returns index straight into it.
+ *
+ * **It scales with the cluster's size**, so it does not compare two clusters as
+ * it stands -- a large loose group outweighs a small tight one. The comparable
+ * form is the *persistence* the reference implementation reports:
+ * `stability / (points in the cluster * max lambda in the tree)`, in `[0, 1]`,
+ * which `tttrlib.hdbscan` returns. Where the tree holds duplicate points the
+ * maximum lambda is infinite and that ratio is undefined; the convention there,
+ * ours and the reference's, is 1.0.
+ */
+void hdbscan_cluster_stability(
+        long long* parents, int n_parents,
+        long long* children, int n_children,
+        double* lambdas, int n_lambdas,
+        long long* sizes, int n_sizes,
+        double** out_stability, int* n_out_stability);
+
+/*!
+ * \brief How firmly each point belongs to the cluster it landed in.
+ *
+ * `lambda_point / lambda_death`, clamped to one: the density at which the point
+ * left its cluster over the density at which that cluster died. This is
+ * scikit-learn's `probabilities_` (it is not a probability), and it is what one
+ * thresholds to drop the points at a cluster's edge.
+ *
+ * \param parents,children,lambdas  the condensed tree.
+ * \param roots  `hdbscan_label_points`'s output: one node id per point.
+ * \param out_strength  `[n_roots]` doubles in `[0, 1]`, allocated here.
+ *
+ * Every point is scored against the cluster it is rooted at, *including* points
+ * still rooted at the root cluster. Whether those are noise is the caller's
+ * policy -- the same policy that decided `allow_single_cluster` -- so zeroing
+ * them is left to the caller rather than assumed here.
+ *
+ * **It is a rank within a cluster, not a confidence across clusters.** The
+ * denominator is each cluster's own death, so every cluster reaches one
+ * somewhere no matter how diffuse it is, and 0.9 in a broad cluster says
+ * nothing about 0.9 in a tight one. This bites hardest when the threshold is
+ * carried between selection policies: leaf selection's clusters are small and
+ * dense, so their strengths pile up near one (a table where excess of mass
+ * spreads them over 0.16-1.0 gives leaf 0.92-1.0), and a cut that drops a fifth
+ * of the points under `"eom"` drops none under `"leaf"`. The clamp also puts
+ * every point that outlived its cluster's death at exactly one. To compare
+ * *across* clusters, use the raw lambda a point left at -- the condensed tree's
+ * `lambda` on the row where the point is the child -- which is a density in the
+ * data's own units.
+ */
+void hdbscan_membership_strengths(
+        long long* parents, int n_parents,
+        long long* children, int n_children,
+        double* lambdas, int n_lambdas,
+        long long* roots, int n_roots,
+        double** out_strength, int* n_out_strength);
 
 }  // namespace tttrlib
 

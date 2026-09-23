@@ -4,8 +4,8 @@
 Every phase of the HMM work opens here: the target behaviour is demonstrated on
 a tiny problem with known ground truth *before* the fast C++ engine is touched,
 and the engine is then held to this reference.  That is already the convention
-in this suite — ``test_hmm_decoding.py`` carries a ``gamma_reference`` and
-``test_surrogate.py`` a NumPy feature reference — generalised into one module.
+in this suite — ``test_hmm_decoding.py`` carries a ``gamma_reference`` —
+generalised into one module.
 
 Three layers, each checking the one below:
 

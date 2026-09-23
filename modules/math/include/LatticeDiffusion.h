@@ -46,7 +46,7 @@
 // sweep. Against finite differences -- one forward *per parameter* -- that is
 // what makes a field, or a network's weights, fittable at all.
 //
-// Header-only and std-only on purpose, like MlpCore.h: imp.bff (whose dye
+// Header-only and std-only on purpose: imp.bff (whose dye
 // quenching model is the first consumer) carries a verbatim copy under its
 // internal/ directory, so a `#pragma omp` is the only thing beyond the
 // standard library here, and it compiles to nothing without -fopenmp.

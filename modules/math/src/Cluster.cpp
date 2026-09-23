@@ -33,6 +33,42 @@ namespace tttrlib {
 
 namespace {
 
+/// Put `[source, target, weight]` rows into the total edge order, endpoints
+/// first.
+///
+/// Boruvka emits by round and Prim by chain; the consumer wants neither, and
+/// `hdbscan_condensed_tree` rejects an unsorted list outright. Sorting an index
+/// permutation rather than the rows themselves keeps the comparator reading
+/// three contiguous doubles and costs one pass to write back.
+///
+/// The endpoints are also normalised to (min, max). An MST edge is undirected,
+/// so the orientation carries nothing -- but the linkage downstream reads it as
+/// left and right, and left/right decides the order the condensation numbers
+/// its clusters in. Two callers handing the same tree over with the endpoints
+/// the other way round would then get the same partition under different
+/// cluster ids. Fixing the orientation here removes the last degree of freedom
+/// the total edge order left open.
+void sort_edges(std::vector<double>& mst) {
+    const size_t n_edges = mst.size() / 3;
+    if (n_edges == 0) return;
+    for (size_t i = 0; i < n_edges; ++i)
+        if (mst[3 * i] > mst[3 * i + 1]) std::swap(mst[3 * i], mst[3 * i + 1]);
+    if (n_edges < 2) return;
+    std::vector<size_t> order(n_edges);
+    std::iota(order.begin(), order.end(), size_t{0});
+    std::sort(order.begin(), order.end(), [&mst](size_t a, size_t b) {
+        return edge_less(mst[3 * a + 2], static_cast<int>(mst[3 * a]),
+                         static_cast<int>(mst[3 * a + 1]),
+                         mst[3 * b + 2], static_cast<int>(mst[3 * b]),
+                         static_cast<int>(mst[3 * b + 1]));
+    });
+    std::vector<double> sorted(mst.size());
+    for (size_t i = 0; i < n_edges; ++i)
+        std::copy(mst.begin() + 3 * order[i], mst.begin() + 3 * order[i] + 3,
+                  sorted.begin() + 3 * i);
+    mst.swap(sorted);
+}
+
 /// Sift the last element of a k-element max-heap of (distance, index) up.
 inline void heap_push(double* dist, int* idx, int size, double d, int i) {
     int pos = size;
@@ -575,6 +611,7 @@ std::vector<double> KDTree::mutual_reachability_mst(const std::vector<double>& c
                 "mutual_reachability_mst: no edge joined two components; the data "
                 "is not connected, which cannot happen for a complete graph");
     }
+    sort_edges(mst);
     return mst;
 }
 
@@ -640,6 +677,7 @@ std::vector<double> KDTree::mst_prim(const std::vector<double>& core, double alp
         mst[static_cast<size_t>(3 * step + 2)] = best_w;
         current = best_v;
     }
+    sort_edges(mst);
     return mst;
 }
 
@@ -906,6 +944,312 @@ void hdbscan_label_points(
     *n_out = n_points;
 }
 
+
+// ---------------------------------------------------------------------------
+// Cluster selection: the policy between condensation and labelling
+// ---------------------------------------------------------------------------
+// Campello, Moulavi & Sander, PAKDD 2013, section 4 (excess of mass) and leaf
+// selection, with the epsilon walk-up of Malzer & Baum 2020. The corner cases
+// follow scikit-learn's `_tree.pyx` deliberately: it is the reference the A/B
+// test compares against, and where it is quirky (leaf selection on a tree that
+// never split selects nothing, not the root) matching it is worth more than
+// being tidy.
+
+namespace {
+
+/// The condensed tree in the shape the selection policies want it.
+///
+/// Cluster ids run from the root upward without gaps -- the condensation hands
+/// out `next_label++` for every cluster it emits -- so subtracting the root
+/// gives a dense index and none of this needs a hash map. It also means a
+/// descending id order is a bottom-up walk, which is what the policies below
+/// rely on instead of sorting the tree themselves.
+struct ClusterTree {
+    long long root = 0;                          ///< also the point count
+    std::vector<double> birth;                   ///< lambda a cluster was born at; 0 at the root
+    std::vector<double> stability;
+    std::vector<long long> size_of;              ///< the cluster's own point count
+    std::vector<long long> parent_of;            ///< -1 at the root
+    std::vector<std::vector<long long>> kids;    ///< cluster children only, ascending
+
+    size_t at(long long node) const { return static_cast<size_t>(node - root); }
+    size_t n_nodes() const { return birth.size(); }
+};
+
+ClusterTree build_cluster_tree(const long long* parents, const long long* children,
+                               const double* lambdas, const long long* sizes,
+                               int n_rows) {
+    long long root = parents[0], max_node = parents[0];
+    for (int i = 0; i < n_rows; ++i) {
+        if (parents[i] < 0 || children[i] < 0)
+            throw std::invalid_argument("hdbscan: node ids must not be negative");
+        if (parents[i] < root) root = parents[i];
+        if (parents[i] > max_node) max_node = parents[i];
+        if (children[i] > max_node) max_node = children[i];
+    }
+
+    ClusterTree t;
+    t.root = root;
+    const size_t n = static_cast<size_t>(max_node - root + 1);
+    t.birth.assign(n, 0.0);
+    t.stability.assign(n, 0.0);
+    t.size_of.assign(n, 0);
+    t.parent_of.assign(n, -1);
+    t.kids.assign(n, std::vector<long long>());
+
+    for (int i = 0; i < n_rows; ++i) {
+        if (children[i] < root) continue;   // a point falling out, not a split
+        const size_t c = t.at(children[i]);
+        t.birth[c] = lambdas[i];
+        t.size_of[c] = sizes[i];
+        t.parent_of[c] = parents[i];
+        t.kids[t.at(parents[i])].push_back(children[i]);
+    }
+    // Births first, stability second: stability is measured from a cluster's
+    // own birth, so no row can be accumulated until every birth is known.
+    for (int i = 0; i < n_rows; ++i) {
+        const size_t p = t.at(parents[i]);
+        t.stability[p] += (lambdas[i] - t.birth[p]) * static_cast<double>(sizes[i]);
+    }
+    for (auto& k : t.kids) std::sort(k.begin(), k.end());
+    return t;
+}
+
+/// `node` and every cluster below it, breadth first, into `out`.
+void cluster_subtree(const ClusterTree& t, long long node, std::vector<long long>& out) {
+    out.clear();
+    out.push_back(node);
+    for (size_t head = 0; head < out.size(); ++head)
+        for (long long kid : t.kids[t.at(out[head])]) out.push_back(kid);
+}
+
+/// Leaves of the cluster tree: the clusters that never split.
+/// Empty when nothing split at all, which is what scikit-learn returns there.
+std::vector<long long> cluster_tree_leaves(const ClusterTree& t) {
+    std::vector<long long> leaves;
+    if (t.kids[t.at(t.root)].empty()) return leaves;
+    std::vector<long long> all;
+    cluster_subtree(t, t.root, all);
+    for (long long node : all)
+        if (t.kids[t.at(node)].empty()) leaves.push_back(node);
+    std::sort(leaves.begin(), leaves.end());
+    return leaves;
+}
+
+/// Walk up from `leaf` while the parent was born closer than `epsilon`.
+long long traverse_upwards(const ClusterTree& t, double epsilon, long long leaf,
+                           bool allow_single_cluster) {
+    long long node = leaf;
+    for (;;) {
+        const long long parent = t.parent_of[t.at(node)];
+        if (parent < 0 || parent == t.root)
+            return allow_single_cluster ? t.root : node;
+        if (1.0 / t.birth[t.at(parent)] > epsilon) return parent;
+        node = parent;
+    }
+}
+
+/// The epsilon pass: a candidate born closer than `epsilon` is replaced by the
+/// ancestor at which the tree first splits further apart than that, and
+/// everything under that ancestor stops being a candidate.
+std::vector<unsigned char> epsilon_search(const ClusterTree& t,
+                                          const std::vector<long long>& candidates,
+                                          double epsilon, bool allow_single_cluster) {
+    std::vector<unsigned char> selected(t.n_nodes(), 0), processed(t.n_nodes(), 0);
+    std::vector<long long> subtree;
+    for (long long node : candidates) {
+        if (1.0 / t.birth[t.at(node)] >= epsilon) {
+            selected[t.at(node)] = 1;
+            continue;
+        }
+        if (processed[t.at(node)]) continue;
+        const long long keep = traverse_upwards(t, epsilon, node, allow_single_cluster);
+        selected[t.at(keep)] = 1;
+        cluster_subtree(t, keep, subtree);
+        for (long long sub : subtree)
+            if (sub != keep) processed[t.at(sub)] = 1;
+    }
+    return selected;
+}
+
+/// Excess of mass: keep a cluster when it is at least as stable as its selected
+/// descendants, and taking it discards everything below it.
+std::vector<unsigned char> select_excess_of_mass(const ClusterTree& t,
+                                                 bool allow_single_cluster,
+                                                 long long max_cluster_size) {
+    const size_t n = t.n_nodes();
+    std::vector<unsigned char> is_cluster(n, 1);
+    std::vector<double> stability = t.stability;
+    if (!allow_single_cluster) is_cluster[t.at(t.root)] = 0;
+
+    long long root_size = 0;   // the root has no row of its own to read a size from
+    for (long long kid : t.kids[t.at(t.root)]) root_size += t.size_of[t.at(kid)];
+
+    std::vector<long long> subtree;
+    for (size_t i = n; i-- > 0;) {   // descending id == bottom-up
+        const long long node = t.root + static_cast<long long>(i);
+        if (node == t.root && !allow_single_cluster) continue;
+        double subtree_stability = 0.0;
+        for (long long kid : t.kids[i]) subtree_stability += stability[t.at(kid)];
+        const long long size = node == t.root ? root_size : t.size_of[i];
+        const bool too_big = max_cluster_size > 0 && size > max_cluster_size;
+        if (subtree_stability > stability[i] || too_big) {
+            is_cluster[i] = 0;
+            stability[i] = subtree_stability;   // the parent sees the subtree's mass
+        } else {
+            cluster_subtree(t, node, subtree);
+            for (long long sub : subtree)
+                if (sub != node) is_cluster[t.at(sub)] = 0;
+        }
+    }
+    return is_cluster;
+}
+
+}  // namespace
+
+void hdbscan_select_clusters(
+        long long* parents, int n_parents,
+        long long* children, int n_children,
+        double* lambdas, int n_lambdas,
+        long long* sizes, int n_sizes,
+        const char* method,
+        bool allow_single_cluster,
+        double cluster_selection_epsilon,
+        long long max_cluster_size,
+        unsigned char** out_selected, int* n_out_selected) {
+    if (n_parents != n_children || n_parents != n_lambdas || n_parents != n_sizes)
+        throw std::invalid_argument(
+            "hdbscan: parents, children, lambdas and sizes must be the same length "
+            "-- they are the four columns of one condensed tree");
+    if (n_parents < 1)
+        throw std::invalid_argument("hdbscan: the condensed tree is empty");
+    if (method == nullptr) throw std::invalid_argument("hdbscan: method must not be null");
+    const bool eom = std::strcmp(method, "eom") == 0;
+    if (!eom && std::strcmp(method, "leaf") != 0)
+        throw std::invalid_argument(
+            "hdbscan: cluster selection method must be \"eom\" (excess of mass) "
+            "or \"leaf\"");
+    if (!(cluster_selection_epsilon >= 0.0))
+        throw std::invalid_argument("hdbscan: cluster_selection_epsilon must not be negative");
+
+    const ClusterTree t = build_cluster_tree(parents, children, lambdas, sizes, n_parents);
+    const bool has_splits = t.n_nodes() > 1;
+    std::vector<unsigned char> is_cluster;
+
+    if (eom) {
+        is_cluster = select_excess_of_mass(t, allow_single_cluster, max_cluster_size);
+        if (cluster_selection_epsilon != 0.0 && has_splits) {
+            std::vector<long long> chosen;
+            for (size_t i = 0; i < is_cluster.size(); ++i)
+                if (is_cluster[i]) chosen.push_back(t.root + static_cast<long long>(i));
+            // A lone root is not walked up from -- there is nowhere to go.
+            if (chosen.size() == 1 && chosen[0] == t.root) {
+                if (!allow_single_cluster) is_cluster.assign(t.n_nodes(), 0);
+            } else {
+                is_cluster = epsilon_search(t, chosen, cluster_selection_epsilon,
+                                            allow_single_cluster);
+            }
+        }
+    } else {
+        const std::vector<long long> leaves = cluster_tree_leaves(t);
+        if (cluster_selection_epsilon != 0.0) {
+            is_cluster = epsilon_search(t, leaves, cluster_selection_epsilon,
+                                        allow_single_cluster);
+        } else {
+            is_cluster.assign(t.n_nodes(), 0);
+            for (long long leaf : leaves) is_cluster[t.at(leaf)] = 1;
+        }
+    }
+
+    // Indexed by absolute node id, so it covers the point ids too -- that is
+    // what `hdbscan_label_points` requires of it.
+    const size_t n_out = static_cast<size_t>(t.root) + t.n_nodes();
+    auto* buffer = static_cast<unsigned char*>(std::calloc(std::max<size_t>(n_out, 1), 1));
+    if (buffer == nullptr) throw std::bad_alloc();
+    for (size_t i = 0; i < is_cluster.size(); ++i)
+        buffer[static_cast<size_t>(t.root) + i] = is_cluster[i];
+    *out_selected = buffer;
+    *n_out_selected = static_cast<int>(n_out);
+}
+
+void hdbscan_cluster_stability(
+        long long* parents, int n_parents,
+        long long* children, int n_children,
+        double* lambdas, int n_lambdas,
+        long long* sizes, int n_sizes,
+        double** out_stability, int* n_out_stability) {
+    if (n_parents != n_children || n_parents != n_lambdas || n_parents != n_sizes)
+        throw std::invalid_argument(
+            "hdbscan: parents, children, lambdas and sizes must be the same length "
+            "-- they are the four columns of one condensed tree");
+    if (n_parents < 1) throw std::invalid_argument("hdbscan: the condensed tree is empty");
+
+    const ClusterTree t = build_cluster_tree(parents, children, lambdas, sizes, n_parents);
+
+    // Indexed by absolute node id, like the selection is, so a root read off
+    // `hdbscan_label_points` indexes it directly.
+    const size_t n_out = static_cast<size_t>(t.root) + t.n_nodes();
+    auto* buffer = static_cast<double*>(std::calloc(std::max<size_t>(n_out, 1), sizeof(double)));
+    if (buffer == nullptr) throw std::bad_alloc();
+    for (size_t i = 0; i < t.n_nodes(); ++i)
+        buffer[static_cast<size_t>(t.root) + i] = t.stability[i];
+    *out_stability = buffer;
+    *n_out_stability = static_cast<int>(n_out);
+}
+
+void hdbscan_membership_strengths(
+        long long* parents, int n_parents,
+        long long* children, int n_children,
+        double* lambdas, int n_lambdas,
+        long long* roots, int n_roots,
+        double** out_strength, int* n_out_strength) {
+    if (n_parents != n_children || n_parents != n_lambdas)
+        throw std::invalid_argument(
+            "hdbscan: parents, children and lambdas must be the same length");
+    if (n_parents < 1) throw std::invalid_argument("hdbscan: the condensed tree is empty");
+    if (n_roots < 1) throw std::invalid_argument("hdbscan: roots must not be empty");
+
+    long long root = parents[0], max_parent = parents[0];
+    for (int i = 0; i < n_parents; ++i) {
+        if (parents[i] < root) root = parents[i];
+        if (parents[i] > max_parent) max_parent = parents[i];
+    }
+    if (static_cast<long long>(n_roots) != root)
+        throw std::invalid_argument(
+            "hdbscan: roots must hold one node id per point -- the condensed "
+            "tree's root, min(parents), is the point count, and it disagrees");
+
+    // A cluster dies at the largest lambda on any of its rows: the last of its
+    // points to fall out, or the split that ended it.
+    std::vector<double> death(static_cast<size_t>(max_parent - root + 1), 0.0);
+    for (int i = 0; i < n_parents; ++i) {
+        double& d = death[static_cast<size_t>(parents[i] - root)];
+        if (lambdas[i] > d) d = lambdas[i];
+    }
+
+    auto* buffer = static_cast<double*>(
+        std::calloc(static_cast<size_t>(n_roots), sizeof(double)));
+    if (buffer == nullptr) throw std::bad_alloc();
+    for (int i = 0; i < n_parents; ++i) {
+        const long long point = children[i];
+        if (point >= root) continue;              // a split, not a point
+        const long long cluster = roots[point];
+        if (cluster < root || cluster > max_parent) {
+            std::free(buffer);
+            throw std::invalid_argument(
+                "hdbscan: a root is not a cluster of this condensed tree -- pass "
+                "hdbscan_label_points' output for the same tree");
+        }
+        const double max_lambda = death[static_cast<size_t>(cluster - root)];
+        if (max_lambda == 0.0 || std::isinf(lambdas[i]))
+            buffer[point] = 1.0;
+        else
+            buffer[point] = std::min(lambdas[i], max_lambda) / max_lambda;
+    }
+    *out_strength = buffer;
+    *n_out_strength = n_roots;
+}
+
 }  // namespace tttrlib
 
 // ---- registry entries (Registry.h, core): declared next to the code, registered
@@ -915,7 +1259,7 @@ const char* const kClusteringEntry = R"JSON({
   "name": "clustering",
   "label": "Clustering: k-means, k-d tree, HDBSCAN",
   "summary": "k-means with k-means++-style starts, a k-d tree for nearest neighbours, and HDBSCAN (mutual-reachability MST, condensed tree, stability selection).",
-  "description": "Lloyd's k-means driven by a caller-supplied uniform stream so runs are reproducible across languages, a k-d tree with exact nearest-neighbour queries, and the HDBSCAN pipeline of Campello et al.: core distances, mutual-reachability minimum spanning tree, condensed cluster tree and stability-based label extraction. All validated against scikit-learn (`test_math_ab_imaging.py`, sciref benchmarks). Used by ndxplorer's selection tools and the burst clustering.",
+  "description": "Lloyd's k-means driven by a caller-supplied uniform stream so runs are reproducible across languages, a k-d tree with exact nearest-neighbour queries, and the HDBSCAN pipeline of Campello et al.: core distances, mutual-reachability minimum spanning tree, condensed cluster tree, excess-of-mass or leaf cluster selection, and stability-based label extraction with membership strengths. All validated against scikit-learn (`test_math_ab_imaging.py`, sciref benchmarks). Used by ndxplorer's selection tools and the burst clustering.",
   "operation_type": "analysis",
   "method": "kmeans",
   "params_schema": {
@@ -977,7 +1321,12 @@ const char* const kClusteringEntry = R"JSON({
     "core_distances",
     "mutual_reachability_mst",
     "hdbscan_condensed_tree",
+    "hdbscan_select_clusters",
+    "hdbscan_cluster_stability",
     "hdbscan_label_points",
+    "hdbscan_membership_strengths",
+    "hdbscan",
+    "HdbscanResult",
     "OptsCluster",
     "ResultsCluster"
   ],

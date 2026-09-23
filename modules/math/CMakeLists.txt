@@ -2,26 +2,25 @@
 #
 # math -- numerical kernels shared across tttrlib.
 #
-# Dense linear algebra (Mat.h), optimisers (i_lbfgs.h), RNGs (Random.h,
-# SimPcgRandom.h), and the feed-forward network (NeuralNet) live here rather
-# than in util, because they share a subject — numerical mathematics — and
-# none of them knows what a photon is.
+# Dense linear algebra (Mat.h), optimisers (i_lbfgs.h) and RNGs (Random.h,
+# SimPcgRandom.h) live here rather than in util, because they share a subject
+# — numerical mathematics — and none of them knows what a photon is.
 #
 # The split from util separates "stuff that does math" from "stuff that does
 # plumbing" (Verbose, Progress, ByteOrder, bimap).  A module that needs only
-# Verbose no longer transitively pulls the neural net; a module that needs
+# Verbose no longer transitively pulls a matrix library; a module that needs
 # L-BFGS no longer transitively pulls progress reporting.
 #
 # Mat.h is the reason this module exists: it is a standalone, dependency-free
 # dense matrix library with an Armadillo-flavoured API and a SIMD GEMM kernel
 # (NEON / SSE2 / AVX) that holds its own against Eigen on the matrix sizes the
-# rest of tttrlib uses.  NeuralNet was its first consumer; the HMM and burst
-# modules are being migrated to use it for their matrix operations.
+# rest of tttrlib uses.  The HMM and burst modules are being migrated to use it
+# for their matrix operations.
 tttrlib_add_module(
     NAME     math
-    SOURCES  "${CMAKE_CURRENT_SOURCE_DIR}/src/NeuralNet.cpp"
-             "${CMAKE_CURRENT_SOURCE_DIR}/src/Cluster.cpp"
+    SOURCES  "${CMAKE_CURRENT_SOURCE_DIR}/src/Cluster.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/Deconvolution.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageOps.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/Jitter.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/HmmLattice.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/Nnls.cpp"
@@ -30,9 +29,9 @@ tttrlib_add_module(
              "${CMAKE_CURRENT_SOURCE_DIR}/src/Watershed.cpp"
     HEADERS  "${CMAKE_CURRENT_SOURCE_DIR}/include"
     DEPENDS  util core   # core: the registry (Registry.h) the kernels declare themselves in
-    EXTERNAL_DEPS tttrlib::json tttrlib::pocketfft
-    SWIG_INTERFACES NeuralNet.i Cluster.i Deconvolution.i Jitter.i Sampling.i
-                    HmmLattice.i Kalman.i Watershed.i
+    EXTERNAL_DEPS tttrlib::pocketfft
+    SWIG_INTERFACES Cluster.i Deconvolution.i Jitter.i Sampling.i
+                    HmmLattice.i Kalman.i Watershed.i ImageOps.i
     TEST_DIR test/python/misc
 )
 

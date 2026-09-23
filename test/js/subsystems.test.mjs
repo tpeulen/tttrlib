@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
 // The subsystems that reach JavaScript through the shared interface files but
-// were never exercised from it: the simulator, BVA, 2CDE, the HMMs, the neural
-// net and CSV. All six are wrapped for JavaScript; what this file pins is that
-// they are usable, which is a different claim and was not true.
+// were never exercised from it: the simulator, BVA, 2CDE, the HMMs and CSV.
+// All five are wrapped for JavaScript; what this file pins is that they are
+// usable, which is a different claim and was not true.
 //
 // Two things it guards in particular:
 //
 //   * The analysis OUTPUTS. Python gets `photons()`, `.result`,
-//     `.proximity_ratio_mean`, `layer_weights()` and friends from %pythoncode,
+//     `.proximity_ratio_mean` and friends from %pythoncode,
 //     which no other backend reaches. ext/js/pkg/index.js now provides the same
 //     shorthand over the same C++, so a simulated photon stream is one call
 //     rather than seven parallel accessors a caller has to know are parallel.
 //
 //   * Exception translation. A C++ throw that reaches the Node-API boundary
 //     untranslated does not become a JavaScript error -- it TERMINATES THE
-//     PROCESS. Everything from BurstFeature.i to HmmSurrogate.i used to be in
+//     PROCESS. Everything from BurstFeature.i to the HMMs used to be in
 //     that state, because BurstFeatureExtractor.i ended its %exception with a
 //     bare `%exception;`, which clears the handler globally rather than
 //     restoring it. Python survived on SWIG-Python's built-in fallback; Node
@@ -105,35 +105,6 @@ describe('burst features', { skip: !haveSpc && 'no data' }, () => {
     cde.set_acceptor(Int32Array.of(8));
     cde.compute(bursts);
     assert.equal(cde.twoCde.length, bursts.shape[0]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-describe('neural net', () => {
-  // Two layers with known weights, so the forward pass is checkable by hand:
-  //   [1, 2] -> [0.5, 1.1, 1.7] (relu, unchanged) -> 0.5+1.1+1.7 + 0.5 = 3.8
-  const SPEC = JSON.stringify({
-    layers: [
-      { n_in: 2, n_out: 3, activation: 'relu', weight: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6], bias: [0, 0, 0] },
-      { n_in: 3, n_out: 1, activation: 'identity', weight: [1, 1, 1], bias: [0.5] },
-    ],
-  });
-
-  test('a forward pass gives the arithmetic answer', () => {
-    const net = tttrlib.NeuralNet.from_json_string(SPEC);
-    assert.equal(Number(net.n_layers()), 2);
-    assert.equal(Number(net.n_inputs()), 2);
-    const y = net.predict(Float64Array.of(1.0, 2.0));
-    assert.equal(y.length, 1);
-    assert.ok(Math.abs(y[0] - 3.8) < 1e-9, `expected 3.8, got ${y[0]}`);
-  });
-
-  test('weights come back shaped, not flat', () => {
-    const net = tttrlib.NeuralNet.from_json_string(SPEC);
-    const w = net.layerWeights(0);
-    assert.equal(w.length, 3, 'one row per output');
-    assert.equal(w[0].length, 2, 'one column per input');
-    assert.deepEqual(Array.from(net.layerBias(1)), [0.5]);
   });
 });
 

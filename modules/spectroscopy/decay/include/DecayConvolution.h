@@ -9,6 +9,10 @@
 //   formulas; add_pile_up_to_model vs a Coates (1968) transcription (inclusive cumulative
 //   sum). Two things on record there: fconv_per_cs bin 0 carries a (1+exp(-dt/tau)) factor
 //   fconv_per does not, and the Python `fconv_ref` binding drops `dt`. test/python/decayfit/test_ab_decay_reference.py.
+//   A/B-TESTED 2026-09-09 -- fconv_per_cs_jacobian: the value column against fconv_per_cs
+//   (7e-16 relative to the peak) and every derivative column, the timeshift's included,
+//   against a central difference of the shipped scalar route (3.5e-9 relative, which is the
+//   finite difference's accuracy, not the dual's). test/python/decayfit/test_fconv_jacobian.py.
 //   Register: okf/testing/algorithm-validation.md
 
 #include <cmath>  /* std::ceil */
@@ -153,6 +157,12 @@ void fconv_simd(double *fit, double *x, double *lamp, int numexp, int start, int
  * (irf). This function does consider periodic excitation and is suited for experiments
  * at high repetition rate.
  *
+ * `fit` is **overwritten**, not accumulated into: the caller need not clear it.
+ * That was not always true of every kernel -- the scalar one accumulated while
+ * both SIMD ones cleared, so the contract depended on `numexp` (one lifetime is
+ * below the SIMD threshold and so always scalar) and on the host CPU. Fixed
+ * 2026-09-09. Every convolution in this header overwrites; none accumulates.
+ *
  * @param fit[out] model function. The convoluted decay is written to this array
  * @param x[in] lifetime spectrum (amplitude1, lifetime1, amplitude2, lifetime2, ...)
  * @param lamp[in] instrument response function
@@ -198,6 +208,8 @@ void fconv_per_simd(
  * with convolution stop
  *
  * fast convolution, high repetition rate, with convolution stop for Paris
+ *
+ * `fit` is **overwritten** over `[0, stop]`, as in `fconv()` and `fconv_per()`.
  *
  * @param fit[out] model function. The convoluted decay is written to this array
  * @param x[in] lifetime spectrum (amplitude1, lifetime1, amplitude2, lifetime2, ...)
@@ -295,8 +307,15 @@ void fconv_per_cs_2ch(double *fit0, double *fit1,
 /// The plain recursion, one species at a time. Reproduces fconv_per_cs's own
 /// scalar fallback op-for-op, and is what fconv_per_cs_ad falls back to for a
 /// spectrum too small to interleave.
-template <typename T>
-void fconv_per_cs_ad_serial(T *fit, const T *x, const double *lamp, int numexp,
+///
+/// `L` is the response function's sample type and defaults to `double`, which
+/// is what it is for every caller that fits a spectrum against a measured IRF.
+/// It becomes a dual number when the *timeshift* is a fit parameter: the
+/// shifted response then carries d/d(shift) into the convolution, which is how
+/// `fconv_per_cs_jacobian` gets that column. Defaulted, so no existing call
+/// site changes and the `double` instantiation is the same code it was.
+template <typename T, typename L = double>
+void fconv_per_cs_ad_serial(T *fit, const T *x, const L *lamp, int numexp,
                             int stop, int n_points, double period,
                             int conv_stop, double dt) {
     using std::exp;
@@ -329,14 +348,14 @@ void fconv_per_cs_ad_serial(T *fit, const T *x, const double *lamp, int numexp,
     }
 }
 
-template <typename T>
-void fconv_per_cs_ad(T *fit, const T *x, const double *lamp, int numexp,
+template <typename T, typename L = double>
+void fconv_per_cs_ad(T *fit, const T *x, const L *lamp, int numexp,
                      int stop, int n_points, double period, int conv_stop,
                      double dt) {
     using std::exp;
     if (numexp < FCONV_AD_BLOCK_MIN) {
-        fconv_per_cs_ad_serial(fit, x, lamp, numexp, stop, n_points, period,
-                               conv_stop, dt);
+        fconv_per_cs_ad_serial<T, L>(fit, x, lamp, numexp, stop, n_points, period,
+                                     conv_stop, dt);
         return;
     }
     const int period_n = (int)std::ceil(period / dt - 0.5);
@@ -375,8 +394,10 @@ void fconv_per_cs_ad(T *fit, const T *x, const double *lamp, int numexp,
         }
         int i = 1;
         for (; i <= conv_stop; i++) {
-            const double lo = deltathalf * lamp[i - 1];
-            const double hi = deltathalf * lamp[i];
+            // `L`, not double: these are the response samples, which carry a
+            // derivative when the timeshift is a fit parameter.
+            const L lo = deltathalf * lamp[i - 1];
+            const L hi = deltathalf * lamp[i];
             T acc(0.0);
             for (int b = 0; b < FCONV_AD_BLOCK; b++) {
                 fitcurr[b] = (fitcurr[b] + lo) * expcurr[b] + hi;
@@ -463,6 +484,61 @@ void shift_lamp(double *lampsh, double *lamp, double ts, int n_points, double ou
 
 
 /*!
+ * @brief Periodic decay and its exact derivatives with respect to every
+ *        parameter, in one pass: the model curve and its Jacobian.
+ *
+ * The same model as `fconv_per_cs()` with the response shifted by `time_shift`
+ * first, evaluated under forward-mode dual numbers
+ * (`tttrlib::Dual<tttrlib::GradVec<N>>`) so the derivatives come out of the
+ * same recursion that produces the curve. They are exact to round-off -- not a
+ * finite difference -- and cost a small multiple of one model evaluation
+ * rather than the `2 * n_parameters` evaluations a central-difference gradient
+ * needs.
+ *
+ * **Parameters, and their order.** The Jacobian has one column per parameter:
+ * columns `0 .. n_x - 1` are the entries of the lifetime spectrum in `x`'s own
+ * interleaved order (`a0, tau0, a1, tau1, ...`), and the **last** column is
+ * `d fit / d time_shift`. Every entry of `x` gets a column, amplitudes and
+ * lifetimes alike; a caller fitting only some of them takes the columns it
+ * wants. That is deliberate -- a subset would be policy, and the caller knows
+ * its own parameter set.
+ *
+ * **Blocked, so the parameter count is not a compile-time bound.** `GradVec<N>`
+ * is sized at compile time, but the number of parameters here is `2*numexp + 1`
+ * and a fit may have any number of lifetimes. So one instantiation is used and
+ * the columns are filled `FCONV_JAC_BLOCK` at a time: `ceil(n_params / B)`
+ * passes, each carrying B directions through the recursion beside the value.
+ * For 33 lifetimes that is 9 passes against the 134 evaluations a central
+ * difference would need.
+ *
+ * @param fit[out] the model curve, `n_fit` points. Overwritten.
+ * @param jacobian[out] `n_jac1 x n_jac2` row-major, `n_jac1 == n_fit` and
+ *        `n_jac2 == n_x + 1`. Overwritten.
+ * @param x[in] lifetime spectrum, `(amplitude, lifetime)` pairs.
+ * @param lamp[in] instrument response function, `n_lamp == n_fit` samples.
+ * @param period excitation period, same units as the lifetimes.
+ * @param time_shift shift applied to `lamp` before the convolution, in
+ *        samples, with `shift_lamp`'s sign convention (positive moves the
+ *        response to earlier indices).
+ * @param conv_stop convolution stop micro channel number.
+ * @param stop stop micro time index; negative means `n_fit - 1`.
+ * @param dt time between micro time channels.
+ */
+void fconv_per_cs_jacobian(
+        double *fit, int n_fit,
+        double *jacobian, int n_jac1, int n_jac2,
+        double *x, int n_x,
+        double *lamp, int n_lamp,
+        double period, double time_shift, int conv_stop, int stop, double dt);
+
+/// Parameter directions carried through one pass of `fconv_per_cs_jacobian`.
+/// The total work is roughly `ceil(P/B)` passes each costing a value plus B
+/// derivatives, so B trades passes against per-operation width; 8 matches
+/// `FCONV_AD_BLOCK` and keeps `GradVec` in registers.
+#define FCONV_JAC_BLOCK 8
+
+
+/*!
  * @brief Non-periodic reconvolution of a lifetime spectrum, header-only
  *
  * The scalar body of `fconv`: each species' exponential convolved with the
@@ -513,7 +589,16 @@ void fconv_ad(T *fit, const T *x, const L *lamp, int numexp, int start, int stop
  *
  * Templated on the sample type for the same reason `fconv_per_cs_ad` is: the
  * response is measured data, but the *shift* may carry a derivative under
- * `tttrlib::Dual`, and then the interpolated output does too.
+ * `tttrlib::Dual`, and then the interpolated output does too -- so the output
+ * array is `T*`, not `double*`. It was `double*` until 2026-09-09, which meant
+ * this template had never been instantiated with anything but `double`: a
+ * `Dual` shift did not compile (there is no `floor(Dual)`, and the interpolated
+ * `Dual` could not be stored). The claim above was aspirational; it is now
+ * true, and `fconv_per_cs_jacobian` is the caller that makes it so.
+ *
+ * The integer part of the shift is taken from the shift's *value*
+ * (`tttrlib::ad_value`): it is piecewise constant, so its derivative is zero
+ * away from the steps, and the fractional part carries the whole derivative.
  *
  * @param lampsh[out] the shifted response function
  * @param lamp[in] the response function

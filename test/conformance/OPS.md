@@ -168,14 +168,6 @@ read row by row.
 | `mask.size` | mask | — | integer |
 | `mask.mask_array` | mask | — | array, one byte per event (1 = marked) |
 
-## `nn.*` — neural net
-
-| op | on | args | result |
-|---|---|---|---|
-| `nn.from_json` | — | `[spec]` | NeuralNet handle |
-| `nn.predict` | net | `[[inputs]]` | array |
-| `nn.n_layers` / `nn.n_inputs` / `nn.n_outputs` | net | — | integer |
-
 ## `csvfile.*`
 
 | op | on | args | result |

@@ -120,16 +120,6 @@ histogram.out_of_range_samples_are_not_counted   ✓       ✓  ✓     ✓
 histogram.empty_update_leaves_every_bin_at_zero  ✓       ✓  ✓     ✓
 ===============================================  ======  =  ====  ==========
 
-neuralnet
----------
-
-======================================  ======  =  ====  ==========
-case                                    Python  R  Java  JavaScript
-======================================  ======  =  ====  ==========
-neuralnet.forward_pass_is_arithmetic    ✓       ✓  ✓     ✓
-neuralnet.relu_clips_the_negative_side  ✓       ✓  ✓     ✓
-======================================  ======  =  ====  ==========
-
 pda
 ---
 

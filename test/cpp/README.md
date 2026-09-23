@@ -1,7 +1,7 @@
 # C++ tests for the shared numerics
 
 `modules/math/include/Mat.h` and `QREigen.h` are header-only and sit under every
-ported spectroscopy algorithm — the Kalman burst search, the HMM surrogate, Gopich–Szabo, BurstML. A defect here surfaces as a plausible-looking
+ported spectroscopy algorithm — the Kalman burst search, the HMMs, Gopich–Szabo, BurstML. A defect here surfaces as a plausible-looking
 but wrong result several layers up, which is exactly the kind of defect that
 survives an end-to-end test. These check the kernels directly.
 
@@ -21,8 +21,6 @@ c++ -std=c++17 -O2 -I modules/math/include test/cpp/test_qreigen.cpp \
 c++ -std=c++17 -O2 -I modules/math/include \
     test/cpp/test_ad_gradient.cpp -o /tmp/test_ad_gradient && /tmp/test_ad_gradient
 c++ -std=c++17 -O2 -I modules/math/include \
-    test/cpp/test_mlp_core.cpp -o /tmp/test_mlp_core && /tmp/test_mlp_core
-c++ -std=c++17 -O2 -I modules/math/include \
     test/cpp/test_lattice_diffusion.cpp -o /tmp/test_lattice_diffusion && /tmp/test_lattice_diffusion
 ```
 
@@ -30,8 +28,8 @@ Or through CMake:
 
 ```bash
 cmake -S . -B build -DTTTRLIB_BUILD_CPP_TESTS=ON
-cmake --build build --target test_mat_linalg test_qreigen test_ad_gradient test_mlp_core test_lattice_diffusion
-ctest --test-dir build -R 'test_mat_linalg|test_qreigen|test_ad_gradient|test_mlp_core|test_lattice_diffusion'
+cmake --build build --target test_mat_linalg test_qreigen test_ad_gradient test_lattice_diffusion
+ctest --test-dir build -R 'test_mat_linalg|test_qreigen|test_ad_gradient|test_lattice_diffusion'
 ```
 
 Exit status is the number of failed checks.
@@ -90,7 +88,9 @@ This used to be a guard on someone else's contract: the derivative slot held a
 vector, which `autodiff` does not document as possible, so an upstream bump
 could silently change the answer. `Dual.h` replaced autodiff and the test
 changed with it — it now checks an implementation. First every operator of
-`Dual` and `GradVec` against a derivative written by hand, then the objective
+`Dual` and `GradVec` (including the `tanh`/`sin`/`cos`/`sqrt`/`pow`/`min`/`max`
+overloads and the comparisons against `double`) against a derivative written by
+hand, then the objective
 differentiated four ways — vectorized dual, scalar dual, a long-double dual, and
 central differences — which must agree. The scalar dual shares `Dual`'s
 formulas, so it isolates the carrier; the long-double dual shares them at higher
@@ -109,35 +109,6 @@ Two findings from writing it, both worth not rediscovering:
   contracts a multiply-add depends on the shape it inlines into, so
   `-ffp-contract=off` and clang's default disagree by 1 ulp on one component.
   Asserting bitwise equality would make a legal optimisation a build failure.
-
-## The differentiable MLP core (`test_mlp_core`)
-
-`MlpCore.h` is the forward and reverse pass of the dense network behind
-`NeuralNet`, plus the same two augmented with a directional Taylor expansion of
-the input to second order — so a loss on `dy/dx` and `d²y/dx²` (a physics
-residual) can still be differentiated with respect to the weights by
-backpropagation. It is header-only and std-only because imp.bff carries a
-verbatim copy. The failure mode is the same as `Dual`'s: a wrong `f''` or a
-dropped term in the Taylor adjoint trains fine, to the wrong minimum.
-
-Every derivative is therefore checked two independent ways. The activation
-derivatives `f'`, `f''`, `f'''` against central differences of `f`. The input
-derivatives against the forward-mode `Dual` pass through the dot-product
-identity `<w, J v> == <J^T w, v>` — forward mode and reverse mode share no code
-beyond the activation value, so a transposition or an off-by-one layer in the
-reverse sweep cannot cancel. The Taylor companions of orders 1 and 2 against
-first and second central differences along the same direction, and a
-`Dual<GradVec<3>>` pass against three order-1 passes for the full Jacobian.
-Finally the adjoint of the augmented pass — `dL/dparams`, `dL/dx`, `dL/dv` for a
-loss that uses all three outputs — against central differences of that loss,
-parameter by parameter, for every smooth activation and for ReLU. The
-`PortableGemm` policy is checked against naive triple loops; the Mat.h policy
-the library itself uses is validated by the Python suite (`test_neural_net.py`)
-through the same entry points. `MlpModel` with active scalers is checked the
-same two ways (raw layers on standardised input, central differences of
-`model_predict`); the JSON round trip is templated on the JSON type and is
-exercised through `NeuralNet` in Python and, with a different nlohmann
-version, by imp.bff's `test/test_vendored_mlpcore.py`.
 
 ## The lattice solver and its adjoint (`test_lattice_diffusion`)
 

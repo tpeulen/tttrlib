@@ -11,9 +11,8 @@
 // Design goals, in priority order:
 //
 //   1. No external dependency.  std-only C++17, plus OpenMP when the compiler
-//      offers it.  Replaces Eigen inside tttrlib's modules so that the neural
-//      net (and anything else that needs a GEMM) builds without a third-party
-//      linear-algebra package.
+//      offers it.  Replaces Eigen inside tttrlib's modules so that anything
+//      that needs a GEMM builds without a third-party linear-algebra package.
 //
 //   2. Armadillo-flavoured syntax.  ``Mat A(3, 4, fill::zeros); Mat C = A *
 //      B.t(); A.each_row() -= mu; double s = accu(square(C));`` read like
@@ -22,7 +21,7 @@
 //   3. Competitive GEMM.  The matrix product is the only O(n^3) kernel; it
 //      gets cache-friendly ikj loop nesting, compiler auto-vectorisation
 //      hints (``#pragma omp simd``), and OpenMP thread parallelism.  For the
-//      matrix sizes inside the neural net (hidden layers up to 256) this
+//      matrix sizes tttrlib uses (up to a few hundred per side) this
 //      lands within striking distance of a hand-tuned BLAS, which is all the
 //      application needs.
 //
@@ -587,14 +586,34 @@ inline void microkernel(int K,
         for (int v = 0; v < NV; ++v)
             acc[r][v] = simd_t::zero();
 
-    for (int k = 0; k < K; ++k) {
-        // Load B row (NR values → NV SIMD loads), reused across all MR rows
+    for (int k = 0; k + 1 < K; k += 2) {
+        // two B rows per iteration: the loads batch, the FMA chains
+        // pipeline, and the loop-carried dependency halves -- the single-k
+        // version left the NEON f64 pipes idle between iterations (kept as
+        // the odd-K tail)
+        simd_t::type bv0[NV], bv1[NV];
+        const double* brow0 = B + static_cast<size_t>(k) * ldB;
+        const double* brow1 = brow0 + ldB;
+        for (int v = 0; v < NV; ++v) {
+            bv0[v] = simd_t::load(brow0 + v * W);
+            bv1[v] = simd_t::load(brow1 + v * W);
+        }
+        for (int r = 0; r < MR; ++r) {
+            const double* arow = A + static_cast<size_t>(r) * ldA;
+            simd_t::type va0 = simd_t::set1(arow[k]);
+            simd_t::type va1 = simd_t::set1(arow[k + 1]);
+            for (int v = 0; v < NV; ++v) {
+                acc[r][v] = simd_t::fma(va0, bv0[v], acc[r][v]);
+                acc[r][v] = simd_t::fma(va1, bv1[v], acc[r][v]);
+            }
+        }
+    }
+    if (K & 1) {
+        const int k = K - 1;
         simd_t::type bv[NV];
         const double* brow = B + static_cast<size_t>(k) * ldB;
         for (int v = 0; v < NV; ++v)
             bv[v] = simd_t::load(brow + v * W);
-
-        // Broadcast A[r,k] and FMA into each row's accumulators
         for (int r = 0; r < MR; ++r) {
             simd_t::type va = simd_t::set1(A[static_cast<size_t>(r) * ldA + k]);
             for (int v = 0; v < NV; ++v)
@@ -618,19 +637,16 @@ inline void microkernel(int K,
 #endif
 }
 
-/// Core NN kernel: C = A * B, all row-major, all contiguous.
-/// Outer loop blocks over (MR × NR) tiles, dispatching to the register-blocked
-/// micro-kernel.  Row/column tails fall back to SAXPY / scalar dot.
-inline void gemm_nn_core(int M, int N, int K,
+/// Rows [i0, i1) of the NN kernel, micro-kernel path. Shared by the serial
+/// core and the parallel tile loop -- each tile writes only its own C rows,
+/// which is what makes the tile loop race-free without touching B.
+inline void gemm_nn_rows(int M, int N, int K, int i0, int i1,
                          const double* TTTRLIB_RESTRICT A,
                          const double* TTTRLIB_RESTRICT B,
                          double* TTTRLIB_RESTRICT C) {
-    std::fill(C, C + static_cast<size_t>(M) * N, 0.0);
-    if (M == 0 || N == 0 || K == 0) return;
-
 #if TTTRLIB_SIMD_DBL > 0
-    int i = 0;
-    for (; i + GEMM_MR <= M; i += GEMM_MR) {
+    int i = i0;
+    for (; i + GEMM_MR <= i1; i += GEMM_MR) {
         const double* arow = A + static_cast<size_t>(i) * K;
         double* crow = C + static_cast<size_t>(i) * N;
 
@@ -653,8 +669,8 @@ inline void gemm_nn_core(int M, int N, int K,
         }
     }
 #else
-    int i = 0;
-    for (; i + GEMM_MR <= M; i += GEMM_MR) {
+    int i = i0;
+    for (; i + GEMM_MR <= i1; i += GEMM_MR) {
         for (int k = 0; k < K; ++k) {
             const double* brow = B + static_cast<size_t>(k) * N;
             for (int r = 0; r < GEMM_MR; ++r) {
@@ -666,7 +682,7 @@ inline void gemm_nn_core(int M, int N, int K,
     }
 #endif
     // row tail: SAXPY
-    for (; i < M; ++i) {
+    for (; i < i1; ++i) {
         const double* arow = A + static_cast<size_t>(i) * K;
         double* crow = C + static_cast<size_t>(i) * N;
         for (int k = 0; k < K; ++k)
@@ -674,22 +690,47 @@ inline void gemm_nn_core(int M, int N, int K,
     }
 }
 
-/// NN GEMM (with optional OpenMP thread parallelism).
-inline void gemm_nn(int M, int N, int K,
-                    const double* A, const double* B, double* C) {
+/// Core NN kernel: C = A * B, all row-major, all contiguous.
+/// Outer loop blocks over (MR × NR) tiles, dispatching to the register-blocked
+/// micro-kernel.  Row/column tails fall back to SAXPY / scalar dot.
+inline void gemm_nn_core(int M, int N, int K,
+                         const double* TTTRLIB_RESTRICT A,
+                         const double* TTTRLIB_RESTRICT B,
+                         double* TTTRLIB_RESTRICT C) {
+    std::fill(C, C + static_cast<size_t>(M) * N, 0.0);
+    if (M == 0 || N == 0 || K == 0) return;
+    gemm_nn_rows(M, N, K, 0, M, A, B, C);
+}
+
+/// Core NN kernel, threaded over row tiles.
+///
+/// The history this replaces: `gemm_nn` used to take the OpenMP branch with a
+/// per-row SAXPY loop and only the *serial* path reached the micro-kernel, so
+/// `gemm_nt`/`gemm_tn` (which pack, then call the core) were single-threaded
+/// no matter the batch -- training GEMMs ran on one core of an 8-core
+/// machine. Tiles of 32 rows keep a tile's C slice in L2 while the
+/// micro-kernel streams B; B is read-only, each tile owns its C rows.
+inline void gemm_nn_core_mt(int M, int N, int K,
+                            const double* A,
+                            const double* B,
+                            double* C) {
     std::fill(C, C + static_cast<size_t>(M) * N, 0.0);
     if (M == 0 || N == 0 || K == 0) return;
 #if defined(_OPENMP)
-    #pragma omp parallel for schedule(static) if(M > 64)
-    for (int i = 0; i < M; ++i) {
-        const double* TTTRLIB_RESTRICT arow = A + static_cast<size_t>(i) * K;
-        double* TTTRLIB_RESTRICT crow = C + static_cast<size_t>(i) * N;
-        for (int k = 0; k < K; ++k)
-            saxpy(N, arow[k], B + static_cast<size_t>(k) * N, crow);
+    if (M >= 64 && N >= 16) {
+        #pragma omp parallel for schedule(static)
+        for (int i0 = 0; i0 < M; i0 += 32)
+            gemm_nn_rows(M, N, K, i0, std::min(i0 + 32, M), A, B, C);
+        return;
     }
-#else
-    gemm_nn_core(M, N, K, A, B, C);
 #endif
+    gemm_nn_rows(M, N, K, 0, M, A, B, C);
+}
+
+/// NN GEMM (threaded over row tiles for large M).
+inline void gemm_nn(int M, int N, int K,
+                    const double* A, const double* B, double* C) {
+    gemm_nn_core_mt(M, N, K, A, B, C);
 }
 
 /// Reusable packing buffer — avoids per-call heap allocation in hot loops
@@ -746,7 +787,7 @@ inline void gemm_nt(int M, int N, int K,
     pack_buf.resize(static_cast<size_t>(K) * N);
     double* Bt = pack_buf.data();
     blocked_transpose(N, K, B, Bt);
-    gemm_nn_core(M, N, K, A, Bt, C);
+    gemm_nn_core_mt(M, N, K, A, Bt, C);
 }
 
 /// TN GEMM: C(M×N) = A(K×M)^T * B(K×N).  A is stored as K×M row-major.
@@ -773,7 +814,7 @@ inline void gemm_tn(int M, int N, int K,
     pack_buf.resize(static_cast<size_t>(M) * K);
     double* At = pack_buf.data();
     blocked_transpose(K, M, A, At);
-    gemm_nn_core(M, N, K, At, B, C);
+    gemm_nn_core_mt(M, N, K, At, B, C);
 }
 
 } // namespace mat_detail
@@ -1373,8 +1414,8 @@ inline std::vector<double> mat_power(const double* a, int n, int power) {    // 
     for (int i = 0; i < n; ++i) result[static_cast<size_t>(i) * n + i] = 1.0;
 
     // One scratch buffer, reused: binary exponentiation does up to 2*log2(p)
-    // products and a fresh allocation for each one shows up in HMM surrogate
-    // fitting, where mat_power runs per E-step.
+    // products and a fresh allocation for each one shows up in HMM fitting,
+    // where mat_power runs per E-step.
     std::vector<double> tmp(static_cast<size_t>(n) * n);
     while (power > 0) {
         if (power & 1) {

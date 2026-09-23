@@ -42,7 +42,7 @@ guards the whole needs.
 | Burst search and filtering | yes |
 | Correlation (FCS/FCCS) | yes |
 | CLSM / FLIM imaging, super-resolution, localization | yes |
-| HMM decoding, neural net, surrogate | yes |
+| HMM decoding | yes |
 | PDA, decay convolution, decay fits | yes |
 | Photon simulator | yes |
 | DataStore, CSV, histograms, registry, TIFF | yes |

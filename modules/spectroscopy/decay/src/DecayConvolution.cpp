@@ -3,6 +3,10 @@
 #include "Registry.h"
 #include "Verbose.h"
 #include "info.h"
+#include "GradVec.h"   /* the Jacobian pass carries GradVec<FCONV_JAC_BLOCK> */
+#include <stdexcept>
+#include <vector>
+#include <algorithm>
 
 /* rescaling -- old version. sum(fit)->sum(decay) */
 void rescale(double *fit, double *decay, double *scale, int start, int stop) {
@@ -74,58 +78,75 @@ static void fconv_scalar(double *fit, double *x, double *lamp, int numexp, int s
 // AVX+FMA kernel for fconv(). Only called after a runtime CPUID check confirms
 // the host supports AVX and FMA (see fconv_simd() dispatcher below); the target
 // attribute lets it use AVX/FMA even when the TU is built without -mavx.
+/// Horizontal sum of a `__m256d`, the standard two-step fold.
 TTTRLIB_TARGET_AVX_FMA
-static void fconv_avx_impl(double *fit, double *x, double *lamp, int numexp, int start, int stop, double dt) {
-    int start1 = std::max(1, start);
+static inline double fconv_hsum256(__m256d v) {
+    const __m128d low = _mm256_castpd256_pd128(v);
+    const __m128d high = _mm256_extractf128_pd(v, 1);
+    const __m128d sum = _mm_add_pd(low, high);
+    return _mm_cvtsd_f64(_mm_add_sd(sum, _mm_unpackhi_pd(sum, sum)));
+}
 
-    // make sure that there are always multiple of 4 in the lifetimes
-    const int chunk_size = 4; // the number of lifetimes per AVX register
-    int n_chunks = (int) std::ceil((double) numexp / chunk_size);
-    int n_ele = n_chunks * chunk_size;
+// Non-periodic convolution, AVX+FMA: `R` registers, 4R species in flight. Same
+// rewrite and the same reasons as `fconv_per_avx_block`; the speedup is
+// inferred from the NEON measurement, not measured on x86.
+template <int R>
+TTTRLIB_TARGET_AVX_FMA
+static void fconv_avx_block(double *fit, double *x, double *lamp, int numexp,
+                            int start, int stop, double dt) {
+    constexpr int kSpecies = 4 * R;
+    const int start1 = std::max(1, start);
+    const int n_ele = ((numexp + kSpecies - 1) / kSpecies) * kSpecies;
 
-    // copy the interleaved lifetime spectrum to vectors
     auto *p = (double *) _mm_malloc(n_ele * sizeof(double), 32);
-    std::fill(p, p + n_ele, 0.0);
-    for (int i = 0; i < numexp; i++) p[i] = x[2 * i + 0];
-
     auto *ex = (double *) _mm_malloc(n_ele * sizeof(double), 32);
+    std::fill(p, p + n_ele, 0.0);
     std::fill(ex, ex + n_ele, 0.0);
-    for (int i = 0; i < numexp; i++) ex[i] = exp(-dt / x[2 * i + 1]);
-
-    // precompute have lamp steps in units of dt
+    for (int i = 0; i < numexp; i++) {
+        p[i] = x[2 * i + 0];
+        ex[i] = exp(-dt / x[2 * i + 1]);
+    }
     auto l2 = (double *) malloc(stop * sizeof(double));
     for (int i = 0; i < stop; i++) l2[i] = dt * 0.5 * lamp[i];
 
     std::fill(fit, fit + stop, 0.0);
-    __m256d e, a, fitcurr, l2p, l2c, tmp;
-    double tmp_vals[4];
-    for (int ne = 0; ne < numexp; ne += chunk_size) {
-        // expcurr = exp(-dt / x[2 * ne + 1]);
-        e = _mm256_load_pd(&ex[ne]);
-        // amplitudes
-        a = _mm256_load_pd(&p[ne]);
-        // take care of first channel
-        // fit[0] += l2[0] * a;
-        l2c = _mm256_set1_pd(l2[0]);
-        tmp = _mm256_mul_pd(l2c, a);
-        _mm256_storeu_pd(tmp_vals, tmp);
-        fit[0] += tmp_vals[0] + tmp_vals[1] + tmp_vals[2] + tmp_vals[3];
-        fitcurr = _mm256_set1_pd(0.0);
-        // convolution
-        for (int i = start1; i < stop; i++) {
-            l2p = _mm256_set1_pd(l2[i - 1]);
-            l2c = _mm256_set1_pd(l2[i]);
-            //fitcurr = (fitcurr + l2[i - 1]) * expcurr + l2[i];
-            fitcurr = _mm256_add_pd(fitcurr, l2p);
-            fitcurr = _mm256_fmadd_pd(fitcurr, e, l2c);
-            // fit[i] += fitcurr * a;
-            tmp = _mm256_mul_pd(fitcurr, a);
-            _mm256_storeu_pd(tmp_vals, tmp);
-            fit[i] += tmp_vals[0] + tmp_vals[1] + tmp_vals[2] + tmp_vals[3];
+    for (int base = 0; base < numexp; base += kSpecies) {
+        __m256d e[R], a[R], fitcurr[R];
+        for (int r = 0; r < R; ++r) {
+            e[r] = _mm256_load_pd(&ex[base + 4 * r]);
+            a[r] = _mm256_load_pd(&p[base + 4 * r]);
+            fitcurr[r] = _mm256_setzero_pd();
+        }
+        {
+            const __m256d l0 = _mm256_set1_pd(l2[0]);
+            __m256d acc = _mm256_setzero_pd();
+            for (int r = 0; r < R; ++r) acc = _mm256_fmadd_pd(l0, a[r], acc);
+            fit[0] += fconv_hsum256(acc);
+        }
+        for (int i = start1; i < stop; ++i) {
+            const __m256d lo = _mm256_set1_pd(l2[i - 1]);
+            const __m256d hi = _mm256_set1_pd(l2[i]);
+            __m256d acc = _mm256_setzero_pd();
+            for (int r = 0; r < R; ++r) {
+                fitcurr[r] = _mm256_fmadd_pd(_mm256_add_pd(fitcurr[r], lo), e[r], hi);
+                acc = _mm256_fmadd_pd(fitcurr[r], a[r], acc);
+            }
+            fit[i] += fconv_hsum256(acc);
         }
     }
-    free(l2);
-    _mm_free(ex); _mm_free(p);
+    _mm_free(p); _mm_free(ex); free(l2);
+}
+
+/// Block width by species count; capped at 4 registers for the x86 register file.
+TTTRLIB_TARGET_AVX_FMA
+static void fconv_avx_impl(double *fit, double *x, double *lamp, int numexp,
+                           int start, int stop, double dt) {
+    if (numexp <= 4)
+        fconv_avx_block<1>(fit, x, lamp, numexp, start, stop, dt);
+    else if (numexp <= 8)
+        fconv_avx_block<2>(fit, x, lamp, numexp, start, stop, dt);
+    else
+        fconv_avx_block<4>(fit, x, lamp, numexp, start, stop, dt);
 }
 #endif // TTTRLIB_COMPILE_AVX
 
@@ -133,30 +154,55 @@ static void fconv_avx_impl(double *fit, double *x, double *lamp, int numexp, int
 // NEON kernel for fconv(): processes 2 lifetimes per float64x2_t. The per-
 // lifetime recurrence cannot be autovectorized, so this manual 2-wide version
 // wins (~1.75x on Apple M1). NEON is baseline on AArch64 - no CPUID needed.
-static void fconv_neon_impl(double *fit, double *x, double *lamp, int numexp, int start, int stop, double dt) {
-    int start1 = std::max(1, start);
-    const int chunk_size = 2; // lifetimes per NEON register (float64x2_t)
-    int n_ele = ((numexp + chunk_size - 1) / chunk_size) * chunk_size;
+// Non-periodic convolution, NEON: `R` registers, 2R species in flight. Same
+// rewrite and the same reasons as `fconv_per_neon_block` -- see that kernel.
+template <int R>
+static void fconv_neon_block(double *fit, double *x, double *lamp, int numexp,
+                             int start, int stop, double dt) {
+    constexpr int kSpecies = 2 * R;
+    const int start1 = std::max(1, start);
+    const int n_ele = ((numexp + kSpecies - 1) / kSpecies) * kSpecies;
 
     std::vector<double> p(n_ele, 0.0), ex(n_ele, 0.0), l2(stop);
     for (int i = 0; i < numexp; i++) { p[i] = x[2 * i]; ex[i] = exp(-dt / x[2 * i + 1]); }
     for (int i = 0; i < stop; i++) l2[i] = dt * 0.5 * lamp[i];
 
     std::fill(fit, fit + stop, 0.0);
-    for (int ne = 0; ne < numexp; ne += chunk_size) {
-        float64x2_t e = vld1q_f64(&ex[ne]);
-        float64x2_t a = vld1q_f64(&p[ne]);
-        float64x2_t tmp = vmulq_f64(vdupq_n_f64(l2[0]), a);
-        fit[0] += vgetq_lane_f64(tmp, 0) + vgetq_lane_f64(tmp, 1);
-        float64x2_t fitcurr = vdupq_n_f64(0.0);
-        for (int i = start1; i < stop; i++) {
-            fitcurr = vaddq_f64(fitcurr, vdupq_n_f64(l2[i - 1]));
-            // fitcurr = fitcurr * e + l2[i]
-            fitcurr = vfmaq_f64(vdupq_n_f64(l2[i]), fitcurr, e);
-            tmp = vmulq_f64(fitcurr, a);
-            fit[i] += vgetq_lane_f64(tmp, 0) + vgetq_lane_f64(tmp, 1);
+    for (int base = 0; base < numexp; base += kSpecies) {
+        float64x2_t e[R], a[R], fitcurr[R];
+        for (int r = 0; r < R; ++r) {
+            e[r] = vld1q_f64(&ex[base + 2 * r]);
+            a[r] = vld1q_f64(&p[base + 2 * r]);
+            fitcurr[r] = vdupq_n_f64(0.0);
+        }
+        {
+            const float64x2_t l0 = vdupq_n_f64(l2[0]);
+            float64x2_t acc = vdupq_n_f64(0.0);
+            for (int r = 0; r < R; ++r) acc = vfmaq_f64(acc, l0, a[r]);
+            fit[0] += vaddvq_f64(acc);
+        }
+        for (int i = start1; i < stop; ++i) {
+            const float64x2_t lo = vdupq_n_f64(l2[i - 1]);
+            const float64x2_t hi = vdupq_n_f64(l2[i]);
+            float64x2_t acc = vdupq_n_f64(0.0);
+            for (int r = 0; r < R; ++r) {
+                fitcurr[r] = vfmaq_f64(hi, vaddq_f64(fitcurr[r], lo), e[r]);
+                acc = vfmaq_f64(acc, fitcurr[r], a[r]);
+            }
+            fit[i] += vaddvq_f64(acc);
         }
     }
+}
+
+/// Block width by species count; see `fconv_per_neon_impl` for the measurements.
+static void fconv_neon_impl(double *fit, double *x, double *lamp, int numexp,
+                            int start, int stop, double dt) {
+    if (numexp <= 4)
+        fconv_neon_block<2>(fit, x, lamp, numexp, start, stop, dt);
+    else if (numexp <= 8)
+        fconv_neon_block<4>(fit, x, lamp, numexp, start, stop, dt);
+    else
+        fconv_neon_block<8>(fit, x, lamp, numexp, start, stop, dt);
 }
 #endif // TTTRLIB_COMPILE_NEON
 
@@ -230,8 +276,25 @@ static void fconv_per_scalar(double *fit, double *x, double *lamp, int numexp, i
 
     // Precompute everything needed for the convolution
     // lamp * dt * 0.5
-    auto l2 = (double *) malloc(stop * sizeof(double));
-    for (int i = 0; i < stop; i++) l2[i] = dt * 0.5 * lamp[i];
+    // Sized by n_points, not by `stop`. The recursion below runs to `stop1`,
+    // which is bounded by n_points and NOT by `stop`, so any caller passing a
+    // stop short of the point count -- `stop = n_points - 1` is enough --
+    // walked off the end of this buffer and convolved with whatever the heap
+    // held there. It read as *state*: allocate a fresh IRF and a fresh output
+    // each call and the answer still grew by one species' worth per call,
+    // because the freed arrays of the previous call were what lay past the
+    // end. Found 2026-09-09 from a caller's reproducer.
+    auto l2 = (double *) malloc(n_points * sizeof(double));
+    for (int i = 0; i < n_points; i++) l2[i] = dt * 0.5 * lamp[i];
+
+    // `fit` is an out parameter, so clear it: the loop below accumulates one
+    // lifetime at a time. Both SIMD kernels have always done this and this one
+    // did not, which made fconv_per()'s contract depend on which kernel the
+    // dispatch picked -- accumulate at numexp == 1 (below kSimdMinNumexp, so
+    // always scalar) and overwrite at numexp >= 2, on the same machine. A fit
+    // loop reusing its model buffer got a single-exponential model that grew
+    // without bound and a multi-exponential one that did not.
+    std::fill(fit, fit + n_points, 0.0);
 
     /* convolution */
     for (int ne=0; ne<numexp; ne++) {
@@ -255,106 +318,110 @@ static void fconv_per_scalar(double *fit, double *x, double *lamp, int numexp, i
 
 #if TTTRLIB_COMPILE_AVX
 // AVX+FMA kernel for fconv_per(); dispatched only on AVX+FMA capable CPUs.
+// Periodic convolution, AVX+FMA: `R` registers advanced together, so 4R species
+// are in flight at once. The same rewrite as `fconv_per_neon_block`, for the
+// same reasons -- see that kernel's comment for the measurements that motivated
+// it. This variant did the arithmetic four species at a time in one register,
+// which is one dependency chain against the FMA latency, and reduced it to a
+// scalar by *storing the register to memory and adding four doubles back* once
+// per channel per species-quad.
+//
+// The speedup here is inferred from the NEON measurement, not measured: this is
+// developed on AArch64 and no x86 machine was available. What is checked on
+// both is that the SIMD and scalar kernels agree
+// (`test_simd_convolution_correctness.py`, which runs its AVX classes only
+// where AVX exists, plus the ungated class that drives both dispatch paths).
+template <int R>
 TTTRLIB_TARGET_AVX_FMA
-static void fconv_per_avx_impl(double *fit, double *x, double *lamp, int numexp, int start, int stop,
-                   int n_points, double period, double dt) {
-if (is_verbose()) {
-    std::clog << "FCONV_PER_AVX" << std::endl;
-    std::clog << "-- numexp: " << numexp << std::endl;
-    std::clog << "-- start: " << start << std::endl;
-    std::clog << "-- stop: " << stop << std::endl;
-    std::clog << "-- n_points: " << n_points << std::endl;
-    std::clog << "-- period: " << period << std::endl;
-    std::clog << "-- dt: " << dt << std::endl;
-}
-    int start1 = std::max(1, start);
-    stop = (stop < 0) ? n_points: stop;
-    // make sure that there are always multiple of the AVX register size
-    const int chunk_size = 4; // the number of lifetimes per AVX register
-    int n_chunks = (int) std::ceil((double) numexp / chunk_size);
-    int n_ele = n_chunks * chunk_size;
+static void fconv_per_avx_block(double *fit, double *x, double *lamp, int numexp,
+                                int start, int stop, int n_points, double period,
+                                double dt) {
+    constexpr int kSpecies = 4 * R;
+    const int start1 = std::max(1, start);
+    stop = (stop < 0) ? n_points : stop;
+    const int n_ele = ((numexp + kSpecies - 1) / kSpecies) * kSpecies;
 
-    // Number of time channels in period
-    int period_n = (int)ceil(period/dt-0.5);
-
-    // Check if the window is larger than the decay histogram.
-    // If it is larger only convolve till the end of the decay. Otherwise,
-    // convolve till end of period. The period starts at the
-    // excitation pulse.
-    // Find the position where the IRF starts
+    const int period_n = (int)ceil(period / dt - 0.5);
     int lamp_start = 0;
     while (lamp_start < stop && lamp[lamp_start++] == 0);
-    int stop1 = std::min(period_n+lamp_start, n_points);
+    const int stop1 = std::min(period_n + lamp_start, n_points);
 
-    // Precompute everything needed for the convolution
-    // lamp * dt * 0.5
-    auto l2 = (double *) malloc(stop * sizeof(double));
-    for (int i = 0; i < stop; i++) l2[i] = dt * 0.5 * lamp[i];
+    // Sized by n_points, not `stop`: the recursion runs to `stop1`, which is
+    // bounded by the point count. See the module README.
+    auto l2 = (double *) malloc(n_points * sizeof(double));
+    for (int i = 0; i < n_points; i++) l2[i] = dt * 0.5 * lamp[i];
 
-    // exponential
     auto ex = (double *) _mm_malloc(n_ele * sizeof(double), 32);
-    std::fill(ex, ex + n_ele, 0.0);
-    for (int i = 0; i < numexp; i++) ex[i] = exp(-dt / x[2 * i + 1]);
-
-    // amplitudes
     auto p = (double *) _mm_malloc(n_ele * sizeof(double), 32);
-    std::fill(p, p + n_ele, 0.0);
-    for (int i = 0; i < numexp; i++) p[i] = x[2 * i];
-
-    // scale of decay relative to tail
     auto scale = (double *) _mm_malloc(n_ele * sizeof(double), 32);
-    std::fill(scale, scale + n_ele, 0.0);
-    for (int i = 0; i < numexp; i++) scale[i] = exp(-(period_n - stop1 + start) * dt / x[2 * i + 1]);
-
-    // tails wrapping to next period
     auto tails = (double *) _mm_malloc(n_ele * sizeof(double), 32);
+    std::fill(ex, ex + n_ele, 0.0);
+    std::fill(p, p + n_ele, 0.0);
+    std::fill(scale, scale + n_ele, 0.0);
     std::fill(tails, tails + n_ele, 0.0);
-    for (int i = 0; i < numexp; i++) tails[i] = 1. / (1. - exp(-period / x[2 * i + 1]));
+    for (int i = 0; i < numexp; i++) {
+        ex[i] = exp(-dt / x[2 * i + 1]);
+        p[i] = x[2 * i];
+        scale[i] = exp(-(period_n - stop1 + start) * dt / x[2 * i + 1]);
+        tails[i] = 1. / (1. - exp(-period / x[2 * i + 1]));
+    }
+    // Padding lanes carry a zero amplitude and contribute exactly nothing.
 
-    // CONVOLUTION
     std::fill(fit, fit + n_points, 0.0);
-    __m256d fitcurr, l2p, l2c, a, e, s, t, tmp;
-    double tmp_vals[4];
-    for (int ne = 0; ne < numexp; ne += chunk_size) {
-        e = _mm256_load_pd(&ex[ne]);     // expcurr = exp(-dt / x[2 * ne + 1]);
-        a = _mm256_load_pd(&p[ne]);      // amplitudes
-        s = _mm256_load_pd(&scale[ne]);  // scales
-        t = _mm256_load_pd(&tails[ne]);  // tail
-
-        // take care of first channel
-        // fit[0] += l2[0] * a;
-        l2c = _mm256_set1_pd(l2[0]);
-        tmp = _mm256_mul_pd(l2c, a);
-        _mm256_storeu_pd(tmp_vals, tmp);
-        fit[0] += tmp_vals[0] + tmp_vals[1] + tmp_vals[2] + tmp_vals[3];
-        fitcurr = _mm256_set1_pd(0.0);
-        for (int i = start1; i < stop1; i++) {
-            //fitcurr = (fitcurr + l2[i - 1]) * expcurr + l2[i];
-            int pre = std::max(0, i - 1);
-
-            l2p = _mm256_set1_pd(l2[pre]);
-            l2c = _mm256_set1_pd(l2[i]);
-            fitcurr = _mm256_add_pd(fitcurr, l2p);
-            fitcurr = _mm256_fmadd_pd(fitcurr, e, l2c);
-            // fit[i] += fitcurr * a;
-            tmp = _mm256_mul_pd(fitcurr, a);
-            _mm256_storeu_pd(tmp_vals, tmp);
-            fit[i] += tmp_vals[0] + tmp_vals[1] + tmp_vals[2] + tmp_vals[3];
+    for (int base = 0; base < numexp; base += kSpecies) {
+        __m256d e[R], a[R], s[R], t[R], fitcurr[R];
+        for (int r = 0; r < R; ++r) {
+            e[r] = _mm256_load_pd(&ex[base + 4 * r]);
+            a[r] = _mm256_load_pd(&p[base + 4 * r]);
+            s[r] = _mm256_load_pd(&scale[base + 4 * r]);
+            t[r] = _mm256_load_pd(&tails[base + 4 * r]);
+            fitcurr[r] = _mm256_setzero_pd();
         }
-        // fitcurr *= scale[ne];
-        fitcurr = _mm256_mul_pd(fitcurr, s);
-        // tail
-        for (int i = start; i < stop; i++) {
-            //fitcurr *= e[ne];
-            fitcurr = _mm256_mul_pd(fitcurr, e);
-            //fit[i] += fitcurr * a[ne] * tails[ne];
-            tmp = _mm256_mul_pd(fitcurr, a);
-            tmp = _mm256_mul_pd(tmp, t);
-            _mm256_storeu_pd(tmp_vals, tmp);
-            fit[i] += tmp_vals[0] + tmp_vals[1] + tmp_vals[2] + tmp_vals[3];
+        {
+            const __m256d l0 = _mm256_set1_pd(l2[0]);
+            __m256d acc = _mm256_setzero_pd();
+            for (int r = 0; r < R; ++r) acc = _mm256_fmadd_pd(l0, a[r], acc);
+            fit[0] += fconv_hsum256(acc);
+        }
+        for (int i = start1; i < stop1; ++i) {
+            const __m256d lo = _mm256_set1_pd(l2[i - 1]);
+            const __m256d hi = _mm256_set1_pd(l2[i]);
+            __m256d acc = _mm256_setzero_pd();
+            for (int r = 0; r < R; ++r) {
+                fitcurr[r] = _mm256_fmadd_pd(_mm256_add_pd(fitcurr[r], lo), e[r], hi);
+                acc = _mm256_fmadd_pd(fitcurr[r], a[r], acc);
+            }
+            fit[i] += fconv_hsum256(acc);
+        }
+        for (int r = 0; r < R; ++r) fitcurr[r] = _mm256_mul_pd(fitcurr[r], s[r]);
+        for (int i = start; i < stop; ++i) {
+            __m256d acc = _mm256_setzero_pd();
+            for (int r = 0; r < R; ++r) {
+                fitcurr[r] = _mm256_mul_pd(fitcurr[r], e[r]);
+                acc = _mm256_fmadd_pd(_mm256_mul_pd(fitcurr[r], a[r]), t[r], acc);
+            }
+            fit[i] += fconv_hsum256(acc);
         }
     }
     free(l2); _mm_free(p); _mm_free(ex); _mm_free(scale); _mm_free(tails);
+}
+
+/// Block width by species count. Capped at 4 registers: the main loop keeps
+/// `3R` vectors live and x86-64 AVX has 16, so R=4 fits where the 8 that
+/// AArch64's 32 registers allow would spill.
+TTTRLIB_TARGET_AVX_FMA
+static void fconv_per_avx_impl(double *fit, double *x, double *lamp, int numexp,
+                               int start, int stop, int n_points, double period,
+                               double dt) {
+    if (is_verbose()) {
+        std::clog << "FCONV_PER_AVX" << std::endl;
+    }
+    if (numexp <= 4)
+        fconv_per_avx_block<1>(fit, x, lamp, numexp, start, stop, n_points, period, dt);
+    else if (numexp <= 8)
+        fconv_per_avx_block<2>(fit, x, lamp, numexp, start, stop, n_points, period, dt);
+    else
+        fconv_per_avx_block<4>(fit, x, lamp, numexp, start, stop, n_points, period, dt);
 }
 #endif // TTTRLIB_COMPILE_AVX
 
@@ -362,54 +429,110 @@ if (is_verbose()) {
 // NEON kernel for fconv_per(): 2 lifetimes per float64x2_t (mirror of the AVX
 // kernel). Wins on AArch64 because the per-lifetime recurrence cannot be
 // autovectorized.
-static void fconv_per_neon_impl(double *fit, double *x, double *lamp, int numexp, int start, int stop,
-                   int n_points, double period, double dt) {
-if (is_verbose()) {
-    std::clog << "FCONV_PER_NEON" << std::endl;
-}
-    int start1 = std::max(1, start);
-    stop = (stop < 0) ? n_points: stop;
-    const int chunk_size = 2; // lifetimes per NEON register
-    int n_ele = ((numexp + chunk_size - 1) / chunk_size) * chunk_size;
+// Periodic convolution, NEON: `R` registers advanced together, so 2R species
+// are in flight at once.
+//
+// The first version of this kernel put two species in one register and did the
+// whole job a pair at a time. That is the natural way to write it and it was
+// *slower than plain scalar code*: the recursion `fitcurr = fitcurr*e + l2[i]`
+// is a serial dependency chain, one register is one chain, and an FMA takes
+// several cycles to retire -- so the machine sat waiting on a latency it had
+// no other work to hide. It also paid a cross-lane reduction and a
+// read-modify-write of `fit[]` per species-pair per channel, which for 33
+// species is 17 passes over the whole array.
+//
+// So: R independent chains to fill the pipeline, the per-species contributions
+// summed in a vector accumulator, and *one* horizontal add and one `fit[]`
+// update per channel per block. Measured at 1563 channels on Apple silicon,
+// against the pair-at-a-time version it replaces: 4.2x at 16 and 33 species,
+// 6.0x at 64. It is also 1.6-1.9x faster than `fconv_per_cs_ad<double>`, the
+// blocked scalar AD kernel, which had been beating the old SIMD one outright.
+//
+// The block width is chosen per call below, because a spectrum of two species
+// cannot fill eight registers and pays for the ones it leaves empty.
+template <int R>
+static void fconv_per_neon_block(double *fit, double *x, double *lamp, int numexp,
+                                 int start, int stop, int n_points, double period,
+                                 double dt) {
+    constexpr int kSpecies = 2 * R;
+    const int start1 = std::max(1, start);
+    stop = (stop < 0) ? n_points : stop;
+    const int n_ele = ((numexp + kSpecies - 1) / kSpecies) * kSpecies;
 
-    int period_n = (int)ceil(period/dt-0.5);
+    const int period_n = (int)ceil(period / dt - 0.5);
     int lamp_start = 0;
     while (lamp_start < stop && lamp[lamp_start++] == 0);
-    int stop1 = std::min(period_n+lamp_start, n_points);
+    const int stop1 = std::min(period_n + lamp_start, n_points);
 
-    std::vector<double> l2(stop), ex(n_ele, 0.0), p(n_ele, 0.0), scale(n_ele, 0.0), tails(n_ele, 0.0);
-    for (int i = 0; i < stop; i++) l2[i] = dt * 0.5 * lamp[i];
+    // Sized by n_points, not by `stop`: the recursion runs to `stop1`, which is
+    // bounded by the point count and not by `stop`. See the module README --
+    // undersizing this read past the end and imitated a stateful function.
+    std::vector<double> l2(n_points), ex(n_ele, 0.0), p(n_ele, 0.0),
+                        scale(n_ele, 0.0), tails(n_ele, 0.0);
+    for (int i = 0; i < n_points; i++) l2[i] = dt * 0.5 * lamp[i];
     for (int i = 0; i < numexp; i++) {
         ex[i] = exp(-dt / x[2 * i + 1]);
         p[i] = x[2 * i];
         scale[i] = exp(-(period_n - stop1 + start) * dt / x[2 * i + 1]);
         tails[i] = 1. / (1. - exp(-period / x[2 * i + 1]));
     }
+    // The padding lanes carry a zero amplitude, so they contribute exactly
+    // nothing and need no branch in the inner loop.
 
     std::fill(fit, fit + n_points, 0.0);
-    for (int ne = 0; ne < numexp; ne += chunk_size) {
-        float64x2_t e = vld1q_f64(&ex[ne]);
-        float64x2_t a = vld1q_f64(&p[ne]);
-        float64x2_t s = vld1q_f64(&scale[ne]);
-        float64x2_t t = vld1q_f64(&tails[ne]);
-
-        float64x2_t tmp = vmulq_f64(vdupq_n_f64(l2[0]), a);
-        fit[0] += vgetq_lane_f64(tmp, 0) + vgetq_lane_f64(tmp, 1);
-        float64x2_t fitcurr = vdupq_n_f64(0.0);
-        for (int i = start1; i < stop1; i++) {
-            int pre = std::max(0, i - 1);
-            fitcurr = vaddq_f64(fitcurr, vdupq_n_f64(l2[pre]));
-            fitcurr = vfmaq_f64(vdupq_n_f64(l2[i]), fitcurr, e);
-            tmp = vmulq_f64(fitcurr, a);
-            fit[i] += vgetq_lane_f64(tmp, 0) + vgetq_lane_f64(tmp, 1);
+    for (int base = 0; base < numexp; base += kSpecies) {
+        float64x2_t e[R], a[R], sc[R], t[R], fitcurr[R];
+        for (int r = 0; r < R; ++r) {
+            e[r] = vld1q_f64(&ex[base + 2 * r]);
+            a[r] = vld1q_f64(&p[base + 2 * r]);
+            sc[r] = vld1q_f64(&scale[base + 2 * r]);
+            t[r] = vld1q_f64(&tails[base + 2 * r]);
+            fitcurr[r] = vdupq_n_f64(0.0);
         }
-        fitcurr = vmulq_f64(fitcurr, s);
-        for (int i = start; i < stop; i++) {
-            fitcurr = vmulq_f64(fitcurr, e);
-            tmp = vmulq_f64(vmulq_f64(fitcurr, a), t);
-            fit[i] += vgetq_lane_f64(tmp, 0) + vgetq_lane_f64(tmp, 1);
+        {
+            const float64x2_t l0 = vdupq_n_f64(l2[0]);
+            float64x2_t acc = vdupq_n_f64(0.0);
+            for (int r = 0; r < R; ++r) acc = vfmaq_f64(acc, l0, a[r]);
+            fit[0] += vaddvq_f64(acc);
+        }
+        for (int i = start1; i < stop1; ++i) {
+            const float64x2_t lo = vdupq_n_f64(l2[i - 1]);
+            const float64x2_t hi = vdupq_n_f64(l2[i]);
+            float64x2_t acc = vdupq_n_f64(0.0);
+            for (int r = 0; r < R; ++r) {
+                fitcurr[r] = vfmaq_f64(hi, vaddq_f64(fitcurr[r], lo), e[r]);
+                acc = vfmaq_f64(acc, fitcurr[r], a[r]);
+            }
+            fit[i] += vaddvq_f64(acc);
+        }
+        for (int r = 0; r < R; ++r) fitcurr[r] = vmulq_f64(fitcurr[r], sc[r]);
+        for (int i = start; i < stop; ++i) {
+            float64x2_t acc = vdupq_n_f64(0.0);
+            for (int r = 0; r < R; ++r) {
+                fitcurr[r] = vmulq_f64(fitcurr[r], e[r]);
+                acc = vfmaq_f64(acc, vmulq_f64(fitcurr[r], a[r]), t[r]);
+            }
+            fit[i] += vaddvq_f64(acc);
         }
     }
+}
+
+/// Block width by species count: the smallest that holds the whole spectrum,
+/// capped at 8 registers. Each was the fastest of the widths measured at its
+/// own species count -- a narrow spectrum in a wide block pays for the empty
+/// lanes, and past 16 species there is no more latency left to hide.
+static void fconv_per_neon_impl(double *fit, double *x, double *lamp, int numexp,
+                                int start, int stop, int n_points, double period,
+                                double dt) {
+    if (is_verbose()) {
+        std::clog << "FCONV_PER_NEON" << std::endl;
+    }
+    if (numexp <= 4)
+        fconv_per_neon_block<2>(fit, x, lamp, numexp, start, stop, n_points, period, dt);
+    else if (numexp <= 8)
+        fconv_per_neon_block<4>(fit, x, lamp, numexp, start, stop, n_points, period, dt);
+    else
+        fconv_per_neon_block<8>(fit, x, lamp, numexp, start, stop, n_points, period, dt);
 }
 #endif // TTTRLIB_COMPILE_NEON
 
@@ -442,11 +565,19 @@ void fconv_per_simd(double *fit, double *x, double *lamp, int numexp, int start,
 // (lane 0 and lane 1 carry two different lifetimes of the same spectrum).
 // Mirrors fconv_per_cs()'s scalar recurrences exactly; padding lanes are given
 // a zero amplitude and a zero decay factor so they contribute nothing.
-static void fconv_per_cs_neon_impl(double *fit, double *x, double *lamp, int numexp, int stop,
-                                   int n_points, double period, int conv_stop, double dt)
+// Periodic convolution with a convolution stop, NEON: `R` registers, so 2R
+// species advance together. Same reasoning as `fconv_per_neon_block` above --
+// one register is one dependency chain and the recursion is latency-bound, so
+// a pair at a time leaves the machine waiting; and a horizontal reduction plus
+// a read-modify-write of `fit[]` per species-pair per channel is many passes
+// over the array where one will do.
+template <int R>
+static void fconv_per_cs_neon_block(double *fit, double *x, double *lamp, int numexp,
+                                    int stop, int n_points, double period,
+                                    int conv_stop, double dt)
 {
-    const int chunk = 2;                       // lifetimes per float64x2 register
-    const int n_ele = ((numexp + chunk - 1) / chunk) * chunk;
+    constexpr int kSpecies = 2 * R;
+    const int n_ele = ((numexp + kSpecies - 1) / kSpecies) * kSpecies;
     const int period_n = (int)ceil(period / dt - 0.5);
     const int stop1 = (period_n > n_points - 1) ? n_points - 1 : period_n;
     const double deltathalf = dt * 0.5;
@@ -461,34 +592,45 @@ static void fconv_per_cs_neon_impl(double *fit, double *x, double *lamp, int num
 
     for (int i = 0; i <= stop; i++) fit[i] = 0.0;
 
-    for (int ne = 0; ne < numexp; ne += chunk) {
-        const float64x2_t e = vld1q_f64(&ex[ne]);
-        const float64x2_t a = vld1q_f64(&amp[ne]);
-        const float64x2_t t = vld1q_f64(&tail[ne]);
-        const float64x2_t s = vld1q_f64(&post[ne]);
-
-        // fit[0] += deltathalf*lamp[0]*(expcurr + 1.)*x[2*ne]
-        float64x2_t tmp = vmulq_f64(vmulq_f64(vdupq_n_f64(deltathalf * lamp[0]),
-                                              vaddq_f64(e, vdupq_n_f64(1.0))), a);
-        fit[0] += vgetq_lane_f64(tmp, 0) + vgetq_lane_f64(tmp, 1);
-
-        float64x2_t fitcurr = vdupq_n_f64(0.0);
+    for (int base = 0; base < numexp; base += kSpecies) {
+        float64x2_t e[R], a[R], t[R], s[R], fitcurr[R];
+        for (int r = 0; r < R; ++r) {
+            e[r] = vld1q_f64(&ex[base + 2 * r]);
+            a[r] = vld1q_f64(&amp[base + 2 * r]);
+            t[r] = vld1q_f64(&tail[base + 2 * r]);
+            s[r] = vld1q_f64(&post[base + 2 * r]);
+            fitcurr[r] = vdupq_n_f64(0.0);
+        }
+        {
+            // fit[0] += deltathalf*lamp[0]*(expcurr + 1.)*amp
+            const float64x2_t l0 = vdupq_n_f64(deltathalf * lamp[0]);
+            float64x2_t acc = vdupq_n_f64(0.0);
+            for (int r = 0; r < R; ++r)
+                acc = vfmaq_f64(acc, vmulq_f64(l0, vaddq_f64(e[r], vdupq_n_f64(1.0))), a[r]);
+            fit[0] += vaddvq_f64(acc);
+        }
         int i = 1;
-        for (; i <= conv_stop; i++) {
-            // fitcurr = (fitcurr + deltathalf*lamp[i-1])*expcurr + deltathalf*lamp[i]
-            fitcurr = vaddq_f64(fitcurr, vdupq_n_f64(deltathalf * lamp[i - 1]));
-            fitcurr = vfmaq_f64(vdupq_n_f64(deltathalf * lamp[i]), fitcurr, e);
-            tmp = vmulq_f64(fitcurr, a);
-            fit[i] += vgetq_lane_f64(tmp, 0) + vgetq_lane_f64(tmp, 1);
+        for (; i <= conv_stop; ++i) {
+            const float64x2_t lo = vdupq_n_f64(deltathalf * lamp[i - 1]);
+            const float64x2_t hi = vdupq_n_f64(deltathalf * lamp[i]);
+            float64x2_t acc = vdupq_n_f64(0.0);
+            for (int r = 0; r < R; ++r) {
+                fitcurr[r] = vfmaq_f64(hi, vaddq_f64(fitcurr[r], lo), e[r]);
+                acc = vfmaq_f64(acc, fitcurr[r], a[r]);
+            }
+            fit[i] += vaddvq_f64(acc);
         }
-        for (; i <= stop1; i++) {
-            fitcurr = vmulq_f64(fitcurr, e);
-            tmp = vmulq_f64(fitcurr, a);
-            fit[i] += vgetq_lane_f64(tmp, 0) + vgetq_lane_f64(tmp, 1);
+        for (; i <= stop1; ++i) {
+            float64x2_t acc = vdupq_n_f64(0.0);
+            for (int r = 0; r < R; ++r) {
+                fitcurr[r] = vmulq_f64(fitcurr[r], e[r]);
+                acc = vfmaq_f64(acc, fitcurr[r], a[r]);
+            }
+            fit[i] += vaddvq_f64(acc);
         }
-        fitcurr = vmulq_f64(fitcurr, s);
+        for (int r = 0; r < R; ++r) fitcurr[r] = vmulq_f64(fitcurr[r], s[r]);
         // The wrap-around tail. fitcurr now holds the continuation at bin
-        // period_n, which *is* bin 0 of the next period — so bin 0 takes it as
+        // period_n, which *is* bin 0 of the next period -- so bin 0 takes it as
         // it stands and the decay step comes after, not before. Stepping first
         // would place the value belonging to bin period_n+1 into bin 0 and shift
         // the whole tail one bin early. (fconv_per() gets this right by ending
@@ -498,12 +640,28 @@ static void fconv_per_cs_neon_impl(double *fit, double *x, double *lamp, int num
         // lifetime of a fifth of the period, and larger for longer lifetimes.
         // With this order the recursion matches an exact circular convolution to
         // 1.3e-15; test_dfa_kernel.py pins that against the spectral backend.
-        for (i = 0; i <= stop; i++) {
-            tmp = vmulq_f64(vmulq_f64(fitcurr, a), t);
-            fit[i] += vgetq_lane_f64(tmp, 0) + vgetq_lane_f64(tmp, 1);
-            fitcurr = vmulq_f64(fitcurr, e);
+        for (i = 0; i <= stop; ++i) {
+            float64x2_t acc = vdupq_n_f64(0.0);
+            for (int r = 0; r < R; ++r) {
+                acc = vfmaq_f64(acc, vmulq_f64(fitcurr[r], a[r]), t[r]);
+                fitcurr[r] = vmulq_f64(fitcurr[r], e[r]);
+            }
+            fit[i] += vaddvq_f64(acc);
         }
     }
+}
+
+/// Block width by species count; see `fconv_per_neon_impl` for the measurements.
+static void fconv_per_cs_neon_impl(double *fit, double *x, double *lamp, int numexp,
+                                   int stop, int n_points, double period,
+                                   int conv_stop, double dt)
+{
+    if (numexp <= 4)
+        fconv_per_cs_neon_block<2>(fit, x, lamp, numexp, stop, n_points, period, conv_stop, dt);
+    else if (numexp <= 8)
+        fconv_per_cs_neon_block<4>(fit, x, lamp, numexp, stop, n_points, period, conv_stop, dt);
+    else
+        fconv_per_cs_neon_block<8>(fit, x, lamp, numexp, stop, n_points, period, conv_stop, dt);
 }
 #endif // TTTRLIB_COMPILE_NEON
 
@@ -554,6 +712,71 @@ static void fconv_per_cs_scalar(double *fit, double *x, double *lamp, int numexp
 // Periodic convolution with a convolution stop - picks the best available
 // kernel automatically, on the same CPU-and-size rule as fconv()/fconv_per().
 // No AVX kernel exists for this variant yet, so x86 takes the scalar path.
+// Model curve and exact Jacobian in one forward-mode pass per block of
+// parameters. See the header for the column order and why it is blocked.
+void fconv_per_cs_jacobian(
+        double *fit, int n_fit,
+        double *jacobian, int n_jac1, int n_jac2,
+        double *x, int n_x,
+        double *lamp, int n_lamp,
+        double period, double time_shift, int conv_stop, int stop, double dt) {
+    if (n_lamp != n_fit)
+        throw std::invalid_argument(
+            "fconv_per_cs_jacobian: the response and the model must have the "
+            "same number of points");
+    if (n_x < 2 || (n_x % 2) != 0)
+        throw std::invalid_argument(
+            "fconv_per_cs_jacobian: the lifetime spectrum is (amplitude, "
+            "lifetime) pairs, so its length must be even and at least 2");
+    const int n_params = n_x + 1;              // + the timeshift
+    if (n_jac1 != n_fit || n_jac2 != n_params)
+        throw std::invalid_argument(
+            "fconv_per_cs_jacobian: the jacobian must be (n_points, n_x + 1) "
+            "-- one row per channel, one column per spectrum entry plus a last "
+            "column for the timeshift");
+
+    const int numexp = n_x / 2;
+    const int n_points = n_fit;
+    if (stop < 0) stop = n_points - 1;
+
+    using Grad = tttrlib::GradVec<FCONV_JAC_BLOCK>;
+    using D = tttrlib::Dual<Grad>;
+
+    std::vector<D> xd(static_cast<size_t>(n_x));
+    std::vector<D> lampsh(static_cast<size_t>(n_points));
+    std::vector<D> fitd(static_cast<size_t>(n_points));
+
+    for (int base = 0; base < n_params; base += FCONV_JAC_BLOCK) {
+        // Seed this block's directions. Everything outside it is a constant in
+        // this pass, which is what makes the pass cost one value evaluation
+        // plus B derivatives rather than n_params of them.
+        for (int j = 0; j < n_x; ++j) {
+            const int lane = j - base;
+            xd[static_cast<size_t>(j)] =
+                (lane >= 0 && lane < FCONV_JAC_BLOCK) ? D(x[j], Grad::Unit(lane))
+                                                      : D(x[j]);
+        }
+        const int shift_lane = n_x - base;
+        const D ts = (shift_lane >= 0 && shift_lane < FCONV_JAC_BLOCK)
+                         ? D(time_shift, Grad::Unit(shift_lane))
+                         : D(time_shift);
+
+        shift_lamp_ad<D>(lampsh.data(), lamp, ts, n_points);
+        fconv_per_cs_ad<D, D>(fitd.data(), xd.data(), lampsh.data(), numexp,
+                              stop, n_points, period, conv_stop, dt);
+
+        const int n_lanes = std::min(FCONV_JAC_BLOCK, n_params - base);
+        for (int i = 0; i < n_points; ++i)
+            for (int lane = 0; lane < n_lanes; ++lane)
+                jacobian[static_cast<size_t>(i) * n_params + base + lane] =
+                    fitd[static_cast<size_t>(i)].grad[lane];
+    }
+
+    // The value is the same in every pass; take it from the last one.
+    for (int i = 0; i < n_points; ++i) fit[i] = fitd[static_cast<size_t>(i)].val;
+}
+
+
 void fconv_per_cs(double *fit, double *x, double *lamp, int numexp, int stop,
                   int n_points, double period, int conv_stop, double dt)
 {
@@ -922,6 +1145,7 @@ const char* const kDecayConvolutionEntry = R"JSON({
     "fconv_per",
     "fconv_per_cs",
     "fconv_per_cs_2ch",
+    "fconv_per_cs_jacobian",
     "fconv_per_cs_time_axis",
     "fconv_per_simd",
     "fconv_ref",

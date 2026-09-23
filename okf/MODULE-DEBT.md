@@ -83,7 +83,7 @@ planned. The plan was to extract `nn` so that Eigen would be "needed by exactly
 two modules" instead of by everything. What actually happened is that both
 consumers stopped needing it:
 
-- `NeuralNet`'s batched GEMMs moved to `Mat.h` (`modules/math`), which has its
+- the neural net's batched GEMMs moved to `Mat.h` (`modules/math`), which has its
   own SIMD kernel and its own benchmark against Eigen;
 - `ImageLocalization`'s AD gradient carried its derivatives in
   `Eigen::Array<double, N, 1>`, and now carries them in `GradVec<N>`
@@ -149,8 +149,8 @@ also need `extern template`). Annotate `io_image` and `pda` first, `core` last.
   `%ignore` them under `TTTRLIB_WITHOUT_BURST` (2026-08-18). **Exit:** free functions taking `const TTTR&`, with the methods kept as
   forwarders -- and SWIG `%extend` re-attaches them to the Python proxy, so the
   API does not change.
-- `HMMEmission.h -> SimDecay.h`, `HMMRestraints.h -> DecayFitPrior.h`,
-  `NeuralNet.cpp -> SimPcgRandom.h` make `hmm` depend on nearly everything.
+- `HMMEmission.h -> SimDecay.h` and `HMMRestraints.h -> DecayFitPrior.h`
+  make `hmm` depend on nearly everything.
 
 ## 6b. ~~Optional modules~~ -- `WITH_<NAME>` for every module (2026-08-18)
 
@@ -172,7 +172,7 @@ was not needed. Original text kept.
 
 `ext/python/tttrlib.i` lists 30 fragments; `ext/r/tttrlib.i` and
 `ext/java/tttrlib.i` list 18 each while claiming in a comment to be identical, so
-R and Java silently lack Registry, HMM, Sim, BVA, TwoCDE and NeuralNet.
+R and Java silently lack Registry, HMM, Sim, BVA, TwoCDE and the neural net.
 
 **Exit:** generate one `%include` list from each module's `SWIG_INTERFACES`, so
 an exclusion has to be declared rather than merely happening.

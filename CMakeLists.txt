@@ -521,7 +521,7 @@ IF(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/cxxopts/cxxopts.hpp")
 ENDIF()
 
 # Eigen is gone. It was a `REQUIRED` of the whole project for two things: the
-# batched GEMMs in NeuralNet, now Mat.h (modules/math), and the derivative slot
+# batched GEMMs of the former neural net, now Mat.h (modules/math), and the derivative slot
 # of the vectorized forward-mode gradient in ImageLocalization, now GradVec<N>
 # (modules/math). Both replacements are measured against Eigen in
 # benchmarks/bench_mat.cpp and benchmarks/bench_gradvec.cpp. Nothing else in the
@@ -652,21 +652,24 @@ ADD_SUBDIRECTORY(examples/plugin)
 OPTION(TTTRLIB_BUILD_CPP_TESTS "Build the header-only C++ math tests" OFF)
 IF(TTTRLIB_BUILD_CPP_TESTS)
     ENABLE_TESTING()
-    FOREACH(_cpp_test test_mat_linalg test_qreigen test_ad_gradient test_mlp_core test_lattice_diffusion)
+    FOREACH(_cpp_test test_mat_linalg test_qreigen test_ad_gradient test_lattice_diffusion
+                      test_rank_filters test_image_kernels test_drift_estimator
+                      test_gradients_warp test_fconv_interleave)
         ADD_EXECUTABLE(${_cpp_test} "${PROJECT_SOURCE_DIR}/test/cpp/${_cpp_test}.cpp")
         TARGET_INCLUDE_DIRECTORIES(${_cpp_test}
             PRIVATE "${PROJECT_SOURCE_DIR}/modules/math/include")
         ADD_TEST(NAME ${_cpp_test} COMMAND ${_cpp_test})
     ENDFOREACH()
 
-    # test_mlp_core reads the ONNX fixtures PyTorch wrote (skips if absent).
-    SET_TESTS_PROPERTIES(test_mlp_core PROPERTIES
-        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
-
     # test_ad_gradient also exercises DecayFit23's objective (fconv_per_cs_ad,
     # Wcm_ad/log_m_ext_ad), which are header-only templates in the decay
     # module -- so it needs that include path too, on top of modules/math's.
     TARGET_INCLUDE_DIRECTORIES(test_ad_gradient
+        PRIVATE "${PROJECT_SOURCE_DIR}/modules/spectroscopy/decay/include")
+
+    # test_fconv_interleave compares fconv_per_cs_ad against the plain
+    # recursion it now blocks, so it needs the same decay include path.
+    TARGET_INCLUDE_DIRECTORIES(test_fconv_interleave
         PRIVATE "${PROJECT_SOURCE_DIR}/modules/spectroscopy/decay/include")
 
     # test_decay_likelihood is the odd one out: the Poisson likelihoods are not
@@ -765,17 +768,90 @@ IF(BUILD_LIBRARY)
   # Add install target
   #######################
     IF(INSTALL)
+      # EXPORT + INCLUDES DESTINATION are what make these targets usable
+      # through find_package(). Without them the headers and libraries still
+      # installed -- they always have -- but a consumer had to hardcode both
+      # paths, so there was no supported way to be a C++ consumer of tttrlib.
+      # See T-20260831-14 and cmake/tttrlibConfig.cmake.in.
+      #
+      # No COMPONENT is set, deliberately. pyproject.toml builds the wheel with
+      # install.components = ["bindings"], so anything left Unspecified is
+      # already excluded from it -- and the wheel additionally passes
+      # BUILD_LIBRARY=OFF, so this whole block does not even run there. Naming a
+      # component here would change nothing except the risk of getting the
+      # wheel's split wrong, and that split is the thing that "builds, repairs
+      # and uploads cleanly and then ImportErrors on the user's machine".
       INSTALL(TARGETS ${PROJECT_NAME}Shared
+              EXPORT ${PROJECT_NAME}Targets
               RUNTIME DESTINATION bin
               LIBRARY DESTINATION lib
               ARCHIVE DESTINATION lib
+              INCLUDES DESTINATION include
               PUBLIC_HEADER DESTINATION include/${PROJECT_NAME}
       )
       INSTALL(TARGETS ${PROJECT_NAME}Static
+              EXPORT ${PROJECT_NAME}Targets
               RUNTIME DESTINATION bin
               LIBRARY DESTINATION lib
               ARCHIVE DESTINATION lib
+              INCLUDES DESTINATION include
               PUBLIC_HEADER DESTINATION include/${PROJECT_NAME}
+      )
+
+      # tttrlib links its third-party libraries at directory scope
+      # (LINK_LIBRARIES(), not target_link_libraries()), so those end up in
+      # each target's link interface -- and one of them, the vendored `tiff`,
+      # is a build-tree target in no export set, which makes install(EXPORT)
+      # refuse the whole thing.
+      #
+      # Clearing the *interface* is the accurate fix, not a workaround: these
+      # are the libraries tttrlib itself links, and a consumer of the shared
+      # aggregate does not re-link them -- the dylib already records what it
+      # needs. Only INTERFACE_LINK_LIBRARIES is touched, so what the targets
+      # themselves link is unchanged.
+      #
+      # Caveat for the static archive, which is real: an archive does not carry
+      # its dependencies, so a consumer of tttrlib::tttrlib_static must supply
+      # the third-party libraries itself. That is already true today -- the R
+      # package links the archive and does exactly that -- and it is why the
+      # shared target is the one a C++ consumer should reach for.
+      # Export under the names a consumer would guess. Without these the
+      # targets export as tttrlib::tttrlibShared / tttrlib::tttrlibStatic,
+      # which leak an internal naming convention that exists only to avoid a
+      # ninja "multiple rules generate" clash between the two output files.
+      SET_TARGET_PROPERTIES(${PROJECT_NAME}Shared PROPERTIES
+                            EXPORT_NAME ${PROJECT_NAME})
+      SET_TARGET_PROPERTIES(${PROJECT_NAME}Static PROPERTIES
+                            EXPORT_NAME ${PROJECT_NAME}_static)
+      SET_TARGET_PROPERTIES(${PROJECT_NAME}Shared PROPERTIES
+                            INTERFACE_LINK_LIBRARIES "")
+      SET_TARGET_PROPERTIES(${PROJECT_NAME}Static PROPERTIES
+                            INTERFACE_LINK_LIBRARIES "ptolib::ptolib")
+
+      # The generated target file, and the config that pulls it in.
+      INSTALL(EXPORT ${PROJECT_NAME}Targets
+              FILE ${PROJECT_NAME}Targets.cmake
+              NAMESPACE ${PROJECT_NAME}::
+              DESTINATION lib/cmake/${PROJECT_NAME}
+      )
+      INCLUDE(CMakePackageConfigHelpers)
+      CONFIGURE_PACKAGE_CONFIG_FILE(
+              "${CMAKE_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in"
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+              INSTALL_DESTINATION lib/cmake/${PROJECT_NAME}
+      )
+      # SameMajorVersion, not ExactVersion: this is a source-compatible C++ API
+      # and pinning consumers to a patch release would make every release a
+      # breaking one.
+      WRITE_BASIC_PACKAGE_VERSION_FILE(
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+              VERSION ${PROJECT_VERSION}
+              COMPATIBILITY SameMajorVersion
+      )
+      INSTALL(FILES
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+              DESTINATION lib/cmake/${PROJECT_NAME}
       )
   ENDIF(INSTALL)
 ENDIF(BUILD_LIBRARY)

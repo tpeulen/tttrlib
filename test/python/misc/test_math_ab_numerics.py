@@ -1,11 +1,10 @@
 """A/B of the header-only numerics in ``modules/math`` against independent
-references: numpy, scipy, scikit-learn, and the canonical RNG algorithms.
+references: numpy, scipy, and the canonical RNG algorithms.
 
 The kernels here have no Python binding (NelderMead, i_lbfgs, Mat, QREigen,
 Random, Sampling, SimPcgRandom), so ``test/cpp/ab_numerics_harness.cpp`` is
 compiled once per session and driven over stdin/stdout; the *reference* side is
-the real library on the Python side rather than a recorded number. NeuralNet is
-bound and is compared with scikit-learn directly.
+the real library on the Python side rather than a recorded number.
 
 Skips (does not fail) when no C++ compiler is on the PATH.
 
@@ -31,9 +30,6 @@ What each block establishes:
   through to Philox, as documented.
 * Sampling: same uniforms -> same indices as ``np.searchsorted`` on the
   cumulative weights / CDF.
-* NeuralNet: trained head-to-head with sklearn's ``MLPRegressor`` on one
-  regression task, comparable test error. (The forward pass is already pinned
-  to sklearn's to 1e-10 in ``test/python/test_neural_net.py``.)
 """
 import os
 import shutil
@@ -704,45 +700,6 @@ class TestSamplingAgainstNumpy(unittest.TestCase):
                     idx = np.searchsorted(table, u, side="left")
                     ref = np.where(idx < n, axis[np.minimum(idx, n - 1)], 0.0)
                     np.testing.assert_array_equal(got, ref)
-
-
-# ===========================================================================
-# 7. NeuralNet training vs scikit-learn's MLPRegressor
-# ===========================================================================
-class TestNeuralNetAgainstSklearn(unittest.TestCase):
-    @pytest.mark.heavy
-    def test_training_reaches_sklearn_level_error(self):
-        try:
-            import tttrlib
-            from sklearn.neural_network import MLPRegressor
-        except ImportError as e:  # pragma: no cover
-            raise unittest.SkipTest(str(e))
-        rng = np.random.default_rng(11)
-        X = rng.uniform(-2, 2, size=(4000, 2))
-        y = np.sin(X[:, 0]) * np.cos(0.5 * X[:, 1]) + 0.1 * X[:, 0] * X[:, 1]
-        Xtr, Xte, ytr, yte = X[:3000], X[3000:], y[:3000], y[3000:]
-
-        opt = tttrlib.TrainOptions()
-        opt.hidden_layer_sizes = tttrlib.VectorInt32([64, 64])
-        opt.max_iter = 300; opt.batch_size = 200; opt.learning_rate = 1e-3
-        opt.alpha = 1e-4; opt.early_stopping = True; opt.n_iter_no_change = 20; opt.seed = 1
-        net = tttrlib.NeuralNet.train_np(Xtr, ytr[:, None], opt)
-        mse_ours = float(np.mean((net.predict_batch_np(Xte)[:, 0] - yte) ** 2))
-
-        from sklearn.preprocessing import StandardScaler
-        xs = StandardScaler().fit(Xtr); ys = StandardScaler().fit(ytr[:, None])
-        mlp = MLPRegressor(hidden_layer_sizes=(64, 64), activation="relu", solver="adam",
-                           learning_rate_init=1e-3, alpha=1e-4, batch_size=200, max_iter=300,
-                           early_stopping=True, n_iter_no_change=20, random_state=1)
-        mlp.fit(xs.transform(Xtr), ys.transform(ytr[:, None]).ravel())
-        pred = ys.inverse_transform(mlp.predict(xs.transform(Xte))[:, None])[:, 0]
-        mse_skl = float(np.mean((pred - yte) ** 2))
-
-        var = float(np.var(yte))
-        # both fit the function (R^2 > 0.98) and neither is far behind the other
-        self.assertLess(mse_ours, 0.02 * var, f"tttrlib mse {mse_ours:.3e} vs var {var:.3e}")
-        self.assertLess(mse_skl, 0.02 * var, f"sklearn mse {mse_skl:.3e} vs var {var:.3e}")
-        self.assertLess(mse_ours, 3.0 * mse_skl + 1e-4, f"tttrlib {mse_ours:.3e} vs sklearn {mse_skl:.3e}")
 
 
 if __name__ == "__main__":

@@ -13,6 +13,9 @@ With various test cases including:
 - Edge cases (zero lifetimes, very short/long lifetimes)
 """
 
+import os
+import subprocess
+import sys
 import unittest
 import numpy as np
 import scipy.stats
@@ -382,6 +385,174 @@ class TestAVXConvolutionCorrectness(unittest.TestCase):
         max_diff = np.max(np.abs(model_default - model_avx))
         print(f"Max difference: {max_diff:.2e}")
         np.testing.assert_allclose(model_avx, model_default, rtol=self.tolerance, atol=self.tolerance)
+
+
+class TestTheScalarAndSimdKernelsActuallyAgree(unittest.TestCase):
+    """The comparison the rest of this file was meant to make.
+
+    Every other test here compares ``fconv_per`` against ``fconv_per_simd``.
+    Since the deprecation those are the *same function* — `fconv_per_simd`
+    forwards to `fconv_per`, which picks the kernel itself — so those tests
+    compare a function with itself and cannot fail. That is why a real
+    divergence lived here undetected: the scalar kernel accumulated into `fit`
+    while both SIMD kernels cleared it first, so `fconv_per` overwrote at
+    ``numexp >= 2`` and accumulated at ``numexp == 1`` (one lifetime is below
+    the SIMD threshold, so it is always scalar), on one machine, with no
+    environment variable set.
+
+    The second reason it survived: every other class in this file is
+    ``@skipUnless(get_avx_enabled())``, so on AArch64 — the platform this is
+    developed on — all fifteen of them skip, and a skip reads like a pass. This
+    class is deliberately not gated: it drives whichever SIMD family the build
+    has through the environment override, so it runs everywhere.
+
+    Selecting the other kernel needs a separate process — the dispatch reads
+    ``TTTRLIB_USE_NEON`` / ``TTTRLIB_USE_AVX`` through the feature detection —
+    so that is what these do.
+    """
+
+    @staticmethod
+    def run_in(env_overrides, body):
+        code = (
+            "import numpy as np, tttrlib\n"
+            "n = 64\n"
+            "irf = np.exp(-0.5 * ((np.arange(n) - 10) / 3.0) ** 2)\n"
+            + body
+        )
+        out = subprocess.run([sys.executable, "-c", code],
+                             env=dict(os.environ, **env_overrides),
+                             capture_output=True, text=True)
+        if out.returncode != 0:
+            raise AssertionError("child failed: " + out.stderr[-2000:])
+        return np.array([float(v) for v in out.stdout.split()])
+
+    def test_the_two_kernels_give_the_same_curve(self):
+        """Same input, both dispatch paths, compared across a process boundary."""
+        body = (
+            "x = np.array([0.6, 2.5, 0.4, 5.8])\n"
+            "fit = np.zeros(n)\n"
+            "tttrlib.fconv_per(fit=fit, irf=irf, x=x, period=13.0, start=0, stop=-1, dt=0.2)\n"
+            "print(' '.join('%.17g' % v for v in fit))\n"
+        )
+        simd = self.run_in({"TTTRLIB_USE_NEON": "1", "TTTRLIB_USE_AVX": "1"}, body)
+        scalar = self.run_in({"TTTRLIB_USE_NEON": "0", "TTTRLIB_USE_AVX": "0"}, body)
+        np.testing.assert_allclose(simd, scalar, rtol=1e-12, atol=1e-12)
+
+    def test_a_stop_short_of_the_point_count_reads_only_its_own_buffer(self):
+        """`fconv_per` was not a pure function, and this is the shape of it.
+
+        The precomputed `dt/2 * lamp` buffer was sized by `stop`, but the
+        recursion runs to `stop1`, which is bounded by the *point count* and not
+        by `stop`. Any caller passing a stop short of the point count — and
+        `stop = n_points - 1` is enough — read past the end of that buffer and
+        convolved with whatever the heap held there. It presented as state: with
+        a freshly allocated response and a freshly zeroed output on every call,
+        the answer still grew by about one species' worth per call, because the
+        arrays freed by the previous call were what lay past the end.
+
+        So the assertion is repetition, not a reference value: the same inputs
+        must give the same answer, call after call, with everything else in the
+        process churning the heap in between.
+        """
+        body = (
+            "K = 33\n"
+            "irf = np.exp(-0.5 * ((np.arange(n) - 10) / 0.9) ** 2)\n"
+            "irf = irf / irf.sum()\n"
+            "x = np.empty(2 * K)\n"
+            "x[0::2] = 1.0 / K\n"
+            "x[1::2] = np.geomspace(0.05, 60.0, K)\n"
+            "out = []\n"
+            "for _ in range(6):\n"
+            "    response = np.ascontiguousarray(irf.copy())\n"
+            "    fit = np.zeros(n)\n"
+            "    tttrlib.fconv_per(fit, response, x, 13.0, 0, n - 1, 13.0 / n)\n"
+            "    out.append(fit.max())\n"
+            "print(' '.join('%.17g' % v for v in out))\n"
+        )
+        for label, env in (("simd", {"TTTRLIB_USE_NEON": "1", "TTTRLIB_USE_AVX": "1"}),
+                           ("scalar", {"TTTRLIB_USE_NEON": "0", "TTTRLIB_USE_AVX": "0"})):
+            with self.subTest(kernel=label):
+                values = self.run_in(env, body)
+                self.assertTrue(
+                    np.all(values == values[0]),
+                    "the %s kernel returned %d different answers for one input: %s"
+                    % (label, len(set(values.tolist())), values))
+
+    def test_fconv_per_and_fconv_per_cs_agree_over_the_full_range(self):
+        """Pins the *value*, which repetition alone does not.
+
+        The overrun fix made `fconv_per` stable; stable is not the same as
+        right. Over the full range (`stop = n_points`, no convolution stop)
+        these two independently written kernels produce the same curve to
+        rounding — bit for bit on arm64, within an ulp on x86_64 (CI measured
+        5.6e-17 on ubuntu), so the bound is 1e-14 absolute on a curve of order
+        one: rounding passes, the overrun (which doubled values) cannot — and the
+        reporter's own unfixed build gave this value on its *first* call, before
+        the growth started, which is the other half of the confirmation.
+
+        With `stop = n_points - 1` the last bin differs, and should: the tail
+        loop is `i < stop`, so bin `stop` never receives its periodic tail.
+        That is what `stop` means, and it is asserted here so it is not
+        mistaken for the overrun coming back.
+        """
+        body = (
+            "K = 33\n"
+            "irf = np.exp(-0.5 * ((np.arange(n) - 10) / 0.9) ** 2)\n"
+            "irf = irf / irf.sum()\n"
+            "x = np.empty(2 * K)\n"
+            "x[0::2] = 1.0 / K\n"
+            "x[1::2] = np.geomspace(0.05, 60.0, K)\n"
+            "dt = 13.0 / n\n"
+            "full = np.zeros(n)\n"
+            "tttrlib.fconv_per(full, np.ascontiguousarray(irf.copy()), x, 13.0, 0, n, dt)\n"
+            "short = np.zeros(n)\n"
+            "tttrlib.fconv_per(short, np.ascontiguousarray(irf.copy()), x, 13.0, 0, n - 1, dt)\n"
+            "cs = np.zeros(n)\n"
+            "tttrlib.fconv_per_cs(fit=cs, irf=np.ascontiguousarray(irf.copy()), x=x,\n"
+            "                     period=13.0, conv_stop=n - 1, stop=n - 1, dt=dt)\n"
+            "print(np.abs(full - cs).max(), np.abs(short - cs)[:-1].max(),"
+            " np.abs(short - cs)[-1])\n"
+        )
+        for label, env in (("simd", {"TTTRLIB_USE_NEON": "1", "TTTRLIB_USE_AVX": "1"}),
+                           ("scalar", {"TTTRLIB_USE_NEON": "0", "TTTRLIB_USE_AVX": "0"})):
+            with self.subTest(kernel=label):
+                full_vs_cs, short_vs_cs_body, short_vs_cs_last = self.run_in(env, body)
+                self.assertLessEqual(full_vs_cs, 1e-14,
+                                     "the two periodic kernels no longer agree over "
+                                     "the full range")
+                self.assertLessEqual(short_vs_cs_body, 1e-14,
+                                     "a short stop changed a bin other than the last")
+                self.assertGreater(short_vs_cs_last, 1e-14,
+                                   "the last bin should lack its periodic tail "
+                                   "when stop excludes it")
+
+    def test_fconv_per_overwrites_on_every_path_and_every_numexp(self):
+        """The regression itself: calling twice into one buffer must not double.
+
+        `numexp == 1` is the case that was broken with no environment override
+        at all, because one lifetime never reaches the SIMD kernel.
+        """
+        for numexp in (1, 2, 4):
+            body = (
+                "x = np.array([%s])\n" % ", ".join(
+                    "%f, %f" % (1.0 / numexp, 2.0 + k) for k in range(numexp))
+                + "fit = np.zeros(n)\n"
+                "for _ in range(3):\n"
+                "    tttrlib.fconv_per(fit=fit, irf=irf, x=x, period=13.0,"
+                " start=0, stop=-1, dt=0.2)\n"
+                "once = np.zeros(n)\n"
+                "tttrlib.fconv_per(fit=once, irf=irf, x=x, period=13.0,"
+                " start=0, stop=-1, dt=0.2)\n"
+                "print(fit.sum(), once.sum())\n"
+            )
+            for label, env in (("simd", {"TTTRLIB_USE_NEON": "1", "TTTRLIB_USE_AVX": "1"}),
+                               ("scalar", {"TTTRLIB_USE_NEON": "0", "TTTRLIB_USE_AVX": "0"})):
+                with self.subTest(numexp=numexp, kernel=label):
+                    three, one = self.run_in(env, body)
+                    self.assertAlmostEqual(
+                        three, one, places=9,
+                        msg="three calls into one buffer != one call: the %s "
+                            "kernel is accumulating, not overwriting" % label)
 
 
 if __name__ == '__main__':

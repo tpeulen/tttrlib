@@ -1849,6 +1849,131 @@ retired so nobody works the same thing twice.)*
   - Done when: `tools/pyodide/build_wheel.sh` produces a `pyodide_*_wasm32` wheel and `tools/pyodide/smoke_test.mjs` reads a `.bur` DataStore and a `.pto` photon stream under Pyodide 0.28.0 in Node.
   - Touching: `pyproject.toml` (a `[[tool.scikit-build.overrides]]` block), `cmake/TTTRLibModule.cmake` (`tttrlib_install_modules`), `ext/CMakeLists.txt` (extension suffix), `modules/spectroscopy/fcs/src/Correlator.cpp` (size_t -> 64-bit macro-time offsets), `tools/pyodide/`, `okf/prds/PRD-041-pyodide-wasm-wheel.md`. Branch `pyodide-build` in `~/dev/worktrees/tttrlib-pyodide`.
   - Progress: wheel builds (3.0 MB, emscripten 4.0.9, static modules, no HDF5/OpenMP); smoke test green (DataStore from .bur, TTTR from .pto, histogram, correlator equal to native). Open follow-up: a CI job for it (PRD-041).
+- **T-20260923-10 · [chisurf] Docs for undocumented visible tools: PSF calculator, TTTR decay/correlate, intensity trace + file tools, FCS toolbox**
+  - Status: ✅ done
+  - Owner: opus-5.5/b1a8cea6
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: 48 plugins have zero mention in docs/; these five are menu-visible. Sources: SD1TB Wikipedia dump + web cross-check, Crossref-verified citations.
+  - Done when: concept + guide (72-75) pages with screenshots, registered in indices, bib entries merged, docs link tests green.
+  - Touching: docs/concepts/{point_spread_function,intensity_traces,tcspc_lifetime,fcs_correlation}.md, docs/guides/7[2-5]_*.md, docs/guides/index.md, docs/concepts/index.rst, docs/references/bibliography.yaml, docs/guides/make_screenshots.py, docs/guides/figures/, the five plugins' gui/help.md
+  - Progress: landed chisurf `aa5f7459e` (.bst inclusive fix) + `226b7f845` (docs). Defects found → known-issues 2026-09-23; resume point in okf/references/wikipedia-mining.md.
+  - Round 2 (2026-09-23): guides 76-82 + help-toolbar wiring on 8 tools + ported-help reference sweep; chisurf `a73e9e723` `b2e02c1a9` `447eb18dd` `62e4eb457` `301eda58f`. PRD-mention and help-render guards green again.
+
+- **T-20260923-nn · [tttrlib+imp.bff+chisurf] HmmSurrogate + NeuralNet move from tttrlib to imp.bff; tttrlib becomes ML-free**
+  - Status: ✅ done — Parts A+C: imp.bff 8ef6c968 (NeuralNetTraining, HmmSurrogate; 43 passed/2 skipped), chisurf 195c58531 (burst_h2mm surrogate_bff.py; 110 passed). Part B: tttrlib dev fast-forwarded 46d2759ed → 10858cf19 (`nn-removal`). The 12 overlapping files' uncommitted edits were stashed and re-applied on top (stash `nn-overlap` kept); conflicts resolved in CMakeLists.txt, ci.yml, modules/math/CMakeLists.txt (new image-kernel tests + ImageOps.i kept; test_mlp_*, NeuralNet.i, json dep dropped), NeuralNet.cpp edit discarded. Untracked MlpGemm.h/MlpQuant.h/test_mlp_{gemm,quant}.cpp/bench_mlp_gemm.cpp deleted; their mentions removed from bench_image_kernels.cpp, modules/math/README.md and the unreleased CHANGELOG entry (all still uncommitted WIP of their owners). Dual.h/LatticeDiffusion.h untouched (vendored SHA). Verified: ctest 10/10; pytest 3400 passed, 20 failed, none NN-related (17 tifffile/numpy ABI in env, 3 uncommitted ImageOps WIP: integral_image_u16 signature, registry entries).
+  - Owner: opus-5.5/nn-move
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: tpeulen: tttrlib needs no neural nets; "The HmmSurrogate (entire code) must move to imp.bff, trim / remove in tttrlib." Rule change: learned models / neural nets live in imp.bff even when their inputs are photons; tttrlib stays ML-free.
+  - Done when: IMP.bff has `NeuralNet::train` + `HmmSurrogate` (built only with `IMP_BFF_HAS_TTTRLIB`, linking tttrlib's HMM), tests + example ported; tttrlib has no NeuralNet/Mlp*/HmmSurrogate code, bindings, tests, conformance cases or examples (Dual.h/GradVec.h stay byte-identical); chisurf `burst_h2mm/core/surrogate_tttrlib.py` uses IMP.bff.
+  - Touching (planned, not yet started): imp.bff `include/NeuralNet.h`, `src/NeuralNet.cpp`, NEW `include/HMMSurrogate.h`, `src/HMMSurrogate.cpp`, `pyext/include/IMP_bff.hmm_surrogate.i`, `test/test_hmm_surrogate.py`, `test/test_neural_net.py`, `AGENTS.md`; tttrlib `modules/math/{include/{NeuralNet,MlpCore,MlpGemm,MlpQuant}.h,src/NeuralNet.cpp}`, `modules/spectroscopy/hmm/*/HMMSurrogate.*`, the NN bindings/tests/conformance/examples/benchmarks, AGENTS.md; chisurf `chisurf/plugins/burst/burst_h2mm/core/surrogate_tttrlib.py` + its test.
+  - Plan: ~/.claude/plans/i-think-there-is-peppy-flamingo.md
+
+- **T-20260923-dock · [emtk+ndxplorer+chimol] Sticky windows with dock regions: emtk.docking, ndX docks as windows, chimol onto it**
+  - Status: ✅ done
+  - Owner: opus-5.5/emtk-docking
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: tpeulen: "docks as sticky windows, like chimol, with docking regions ... make emtk example first, and implement".
+  - Done when: emtk.docking (snap/stick/groups moved from chimol, regions, tabs, JSON layout) + examples/docking.py with tests; every ndX dock a window of it (default = today's layout), View menu toggles work, layout persisted; chimol uses emtk's copy and its own is deleted.
+  - Touching: emtk NEW `emtk/docking.py`, `examples/docking.py`, `tests/test_docking.py` (landed a4bda9d); ndxplorer NEW `ndxplorer/app/docks.py`, hunks in `app/frame.py`, `app/menus.py`, `app/view_model.py`, `app/capture.py`, `app/features/__init__.py` (tabs() -> windows()), `features/analysis.py` + `features/overlays.py` (their tabs/show_* only), tests using `left_tab`; chimol `ui/gui/windows.py`, `ui/window_state.py` (deleted); chisurf `okf/plugins/ndxplorer-emtk-port.md`, `okf/log.md`.
+  - Progress: done. emtk a4bda9d, 1fa683b, cfb404b (docking, example, 32 tests); ndxplorer 122f008 (docks.py, windows(), View toggles, layout file; tests/test_app/test_docks.py); chimol 1d80c19 (window_state.py deleted, windows.py on emtk.docking); chisurf a0ea6fbb7 (OKF). Pre-existing, not from this: 20 chisurf/plugins/chimol tests fail identically before and after 1d80c19 (pseudoatom, symmetry mates, settings toggle, transform_sync, web_parity). Touching: released. Resume: okf/plugins/ndxplorer-emtk-port.md / docks.
+
+- **T-20260923-wasm · [imp.bff] IMP.bff Pyodide wasm build (separate worktree/build dir, no lock needed)**
+  - Status: ✅ done (imp.bff 7a28d790 on branch pyodide-build, local)
+  - Owner: opus-5.5/bff-pyodide
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: tpeulen: chisurf.core.parameter (FittingParameter -> IMP.bff.GraphPort) and ndXplorer's emtk overlays must run web-native under Pyodide 0.28; same toolchain as tttrlib PRD-041.
+  - Done when: an IMP.bff pyodide_2025_0_wasm32 wheel, tools/pyodide/{build_wheel.sh,smoke_test.mjs}, a Node smoke test of the FittingParameter port calls compared against native, and a PRD in imp.bff okf/prds.
+  - Touching: worktree ~/dev/worktrees/imp.bff-pyodide (branch pyodide-build) and its own build dirs only. NOT ~/dev/imp/cmake-build-arm64, NOT the ~/dev/imp.bff working tree, no build lock taken.
+  - Progress: done. IMP-free core (no IMP modules), 4.7 MB wheel at ~/dev/worktrees/imp.bff-pyodide/dist/pyodide/; port/FittingParameter/ndX constants+curve-fit report identical to native (56/56). Touching: released. Resume: imp.bff okf/prds/prd-153.md Open 2 (ndX page bundle lacks chimol + lzma).
+
+- **T-20260923-sel · [ndxplorer+emtk] ndX emtk port: selection group (gate table, context menus, pick population, z gate, draw mask, NaN/inf, weights)**
+  - Status: ✅ done
+  - Owner: opus-5.5/ndx-selection
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: tpeulen: ndX emtk port, feature groups in parallel; this is the selection group.
+  - Done when: gate_rectangle, gate_invert_disable, selection_table_menu, canvas_context_menu, pick_population, z_axis_dynamic, z_add_selection, draw_mask, mask_nan_inf_off, weights captured in parity/emtk and matched by control inventory; one plain gate list is the source of truth for both GUIs.
+  - Touching: ndxplorer `ndxplorer/app/features/selection.py`, `ndxplorer/app/features/selection/`, `ndxplorer/tests/test_app/test_selection*.py`, `ndxplorer/core/gates.py` (GateList, additive), `plotting/plot_control.py` + `core/plot_main.py` gate-table call sites (Qt table reads the list), Qt-free pick/mask helpers; `tools/parity/features.md` (my scenarios); emtk only for missing widgets with tests.
+  - Progress: done. ndxplorer 8a6d77e (GateList), 2ae93e8 (Qt table reads it), fb71c79 (feature), bebc74e (Qt-free copy/send/mask helpers), 61eb3b7 (double-click delete), dbc4891 (Qt pick fixed), c4e0484 (features.md); emtk b945263, 4699396 (DataTable Select All), 93a9a8c (emtk.clipboard); chisurf dccb626c7 (OKF). All 10 scenarios captured/ticked. Touching: released. Resume: okf/plugins/ndxplorer-emtk-port.md / selection.
+
+- **T-20260923-pe · [ndxplorer+emtk] ndX emtk port: playback_export group (playback, find projections, publication export)**
+  - Status: ✅ done (core hook on_z_select pending)
+  - Owner: opus-5.5/ndx-playback-export
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: tpeulen: ndX emtk port, feature groups in parallel; this one is playback, VizRank and publication export.
+  - Done when: scenarios playback, playback_image_frames, find_projections, find_projections_iris, find_projections_z, publication_export captured in parity/emtk and matched by control inventory.
+  - Touching: ndxplorer `ndxplorer/app/features/playback_export.py`, `ndxplorer/app/features/playback_export/`, `ndxplorer/tests/test_app/test_playback_export*.py`, Qt-free `plotting/playback_view_model.py` (drop QObject/QTimer; Qt host drives ticks in `plotting/plot_control.py`), `ui/vizrank_panel.py` (Qt-free model split), `export/publication_figure.py` (bytes out); `tools/parity/features.md` (my scenarios only); emtk only if a widget is missing.
+  - Progress: landed. ndxplorer 2cbd13b, c6195c3, 9621928, a45c697, 50e5fb4, 7b7cd33, f2a7ee6, 6bc38bf; emtk 87aac2f (view_form suffix); chisurf okf commit "OKF: ndX on emtk, playback_export group". All six scenarios captured and at parity; ndxplorer suite 962 passed. Touching: released. Resume: okf/plugins/ndxplorer-emtk-port.md "Where to pick this up".
+
+- **T-20260923-08 · [ndxplorer+emtk] ndX emtk port: analysis group (Find structure, UMAP, Gaussian Fit)**
+  - Status: ✅ done
+  - Owner: opus-5.5/ndx-analysis
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: tpeulen: ndX emtk port, feature groups in parallel; this one is clustering/UMAP/GMM.
+  - Done when: scenarios clustering_dialog, column_selection_dialog, clustering_kmeans_run, clustering_pca_run, umap_run, view_umap_action, gaussian_fit, gaussian_select, gmm_settings_dialog captured and matched by control inventory.
+  - Touching: ndxplorer `ndxplorer/app/features/analysis.py`, `ndxplorer/app/features/analysis/`, `ndxplorer/tests/test_app/test_analysis*.py`, Qt-free extractions from `analysis/gaussian_fit.py`, `analysis/clustering.py`, `ui/clustering_dialog.py`; `tools/parity/features.md` (my scenarios); emtk task/progress helper (new module + tests).
+  - Progress: landed. ndxplorer e8a3a56 (structure.py), d68e83c (gaussian_mixture.py), 9165abe, 05938f5 (menus checked hook), e2dcbca (Qt View>UMAP), df4e525 (package_install.py), b8e9391 (feature + specs + tests), 0e86f60 (Cluster tooltip), 3928f6c (features.md), 6b5da64 (cluster_labels); emtk bf55121 2001444 df64bfb d959c09; chisurf OKF (ndxplorer-emtk-port.md analysis section + log). All nine scenarios ticked. Touching: released. Resume: okf/plugins/ndxplorer-emtk-port.md "Where to pick this up" / analysis.
+
+- **T-20260923-05 · [ndxplorer+emtk] ndX emtk port: overlays group (curves, curve fit, parameters, equations, store editor)**
+  - Status: ✅ done (ndxplorer 824ba15, ef15568, c9036b3, 75e44c3, 63f5c26, 8e1b805, 6bf25d1; emtk d80bb85, 1d3462d; chisurf df559b39f; local)
+  - Owner: opus-5.5/ndx-emtk-overlays
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: tpeulen: ndX moves off PyQt to emtk; overlays group of the parity scenarios.
+  - Done when: overlays_curve, overlays_equation_list, curve_fit_dialog, parameters_panel, add_parameter, equations_panel, store_editor captured in parity/emtk with control inventory matched. -- all seven PARITY.
+  - Touching: ndxplorer `ndxplorer/app/features/overlays.py`, `ndxplorer/app/features/overlays/`, `ndxplorer/tests/test_app/test_overlays.py`, Qt-free `core/overlay_curves.py`, `analysis/curve_fit_setup.py`, `core/equation_table.py`, `core/store_edits.py` with Qt call sites; emtk `widgets/data_table.py`.
+  - Resume: chisurf okf/plugins/ndxplorer-emtk-port.md "Where to pick this up" / overlays (browser blocked on chisurf parameters needing IMP.bff).
+
+- **T-20260923-ndxafret · [ndxplorer+chisurf] ndX emtk port: Accurate FRET UI (what the ChiSurf-hosted window adds)**
+  - Status: ⏸ waiting (library API)
+  - Owner: opus-5.5/ndx-accurate-fret
+  - Opened: 2026-09-23 · Picked: 2026-09-23
+  - Why: tpeulen "ndx, where is accurate FRET?": the Accurate FRET toolbar, calibration save/load, MMFDB open and Global View publishing exist only in the Qt window ChiSurf's plugin decorates; the parity baseline had only standalone ndX. The algorithms move to tttrlib (T-20260923-afret), so the emtk side is a UI shell against a small calibrate() interface for now.
+  - Touching: ndxplorer `tools/parity/capture_qt.py` (chisurf host mode), `tools/parity/scenarios.json` + `features.md` (hosted scenarios only), `ndxplorer/app/features/accurate_fret.py` + `accurate_fret/`, `ndxplorer/app/capture.py` (hosted ops), `ndxplorer/app/features/__init__.py`, tests; chisurf `okf/plugins/ndxplorer-emtk-port.md`, `okf/log.md`. NOT touching calibration_bridge / accurate.py (T-20260923-afret owns them).
+  - Progress: baseline + UI shell done. ndxplorer 631955d (hosted Qt baseline), 20fac6b (emtk FRET menu, options/report/save-load, backend contract `fret_calibration.calibrate`; options, report text and calibration_io moved in from the plugin); chisurf f055570d8 (plugin uses them; its deletions were swept into b3a7525af). Waiting for the library API to wire the backend. Resume: chisurf okf/plugins/ndxplorer-emtk-port.md "Accurate FRET".
+
+- **T-20260923-04 · [ndxplorer+emtk] ndX emtk port: settings group (menus Settings/View/Help, axis settings, performance, report tool)**
+  - Status: ✅ done
+  - Owner: opus-5.5/ndx-settings
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: tpeulen: ndX emtk port, feature groups in parallel; this is the settings group.
+  - Done when: scenarios menu_settings, menu_view, menu_help, set_default_axis, load_settings_dialog, save_axis_settings_dialog, performance_settings, axis_control_dialog, report_tool, fix_report_tool captured in parity/emtk and compared by control inventory.
+  - Touching: ndxplorer `ndxplorer/app/features/settings.py`, `ndxplorer/app/features/settings/`, `ndxplorer/tests/test_app/test_settings*.py`, Qt-free extraction of `settings_helpers.py` logic (+ minimal Qt call-site edits), `tools/parity/features.md` (my scenarios only); emtk only if a widget is missing.
+  - Progress: done. ndxplorer 039f918, 9490acb (core hooks: capture pass-through, files_dropped), Axis-Control/plots commit, settings/persist + Qt helpers, export/report + Qt report tool, the settings feature, f6c4735, 8702b79 (features.md; also swept in the overlays agent's ticks, see lead), ac4cb95; emtk dfb7823 (view_form colour + code_editor); chisurf OKF commit (ndxplorer-emtk-port "settings" + log). Touching: released. Resume: okf/plugins/ndxplorer-emtk-port.md "Where to pick this up" / settings.
+
+- **T-20260923-io · [ndxplorer+emtk] ndX emtk port: io feature group (open/save/merge/selection files/screenshot)**
+  - Status: ✅ done
+  - Owner: opus-5.5/ndx-emtk-io
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: tpeulen: ndX moves off PyQt to emtk; io group of the parity scenarios (startup_empty, file dialogs, merge, open csv/bur/sampling/h5 image, save burst ids, selection save/load, working path, screenshot).
+  - Done when: io scenarios captured in parity/emtk, control inventory matched in tools/parity/features.md, Qt-free loading shared by both GUIs.
+  - Touching: ndxplorer `ndxplorer/app/features/io.py`, `ndxplorer/app/features/io/`, `ndxplorer/tests/test_app/test_io*.py`, Qt-free split of `ndxplorer/io/file_operations.py` (new `ndxplorer/io/loading.py`) with minimal Qt call-site edits; emtk `file_dialog` only if a gap; `tools/parity/features.md` (io scenarios only).
+  - Progress: done. ndxplorer bc518fb (app.io_service), 1bf50c1 (io/loading.py + shared image_axes/burst-ID/screenshot logic), ab1180d (.bur trailing tab), 767a1e2 (io feature), 9ef1011 (selection files without ChiSurf), b6f0c6f (features.md); emtk d906b00 (web download), 0ccf122 (radio_list), 0a64a62 (negative item width); chisurf 61fa38d66 (OKF). All 13 io scenarios captured + ticked. Touching: released. Resume: chisurf okf/plugins/ndxplorer-emtk-port.md "Where to pick this up" / io.
+
+- **T-20260923-02 · [ndxplorer+emtk] ndX emtk port, phase 1: main window on emtk (ndxplorer/app)**
+  - Status: 🔄 in-progress
+  - Owner: opus-5.5/ndx-emtk
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: —
+  - Why: tpeulen: ndX moves off PyQt to emtk (web-native later); new app beside the Qt GUI until parity, verified by tools/parity screenshots.
+  - Done when: main-view parity scenarios captured in parity/emtk and compared by control inventory (tools/parity/features.md), unported controls closed, OKF resume point + log.
+  - Touching: ndxplorer `ndxplorer/app/**`, `ndxplorer/tests/test_app/**`, `ndxplorer/__main__.py` (--emtk), Qt-free extractions (`core/gates.py`, `core/histograms.py`, `plotting/colormap_lut.py`, `settings/bundle.py`, package `__init__`s) with minimal Qt call-site edits, `tools/parity/features.md` (ticks only); emtk `view_form`, `widgets/data_table`, `file_dialog`, `im_*`, `texture`/`gpu_atlas`/`wgpu_host`/`wgsl` (nearest filter), fonts; chisurf `okf/plugins/ndxplorer.md`, `okf/log.md`. NOT touching tools/parity scripts or parity/qt.
+  - Progress: core landed. ndxplorer 76a11ee, d6ee00f, 09d6ac5, 5f680df (feature hooks), 3cf8811, 8b6ce92 (default look), 2d7569e, 3a13a2f, 45ef97d, be26939, d916240, 0918633, d4b529f (features.md main view); emtk dd923f6, ac8029d, f1cc8c9, c69b40e, 0da6c19, c6e7c48, cf53b0b, ccbd1e8, 4c25c4e, 0821285, c7d929d, a947a6a; chisurf c417cc9c2 (OKF). Feature groups own the rest. Resume: okf/plugins/ndxplorer-emtk-port.md "Where to pick this up" / core (window title, Retina re-check, browser boot).
+
+- **T-20260923-02 · [imp.bff][chisurf] One family-agnostic action policy trained on every game, photons from tttrlib**
+  - Status: 🔄 in-progress
+  - Owner: opus-5.5/69ef03
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: —
+  - Why: the user wants the search agent to play all "games" (datasets and model families, incl. a global kinetic scheme over FCS + TCSPC), trained end to end with data generated by tttrlib, and bff's API cleaned of duplication on the way.
+  - Done when: a policy trained on all families is shipped as `data/model_search/action_policy.json`, beats declared priors in `test/mcts/bench_action_policy.py`, and chisurf's search loads it by default.
+  - Touching (imp.bff): `ModelSearch*.{h,cpp}`, new `ModelSearchPolicy.{h,cpp}`, `PhotonExperiment.{h,cpp}` (replaces the untracked `ExperimentSelfPlay`), `KineticSchemeNode.{h,cpp}`, `internal/MlpCore.h` + `internal/AdamUpdate.h` (now bff-owned, not vendored), `NeuralNet.{h,cpp}`, `GraphNodeRegistry.cpp`, `pyext/include/IMP_bff.core.i`, `dependency/tttrlib.description`, `data/model_search/{kinetic_fcs_tcspc.json,index.json,action_policy*.json}`, `test/mcts/*`, `test/test_vendored_headers.py`. (chisurf): `chisurf/core/fitting/mcts/execution.py`, `test/fitting/test_mcts_execution.py`.
+  - Progress: API cleanup landed (bff 40f69215, chisurf 7ec7d2ca4). Policy, self-play, kinetic family and training pipeline written; tttrlib C++ reinstalled into the arm64 env against its hdf5 1.14 (the Aug-31 libs linked a missing libhdf5.200).
+
+- **T-20260923-01 · [imp.bff] Residual action policy: cache the profile at evaluate, restrict and blend priors, share the residual reduction**
+  - Status: ✅ done (imp.bff 09bbf72c, local)
+  - Owner: opus-5.5/69ef03
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: the uncommitted 2026-09-19 residual-policy WIP restores and re-updates the objective inside `get_actions` on every expansion, throws on uncached states, mixes raw declared priors with softmax probabilities over keys not available at the state, duplicates `residual_profile`/`describe_residual`, and self-play hard-codes the `"residuals"` port.
+  - Done when: `get_actions` is side-effect free, priors are one normalised distribution, one residual-profile helper, self-play uses the structure's residual key, and test/mcts passes on a rebuilt module.
+  - Touching: `include/ModelSearch.h`, `src/ModelSearch.cpp`, `include/ModelSearchSelfPlay.h`, `src/ModelSearchSelfPlay.cpp`, `test/mcts/test_model_search.py`, `test/mcts/test_self_play.py`.
+  - Progress: done. Also added `FitDataset::replace_values` (self-play lost `curve.axis`). test/mcts + test/minimizer 200 passed. Left untouched: untracked `ExperimentSelfPlay.*`, its `.i` include in `IMP_bff.core.i`, `standalone/CMakeLists.txt` option, and the regenerated `src/Files.cmake`. Next (unclaimed): train + gate per-family policies, see `okf/validation/model-search-strategy.md` "What follows" item 0.
 
 - **T-20260918-01 · [imp.bff] The pair screen must not claim a dye model it did not use**
   - Status: 🔄 in-progress

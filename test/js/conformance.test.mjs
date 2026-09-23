@@ -267,13 +267,6 @@ function makeOps(ctx) {
     'mask.size': (on) => Number(on.size()),
     'mask.mask_array': (on) => on.get_mask_array(),
 
-    // -- neural net -----------------------------------------------------------
-    'nn.from_json': (on, a) => tttrlib.NeuralNet.from_json_string(a[0]),
-    'nn.predict': (on, a) => Float64Array.from(on.predict(Float64Array.from(a[0]))),
-    'nn.n_layers': (on) => Number(on.n_layers()),
-    'nn.n_inputs': (on) => Number(on.n_inputs()),
-    'nn.n_outputs': (on) => Number(on.n_outputs()),
-
     // -- csv files ------------------------------------------------------------
     'csvfile.write': (on, a) => { tttrlib.write_csv(a[0], a[1], new tttrlib.CsvWriteOptions()); },
     'csvfile.read': (on, a) => {
