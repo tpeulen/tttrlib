@@ -1832,6 +1832,15 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
+- **T-20260923-02 · [ndxplorer+emtk] ndX emtk port, phase 1: main window on emtk (ndxplorer/app)**
+  - Status: 🔄 in-progress
+  - Owner: opus-5.5/ndx-emtk
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: —
+  - Why: tpeulen: ndX moves off PyQt to emtk (web-native later); new app beside the Qt GUI until parity, verified by tools/parity screenshots.
+  - Done when: main-view parity scenarios captured in parity/emtk and compared by control inventory (tools/parity/features.md), unported controls closed, OKF resume point + log.
+  - Touching: ndxplorer `ndxplorer/app/**`, `ndxplorer/tests/test_app/**`, `ndxplorer/__main__.py` (--emtk), Qt-free extractions (`core/gates.py`, `core/histograms.py`, `plotting/colormap_lut.py`, `settings/bundle.py`, package `__init__`s) with minimal Qt call-site edits, `tools/parity/features.md` (ticks only); emtk `view_form`, `widgets/data_table`, `file_dialog`, `im_*`, `texture`/`gpu_atlas`/`wgpu_host`/`wgsl` (nearest filter), fonts; chisurf `okf/plugins/ndxplorer.md`, `okf/log.md`. NOT touching tools/parity scripts or parity/qt.
+  - Progress: ndxplorer 76a11ee, d6ee00f, 09d6ac5; emtk dd923f6, ac8029d, f1cc8c9, c69b40e, 0da6c19, c6e7c48.
+
 - **T-20260918-01 · [imp.bff] The pair screen must not claim a dye model it did not use**
   - Status: 🔄 in-progress
   - Owner: opus-5/f5a8af51
