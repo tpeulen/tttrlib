@@ -191,3 +191,135 @@ def corrected_es_general(intensity, excitation, emission, *, background=None, pa
         _afret_vec(inten), L, M, n_bursts, _afret_vec(excitation), _afret_vec(emis),
         emis.shape[0], bg, _afret_flat_pairs(pairs), str(unmix), float(ridge))
     return _afret_pairs_out(r, trailing)
+
+
+def _afret_mixture_dict(r, n_finite):
+    np = _afret_np()
+    k = int(r.n_components)
+    out = {
+        "weights": np.asarray(r.weights, dtype=float),
+        "means": np.asarray(r.means, dtype=float),
+        "sigmas": np.asarray(r.sigmas, dtype=float),
+        "responsibilities": np.asarray(r.responsibilities, dtype=float).reshape(n_finite, k),
+        "labels": np.asarray(r.labels, dtype=int),
+        "log_likelihood": float(r.log_likelihood),
+        "bic": float(r.bic),
+        "n_iter": int(r.n_iter),
+    }
+    if len(r.bic_k):
+        out["bic_by_k"] = {int(k_): float(b) for k_, b in zip(r.bic_k, r.bic_values)}
+    return out
+
+
+def gaussian_mixture_1d(x, n_components, *, n_iterations=300, tolerance=1e-7,
+                        sigma_floor=1e-3, init="auto"):
+    """Fit a deterministic one-dimensional Gaussian mixture by EM.
+
+    Quantile-spaced and range-spaced starts are both run (``init="auto"``) and
+    the higher log-likelihood is kept. Non-finite samples are ignored.
+
+    Returns
+    -------
+    dict
+        ``{"weights", "means", "sigmas", "responsibilities", "labels",
+        "log_likelihood", "bic", "n_iter"}``, components sorted by mean;
+        ``responsibilities`` is ``(n_finite, k)`` and ``labels`` the most
+        likely component of each finite sample.
+    """
+    v = _afret_vec(x)
+    n_finite = int(_afret_np().count_nonzero(_afret_np().isfinite(v)))
+    r = _afret_gaussian_mixture_1d(v, int(n_components), int(n_iterations), float(tolerance),
+                                   float(sigma_floor), str(init))
+    return _afret_mixture_dict(r, n_finite)
+
+
+def best_gaussian_mixture_1d(x, *, max_components=4, min_weight=0.02):
+    """BIC-selected :func:`gaussian_mixture_1d`, with ``"bic_by_k"`` of every fit tried."""
+    v = _afret_vec(x)
+    n_finite = int(_afret_np().count_nonzero(_afret_np().isfinite(v)))
+    r = _afret_best_gaussian_mixture_1d(v, int(max_components), float(min_weight))
+    out = _afret_mixture_dict(r, n_finite)
+    out.setdefault("bic_by_k", {})
+    return out
+
+
+def _afret_split_dict(r):
+    np = _afret_np()
+    components = {}
+    if len(r.component_means):
+        components = {
+            "means": list(r.component_means),
+            "weights": list(r.component_weights),
+            "sigmas": list(r.component_sigmas),
+            "bic_by_k": {int(k): float(b) for k, b in zip(r.bic_k, r.bic_values)},
+        }
+    fret_labels = np.asarray(r.fret_labels, dtype=int)
+    fret = np.asarray(r.fret, dtype=bool)
+    donor_only = np.asarray(r.donor_only, dtype=bool)
+    acceptor_only = np.asarray(r.acceptor_only, dtype=bool)
+    return {
+        "donor_only": donor_only,
+        "acceptor_only": acceptor_only,
+        "fret": fret,
+        "fret_labels": fret_labels,
+        "thresholds": (float(r.threshold_lo), float(r.threshold_hi)),
+        "method": str(r.method),
+        "components": components,
+        "counts": {
+            "donor_only": int(donor_only.sum()),
+            "acceptor_only": int(acceptor_only.sum()),
+            "fret": int(fret.sum()),
+            "fret_populations": int(len(np.unique(fret_labels[fret_labels >= 0]))),
+        },
+    }
+
+
+def classify_es_populations(stoichiometry, efficiency=None, *, donor_only_above=0.75,
+                            acceptor_only_below=0.25, max_components=4, max_fret_populations=3,
+                            min_population=20, reference_sigma=2.0, method="auto"):
+    """Find donor-only, acceptor-only and FRET bursts without manual gates.
+
+    A BIC-selected Gaussian mixture over the stoichiometry assigns each
+    component to a class by its centre; the FRET class is cut at the midpoints
+    between neighbouring components, the reference classes at
+    ``reference_sigma`` widths of their own component. ``method="threshold"``
+    uses the fixed cuts. With ``efficiency`` the FRET bursts are split into
+    sub-populations (:func:`split_fret_subpopulations`).
+
+    Returns
+    -------
+    dict
+        ``{"donor_only", "acceptor_only", "fret"}`` boolean masks,
+        ``"fret_labels"`` (-1 outside the FRET class), ``"thresholds"``
+        ``(lo, hi)``, ``"method"``, ``"components"`` and ``"counts"``.
+    """
+    s = _afret_vec(stoichiometry)
+    e = [] if efficiency is None else _afret_vec(efficiency)
+    r = _afret_classify_es_populations(
+        s, e, float(donor_only_above), float(acceptor_only_below), int(max_components),
+        int(max_fret_populations), int(min_population), float(reference_sigma), str(method))
+    return _afret_split_dict(r)
+
+
+def split_fret_subpopulations(efficiency, *, max_populations=3, min_population=20,
+                              min_separation=0.05, min_fraction=0.1):
+    """Sub-population index per doubly labelled burst, by increasing efficiency."""
+    np = _afret_np()
+    return np.asarray(_afret_split_fret_subpopulations(
+        _afret_vec(efficiency), int(max_populations), int(min_population),
+        float(min_separation), float(min_fraction)), dtype=int)
+
+
+def leakage_from_donor_only(i_dd, i_da, *, bg_dd=0.0, bg_da=0.0):
+    """Donor leakage ``alpha = <i_da - bg_da> / <i_dd - bg_dd>`` of donor-only bursts."""
+    return float(_afret_leakage_from_donor_only(_afret_vec(i_dd), _afret_vec(i_da),
+                                                float(bg_dd), float(bg_da)))
+
+
+def direct_excitation_from_acceptor_only(i_da, i_aa, i_dd=None, *, alpha=0.0, bg_dd=0.0,
+                                         bg_da=0.0, bg_aa=0.0):
+    """Direct excitation ``delta = <i_da - bg_da - alpha (i_dd - bg_dd)> / <i_aa - bg_aa>``."""
+    dd = [] if i_dd is None else _afret_vec(i_dd)
+    return float(_afret_direct_excitation_from_acceptor_only(
+        _afret_vec(i_da), _afret_vec(i_aa), dd, float(alpha), float(bg_dd), float(bg_da),
+        float(bg_aa)))

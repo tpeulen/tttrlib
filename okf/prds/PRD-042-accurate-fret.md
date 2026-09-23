@@ -155,3 +155,12 @@ species factors invented, BIC keeps the shared model); the cal1 .pto.
   last bit), matrix 1.1e-16, general naive 8.9e-16, general NNLS 3.1e-15.
   The transcription equals chisurf to 1e-14 (chisurf's three-cube step ran in
   C++, FMA). `test_accurate_fret_es.py`, 30 cases.
+- **Stage 2, populations (2026-09-23):** `gaussian_mixture_1d`,
+  `best_gaussian_mixture_1d`, `classify_es_populations`,
+  `split_fret_subpopulations`, `leakage_from_donor_only`,
+  `direct_excitation_from_acceptor_only`. numpy-exact pairwise summation
+  and `-ffp-contract=off`. Over 6 seeds x k = 1..4: mixture parameters and
+  responsibilities max abs diff 3.6e-14, 0 label/mask mismatches, identical
+  EM iteration counts; estimators to 1e-12. Found and kept (documented in the
+  module README): chisurf's spherical EM weights squared residuals by the
+  squared responsibility. `test_accurate_fret_populations.py`, 38 cases.

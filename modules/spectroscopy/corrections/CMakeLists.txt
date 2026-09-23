@@ -8,8 +8,24 @@ tttrlib_add_module(
              "${CMAKE_CURRENT_SOURCE_DIR}/src/BackgroundEstimation.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretEs.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretGeneral.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretNumerics.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretMixture.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretPopulations.cpp"
     HEADERS  "${CMAKE_CURRENT_SOURCE_DIR}/include"
     DEPENDS  core util math
     SWIG_INTERFACES SpectralCrosstalk.i BackgroundEstimation.i AccurateFret.i
     TEST_DIR test/python/corrections
 )
+
+# The accurate-FRET kernels are A/B-pinned against numpy, which rounds every
+# product before the add. A contracted a*b+c (clang's default on arm64) moves
+# the last bit, and EM plus the self-consistent calibration carry it along.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    set_source_files_properties(
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretEs.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretGeneral.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretNumerics.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretMixture.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretPopulations.cpp"
+        PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+endif()
