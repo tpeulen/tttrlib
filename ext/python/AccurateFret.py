@@ -323,3 +323,85 @@ def direct_excitation_from_acceptor_only(i_da, i_aa, i_dd=None, *, alpha=0.0, bg
     return float(_afret_direct_excitation_from_acceptor_only(
         _afret_vec(i_da), _afret_vec(i_aa), dd, float(alpha), float(bg_dd), float(bg_da),
         float(bg_aa)))
+
+
+def global_es_correction(i_dd, i_da, i_aa, labels, *, alpha=0.0, delta=0.0):
+    """gamma and beta from the ``1/S = Omega + Sigma E`` line over >= 2 populations.
+
+    Returns
+    -------
+    dict
+        ``{"gamma", "beta", "Omega", "Sigma"}``; ``gamma`` is NaN when
+        ``Omega + Sigma - 1`` vanishes.
+    """
+    r = _afret_global_es_correction(_afret_vec(i_dd), _afret_vec(i_da), _afret_vec(i_aa),
+                                    [int(v) for v in _afret_np().asarray(labels).ravel()],
+                                    float(alpha), float(delta))
+    return {"gamma": float(r[0]), "beta": float(r[1]), "Omega": float(r[2]), "Sigma": float(r[3])}
+
+
+def beta_from_stoichiometry(i_dd, i_da, i_aa, *, gamma, alpha=0.0, delta=0.0, bg_dd=0.0,
+                            bg_da=0.0, bg_aa=0.0, target=0.5):
+    """beta that centres one 1:1-labelled population at ``S = target`` (1.0 without signal)."""
+    f = _afret_factors(gamma=gamma, alpha=alpha, delta=delta, bg_dd=bg_dd, bg_da=bg_da, bg_aa=bg_aa)
+    return float(_afret_beta_from_stoichiometry(_afret_vec(i_dd), _afret_vec(i_da),
+                                                _afret_vec(i_aa), f, float(target)))
+
+
+def _afret_line(line):
+    """(tau_f, efficiency) arrays of a FRET line: a pair or an object with those attributes."""
+    np = _afret_np()
+    if line is None:
+        return [], []
+    if hasattr(line, "tau_f") and hasattr(line, "efficiency"):
+        tau, eff = line.tau_f, line.efficiency
+    else:
+        tau, eff = line
+    tau = np.asarray(tau, dtype=float).ravel()
+    eff = np.asarray(eff, dtype=float).ravel()
+    order = np.argsort(tau, kind="stable")
+    return _afret_vec(tau[order]), _afret_vec(eff[order])
+
+
+def gamma_from_lifetime(i_dd, i_da, tau_f, *, line, i_aa=None, alpha=0.0, delta=0.0, bg_dd=0.0,
+                        bg_da=0.0, bg_aa=0.0, labels=None, min_population=20,
+                        efficiency_window=(0.05, 0.95)):
+    """gamma from the donor lifetime and a static FRET line, one estimate per population.
+
+    Parameters
+    ----------
+    line : tuple or object
+        ``(tau_f, efficiency)`` arrays of the static FRET line, or an object
+        with ``tau_f`` and ``efficiency`` attributes.
+
+    Returns
+    -------
+    dict
+        ``{"gamma", "sigma", "populations"}``: the burst-count weighted gamma,
+        the spread of the per-population values over their square-rooted
+        number (NaN for one), and per population ``{"label", "n", "tau_f",
+        "E_line", "gamma"}``.
+    """
+    lt, le = _afret_line(line)
+    f = _afret_factors(alpha=alpha, delta=delta, bg_dd=bg_dd, bg_da=bg_da, bg_aa=bg_aa)
+    lab = [] if labels is None else [int(v) for v in _afret_np().asarray(labels).ravel()]
+    r = _afret_gamma_from_lifetime(_afret_vec(i_dd), _afret_vec(i_da), _afret_vec(tau_f), lt, le,
+                                   [] if i_aa is None else _afret_vec(i_aa), f, lab,
+                                   int(min_population), float(efficiency_window[0]),
+                                   float(efficiency_window[1]))
+    pops = [{"label": int(u), "n": int(n), "tau_f": float(t), "E_line": float(e), "gamma": float(g)}
+            for u, n, t, e, g in zip(r.labels, r.n, r.tau_f, r.e_line, r.gammas)]
+    return {"gamma": float(r.gamma), "sigma": float(r.sigma), "populations": pops}
+
+
+def lightpath_correction_factors(c_gd, c_rd, c_ra, ex_ag, ex_ar, *, gG=1.0, gR=1.0, qy_d=1.0,
+                                 qy_a=1.0):
+    """gamma/alpha/delta from light-path emission (``c_xy``) and excitation (``ex_ay``) cells.
+
+    ``gamma = gR c_ra qy_a / (gG c_gd qy_d)``, ``alpha = gR c_rd / (gG c_gd)``,
+    ``delta = ex_ag / ex_ar`` in the Hellenkamp 2018 convention.
+    """
+    r = _afret_lightpath_correction_factors(float(c_gd), float(c_rd), float(c_ra), float(ex_ag),
+                                            float(ex_ar), float(gG), float(gR), float(qy_d),
+                                            float(qy_a))
+    return {"gamma": float(r[0]), "alpha": float(r[1]), "delta": float(r[2])}

@@ -164,3 +164,15 @@ species factors invented, BIC keeps the shared model); the cal1 .pto.
   EM iteration counts; estimators to 1e-12. Found and kept (documented in the
   module README): chisurf's spherical EM weights squared residuals by the
   squared responsibility. `test_accurate_fret_populations.py`, 38 cases.
+- **Stage 3, auto_calibrate (2026-09-23):** `global_es_correction`,
+  `beta_from_stoichiometry`, `gamma_from_lifetime` (line as a tabulated
+  polyline, numpy.interp semantics), `lightpath_correction_factors`,
+  `auto_calibrate` (+ start/iterate/cancel/finish steps, progress callback in
+  Python). 16 synthetic scenarios (priors, lifetime and combined gamma, one
+  FRET population, no ALEX, one pass, out-of-bounds start): factors to 1e-10,
+  masks/labels/messages/iterations identical. cal1 .pto (44 270 bursts; 3343
+  donor-only, 10 261 acceptor-only, 26 945 FRET in 3 populations): alpha
+  0.157401645687572 and delta 0.067328008822786 bit-identical, gamma 0.825635
+  (diff 1.8e-15), beta 0.967539 (diff 1.1e-15), 6 passes, converged, splits
+  identical. The chisurf transcription check passes against chisurf's own
+  auto_calibrate. `test_accurate_fret_calibrate.py`, 25 cases.

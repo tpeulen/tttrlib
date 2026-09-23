@@ -2,6 +2,7 @@
 %{
 #include "AccurateFret.h"
 #include "AccurateFretPopulations.h"
+#include "AccurateFretCalibrate.h"
 %}
 
 // the raw kernels take flat vectors and return structs; the Python layer in
@@ -17,11 +18,22 @@
 %rename(_afret_leakage_from_donor_only) tttrlib::leakage_from_donor_only;
 %rename(_afret_direct_excitation_from_acceptor_only) tttrlib::direct_excitation_from_acceptor_only;
 %rename(FretPopulationSplit) tttrlib::PopulationSplit;
+%rename(_afret_global_es_correction) tttrlib::global_es_correction;
+%rename(_afret_beta_from_stoichiometry) tttrlib::beta_from_stoichiometry;
+%rename(_afret_gamma_from_lifetime) tttrlib::gamma_from_lifetime;
+%rename(_afret_lightpath_correction_factors) tttrlib::lightpath_correction_factors;
+%rename(_afret_auto_calibrate) tttrlib::auto_calibrate;
+%rename(_afret_auto_calibrate_start) tttrlib::auto_calibrate_start;
+%rename(_afret_auto_calibrate_iterate) tttrlib::auto_calibrate_iterate;
+%rename(_afret_auto_calibrate_cancel) tttrlib::auto_calibrate_cancel;
+%rename(_afret_auto_calibrate_finish) tttrlib::auto_calibrate_finish;
 
 namespace tttrlib {};
 %include "AccurateFret.h"
 %include "AccurateFretPopulations.h"
+%include "AccurateFretCalibrate.h"
 
 #ifdef SWIGPYTHON
 %pythoncode "./ext/python/AccurateFret.py"
+%pythoncode "./ext/python/AccurateFretCalibrate.py"
 #endif

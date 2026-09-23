@@ -30,6 +30,13 @@ Correction utilities for single-molecule fluorescence.
     (numpy-exact pairwise sums, quantile, linspace, so the A/B against the
     numpy reference holds to the last bits; these sources build with
     `-ffp-contract=off` for the same reason)
+  - `AccurateFretCalibrate.h` — `AccurateFretEstimators.cpp`
+    (`global_es_correction`: gamma/beta from the 1/S vs E line;
+    `beta_from_stoichiometry`; `gamma_from_lifetime` against a tabulated static
+    FRET line; `lightpath_correction_factors`) and `AccurateFretAuto.cpp`
+    (`auto_calibrate`, also as `auto_calibrate_start/iterate/cancel/finish`
+    steps so a caller can report progress and stop between passes; factors are
+    clamped to bounds on every write and combined with light-path priors)
   - Known inherited quirk: the mixture's width update weights squared
     residuals by the *squared* responsibility, `sum((r (x - mu))^2) / N_k`,
     as chisurf's spherical `GaussianMixture` did; the standard EM update is

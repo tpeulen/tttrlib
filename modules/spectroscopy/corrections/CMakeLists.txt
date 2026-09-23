@@ -11,6 +11,8 @@ tttrlib_add_module(
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretNumerics.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretMixture.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretPopulations.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretEstimators.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretAuto.cpp"
     HEADERS  "${CMAKE_CURRENT_SOURCE_DIR}/include"
     DEPENDS  core util math
     SWIG_INTERFACES SpectralCrosstalk.i BackgroundEstimation.i AccurateFret.i
@@ -27,5 +29,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretNumerics.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretMixture.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretPopulations.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretEstimators.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretAuto.cpp"
         PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 endif()
