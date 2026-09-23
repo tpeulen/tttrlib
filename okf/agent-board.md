@@ -1832,6 +1832,15 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
+- **T-20260923-02 · [tttrlib] Pyodide wasm wheel so ndXplorer runs in the browser**
+  - Status: ✅ done (local branch `pyodide-build`, not merged or pushed)
+  - Owner: opus-5.5/62a3ae40
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: ndXplorer moves to emtk + Pyodide like chimol and needs `tttrlib.DataStore` in the page. See PRD-041.
+  - Done when: `tools/pyodide/build_wheel.sh` produces a `pyodide_*_wasm32` wheel and `tools/pyodide/smoke_test.mjs` reads a `.bur` DataStore and a `.pto` photon stream under Pyodide 0.28.0 in Node.
+  - Touching: `pyproject.toml` (a `[[tool.scikit-build.overrides]]` block), `cmake/TTTRLibModule.cmake` (`tttrlib_install_modules`), `ext/CMakeLists.txt` (extension suffix), `modules/spectroscopy/fcs/src/Correlator.cpp` (size_t -> 64-bit macro-time offsets), `tools/pyodide/`, `okf/prds/PRD-041-pyodide-wasm-wheel.md`. Branch `pyodide-build` in `~/dev/worktrees/tttrlib-pyodide`.
+  - Progress: wheel builds (3.0 MB, emscripten 4.0.9, static modules, no HDF5/OpenMP); smoke test green (DataStore from .bur, TTTR from .pto, histogram, correlator equal to native). Open follow-up: a CI job for it (PRD-041).
+
 - **T-20260918-01 · [imp.bff] The pair screen must not claim a dye model it did not use**
   - Status: 🔄 in-progress
   - Owner: opus-5/f5a8af51
