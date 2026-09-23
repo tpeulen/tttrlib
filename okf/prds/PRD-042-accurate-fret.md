@@ -92,4 +92,9 @@ it, a test also checks the transcription against chisurf itself.
 
 ## Results
 
-(filled per stage)
+- **Stage 1, E/S (2026-09-23):** `apparent_es`, `corrected_es`,
+  `corrected_es_matrix`, `corrected_es_general` (naive + NNLS). A/B max abs
+  difference vs the transcription: corrected_es 2.8e-14 (on fc ~ 1e2, i.e.
+  last bit), matrix 1.1e-16, general naive 8.9e-16, general NNLS 3.1e-15.
+  The transcription equals chisurf to 1e-14 (chisurf's three-cube step ran in
+  C++, FMA). `test_accurate_fret_es.py`, 30 cases.
