@@ -1832,6 +1832,15 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
+- **T-20260923-afret · [tttrlib+chisurf+ndxplorer] Accurate-FRET algorithms move from chisurf to tttrlib (C++/SWIG)**
+  - Status: 🔄 in-progress
+  - Owner: opus-5.5/accurate-fret
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: —
+  - Why: tpeulen: one implementation of accurate FRET (corrected E/S, S mixture, alpha/delta/gamma/beta, self-consistent auto-calibration, uncertainties, distance) shared by chisurf and ndXplorer (Qt + emtk, desktop + browser). PRD-042.
+  - Done when: `spectroscopy/corrections` has the kernels + registry entry + A/B tests (synthetic and cal1 .pto); arm64 + pyodide wheels rebuilt; chisurf callers call tttrlib and the moved Python is deleted.
+  - Touching: branch `accurate-fret` in `~/dev/worktrees/tttrlib-accurate-fret`: `modules/spectroscopy/corrections/**`, `ext/python/AccurateFret*`, `test/python/corrections/test_accurate_fret*.py` + `afret_reference/`, `okf/prds/PRD-042-accurate-fret.md`, `tools/pyodide/` smoke. chisurf: `core/fluorescence/{burst/es.py,fret/accurate.py,fret/calibration.py}`, their callers and tests, accurate-FRET docs, `okf/log.md`. No IMP rebuild.
+  - Progress: stage 0 (PRD) done; stages 1-7 in order (E/S, mixture, auto_calibrate, uncertainties, registry, wheels, chisurf switch).
+
 - **T-20260923-02 · [tttrlib] Pyodide wasm wheel so ndXplorer runs in the browser**
   - Status: ✅ done (local branch `pyodide-build`, not merged or pushed)
   - Owner: opus-5.5/62a3ae40
