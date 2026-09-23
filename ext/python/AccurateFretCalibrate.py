@@ -314,3 +314,39 @@ def refine_gamma(i_dd, i_da, i_aa, labels, *, alpha=0.0, delta=0.0, prior=None, 
                             int(n_bootstrap), int(seed), idx)
     keys = ("gamma_data", "beta", "data_sigma", "gamma_prior", "gamma_posterior")
     return {k: float(v) for k, v in zip(keys, r)}
+
+
+def rcm_from_dye_solutions(donor_sample_rates, acceptor_sample_rates, absorbance_ratio,
+                           detector_assignment, anisotropy=(0.0, 0.0)):
+    """Routing/detection-correction matrix (RCM) from dye-solution measurements.
+
+    Port of Fretica ``FRCMCalibrationFromDyeSolutions``.
+
+    Parameters
+    ----------
+    donor_sample_rates, acceptor_sample_rates : array_like
+        Background-corrected count rate in every channel for the donor-only and
+        the acceptor-only dye solution.
+    absorbance_ratio : float
+        ``AbsorbanceA / AbsorbanceD`` of the two solutions.
+    detector_assignment : sequence of (str, str)
+        Per channel ``(species, polarisation)``, species ``"A"``/``"D"``,
+        polarisation ``"P"``/``"S"`` (ignored for two channels).
+    anisotropy : (float, float)
+        ``(r_donor, r_acceptor)``, used with a polarising beam splitter.
+
+    Returns
+    -------
+    numpy.ndarray
+        The ``(n, n)`` correction matrix (identity on unused channels,
+        normalised so its first ordered element is 1).
+    """
+    np = _afret_np()
+    species = [str(d[0]) for d in detector_assignment]
+    polarisation = [str(d[1]) if len(d) > 1 else "" for d in detector_assignment]
+    n = len(species)
+    r = _afret_rcm_from_dye_solutions(_afret_vec(donor_sample_rates), _afret_vec(acceptor_sample_rates),
+                                      float(absorbance_ratio), VectorString(species),
+                                      VectorString(polarisation), float(anisotropy[0]),
+                                      float(anisotropy[1]))
+    return np.asarray(r, dtype=float).reshape(n, n)

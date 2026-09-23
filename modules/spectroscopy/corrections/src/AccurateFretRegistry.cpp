@@ -56,7 +56,7 @@ const char* const kAccurateFretEntry = R"JSON({
     "gamma_from_lifetime", "beta_from_stoichiometry", "leakage_from_donor_only",
     "direct_excitation_from_acceptor_only", "efficiency_uncertainty",
     "distance_from_efficiency", "refine_gamma", "species_factors",
-    "lightpath_correction_factors"
+    "lightpath_correction_factors", "rcm_from_dye_solutions"
   ],
   "can_replay": true
 })JSON";

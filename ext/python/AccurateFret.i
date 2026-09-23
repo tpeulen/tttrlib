@@ -40,6 +40,7 @@
 %rename(_afret_classify_populations_nd) tttrlib::classify_populations_nd;
 %rename(_afret_auto_calibrate_set_dimensions) tttrlib::auto_calibrate_set_dimensions;
 %rename(_afret_species_factors) tttrlib::species_factors;
+%rename(_afret_rcm_from_dye_solutions) tttrlib::rcm_from_dye_solutions;
 
 namespace tttrlib {};
 %include "AccurateFret.h"

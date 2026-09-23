@@ -60,6 +60,8 @@ Correction utilities for single-molecule fluorescence.
     model is adopted only when identifiable and its BIC is lower; per-burst
     E/S use each burst's population gammas weighted by its assignment
     probabilities). `auto_calibrate` returns it as `species`
+  - `AccurateFretRcm.cpp`: `rcm_from_dye_solutions`, the routing/detection
+    correction matrix from dye-solution rates (Fretica's calibration)
   - `AccurateFretRegistry.cpp`: the `corrections/accurate_fret` registry entry
     (operation type `calibration`, JSON schema of the `auto_calibrate` options,
     inputs, outputs, references)

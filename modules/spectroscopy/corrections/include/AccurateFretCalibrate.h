@@ -104,6 +104,33 @@ std::vector<double> lightpath_correction_factors(
 );
 
 /*!
+ * \brief Routing/detection-correction matrix from donor-only and acceptor-only
+ * dye-solution measurements (a port of Fretica's
+ * FRCMCalibrationFromDyeSolutions).
+ *
+ * From the background-corrected count rate of each channel for a donor-only
+ * and an acceptor-only solution and their absorbance ratio A_A/A_D, solves
+ * for the matrix that corrects measured channel rates for detection
+ * efficiencies and crosstalk. `species[i]` is "A" or "D" per channel (equal
+ * numbers, one or two each); with two each, `polarisation[i]` ("P"/"S")
+ * marks a polarising beam splitter, whose anisotropies `r_donor` and
+ * `r_acceptor` enter through (3 r)/(2 + r); otherwise a 50/50 splitter is
+ * assumed. The matrix is normalised so its first ordered element is 1, and
+ * is the identity on unused channels.
+ *
+ * \return row-major (n_channels, n_channels).
+ * \throws std::invalid_argument on a size mismatch, an unusable channel
+ *         layout or a singular rate matrix.
+ */
+std::vector<double> rcm_from_dye_solutions(
+    const std::vector<double>& donor_sample_rates,
+    const std::vector<double>& acceptor_sample_rates, double absorbance_ratio,
+    const std::vector<std::string>& species,
+    const std::vector<std::string>& polarisation = std::vector<std::string>(),
+    double r_donor = 0.0, double r_acceptor = 0.0
+);
+
+/*!
  * \brief Options of `auto_calibrate`. A prior with a negative or NaN sigma is absent.
  *
  * `gamma_source` is "auto" (E-S fit, lifetime as fallback), "es",
