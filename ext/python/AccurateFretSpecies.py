@@ -62,3 +62,44 @@ def _afret_species_dict(st):
             "beta_species": float(sp.beta_species),
         },
     }
+
+
+def species_factors(i_dd, i_da, i_aa, probabilities, *, factors=None, tau_d=None, tau_a=None,
+                    line=None, sigma_model=0.01):
+    """Shared versus species-specific gamma for given FRET populations.
+
+    Parameters
+    ----------
+    probabilities : array_like
+        ``(n_bursts, n_populations)`` assignment probabilities (0 rows for
+        bursts outside the FRET class).
+    factors : mapping, optional
+        alpha, delta and backgrounds of the signals and the starting gamma and
+        beta (``auto_calibrate``'s ``factors``).
+    tau_d, tau_a, line : optional
+        Donor and acceptor lifetimes (ns) and the static FRET line; without a
+        donor lifetime the species model is not identifiable.
+
+    Returns
+    -------
+    dict
+        Per population ``n``, ``E``, ``S``, ``tau_d``, ``E_line``, ``tau_a``,
+        ``gamma``, ``sigma_gamma``; ``beta``; the two fits and their BICs
+        under ``model_selection``; per-burst ``E`` and ``S``.
+    """
+    np = _afret_np()
+    p = np.asarray(probabilities, dtype=float)
+    p = p.reshape(p.shape[0], -1)
+    lt, le = _afret_line(line)
+    vec = lambda v: [] if v is None else _afret_vec(v)
+    r = _afret_species_factors(_afret_vec(i_dd), _afret_vec(i_da), _afret_vec(i_aa), _afret_vec(p),
+                               int(p.shape[1]), _afret_factors_from(dict(factors or {})), vec(tau_d),
+                               vec(tau_a), lt, le, float(sigma_model))
+    arr = lambda v: np.asarray(v, dtype=float)
+    return {"n": arr(r.n_eff), "E_pop": arr(r.E_pop), "S_pop": arr(r.S_pop), "tau_d": arr(r.tau_d),
+            "E_line": arr(r.e_line), "tau_a": arr(r.tau_a), "gamma": arr(r.gamma),
+            "sigma_gamma": arr(r.sigma_gamma), "beta": float(r.beta), "E": arr(r.E), "S": arr(r.S),
+            "model_selection": {"selected": str(r.selected), "identifiable": bool(r.identifiable),
+                                "bic_shared": float(r.bic_shared), "bic_species": float(r.bic_species),
+                                "gamma_shared": float(r.gamma_shared),
+                                "gamma_species": arr(r.gamma_species)}}

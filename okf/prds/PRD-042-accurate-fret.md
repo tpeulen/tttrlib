@@ -222,6 +222,16 @@ species factors invented, BIC keeps the shared model); the cal1 .pto.
   keeps the shared factors. Acceptor lifetime per population is reported
   (tracks phi_A). `test_accurate_fret_species.py`, 12 cases.
 
+- **Stage 5, registry (2026-09-23):** `corrections/accurate_fret`
+  (operation type `calibration`, replayable, so it also reaches the
+  `operation` category): JSON schema of every `auto_calibrate` option (a test
+  pins schema keys and defaults to `AutoCalibrateOptions` and the Python option
+  list), inputs/outputs, the dimension vocabulary, four references, and the
+  `api` list (every name resolves in Python). The result structs are declared
+  plumbing in `test_registry_completeness.py`. Two failures in the registry
+  suites predate this branch (`can_compress`/`can_decompress` from ptolib,
+  `Correlator` missing from the API index of the split build).
+
 Result structure (`result["species"]`), for vector-valued constants in ndX:
 
 ```

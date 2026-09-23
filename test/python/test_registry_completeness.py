@@ -103,6 +103,11 @@ PLUMBING = {
     "random sampling primitives (used by the simulator and PDA, not analyses)": {
         "sample_from_cdf", "weighted_choice",
     },
+    "accurate-FRET value and result types (inputs and outputs of corrections/accurate_fret)": {
+        "FretFactors", "EsResult", "MixtureResult", "MixtureNdResult", "FretPopulationSplit",
+        "LifetimeGamma", "AutoCalibrateOptions", "AutoCalibration", "EfficiencyUncertainty",
+        "DistanceResult", "FretPopulation", "AccurateFretResult", "SpeciesFactors",
+    },
 }
 
 

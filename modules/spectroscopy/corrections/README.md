@@ -60,6 +60,9 @@ Correction utilities for single-molecule fluorescence.
     model is adopted only when identifiable and its BIC is lower; per-burst
     E/S use each burst's population gammas weighted by its assignment
     probabilities). `auto_calibrate` returns it as `species`
+  - `AccurateFretRegistry.cpp`: the `corrections/accurate_fret` registry entry
+    (operation type `calibration`, JSON schema of the `auto_calibrate` options,
+    inputs, outputs, references)
   - Known inherited quirk: the mixture's width update weights squared
     residuals by the *squared* responsibility, `sum((r (x - mu))^2) / N_k`,
     as chisurf's spherical `GaussianMixture` did; the standard EM update is
