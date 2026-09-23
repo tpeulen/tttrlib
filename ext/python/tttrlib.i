@@ -163,6 +163,7 @@ def experimental(cls):
 %include "Kalman.i"
 /* Watershed flood and marching-squares contours -- region segmentation */
 %include "Watershed.i"
+%include "ImageOps.i"
 /* Richardson-Lucy and Wiener deconvolution over the vendored FFT */
 %include "Deconvolution.i"
 %include "Jitter.i"

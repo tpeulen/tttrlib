@@ -30,7 +30,7 @@ tttrlib_add_module(
     DEPENDS  util core   # core: the registry (Registry.h) the kernels declare themselves in
     EXTERNAL_DEPS tttrlib::pocketfft
     SWIG_INTERFACES Cluster.i Deconvolution.i Jitter.i Sampling.i
-                    HmmLattice.i Kalman.i Watershed.i
+                    HmmLattice.i Kalman.i Watershed.i ImageOps.i
     TEST_DIR test/python/misc
 )
 

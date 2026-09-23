@@ -18,7 +18,10 @@ The `math` module houses tttrlib's shared numerical infrastructure: dense linear
 - **`Random.h`**: Centralised counter-based RNG (Philox / PCG / SplitMix64 / MT19937) with thread-safe deterministic parallel draws.
 - **`Cluster.h` / `Cluster.cpp`**: Single-linkage bundling on a mutual-reachability
   MST (the reader and the union-find in one pass, sorted edge list in, node
-  counts out), plus the HDBSCAN condensed tree and per-point label read-off.
+  counts out), plus the whole of HDBSCAN downstream of it: condensed tree,
+  cluster selection (excess of mass and leaf, with `allow_single_cluster`,
+  `cluster_selection_epsilon` and `max_cluster_size`), per-point label read-off
+  and membership strengths.
   The MST end of the pipeline is called by `spectroscopy/burst`, the HDBSCAN
   end was ported verbatim from ChiSurf's pure-Python implementation and must
   agree with it bit for bit — which is why the translation unit compiles with
@@ -50,12 +53,53 @@ The `math` module houses tttrlib's shared numerical infrastructure: dense linear
   `sample_from_cdf` and `weighted_choice`, both on caller-supplied uniforms so
   the consumer owns the reproducibility contract.
 - **`SimPcgRandom.h`**: Compact inline PCG32 PRNG for per-stream reproducible randomness.
+- **`RankFilters.h`, `IntegralImage.h`, `ResizeImage.h`, `FastGaussian.h`,
+  `DriftEstimator.h`, `Gradients.h`, `WarpAffine.h`, `ImageStat.h`**:
+  2-D image kernels ported as *concepts* from ermig1979/Simd (MIT,
+  `junk/Simd`, survey in `okf/design/simd-port-survey.md`) — median/min/max/
+  midpoint filters over the reference's window shapes with replicated edges
+  (the median on integer pixels rides a sliding histogram — the histogram
+  *is* the window multiset, so exactness is structural; 2.4× a naive
+  window-sort on 5×5, with the row-transition subtlety that the window must
+  slide back to column 0 before each vertical step, a bug the brute-force A/B
+  caught in one run); summed-area tables (`(rows+1)x(cols+1)`, sum and
+  sum-of-squares in one pass, ~1100× on repeated rectangle sums); area,
+  bilinear and bicubic (Keys a = −0.5) resizers — the area kernel is
+  separable over precomputed per-axis weight tables and threaded, 6× its
+  first per-pixel-weight draft; a 3-box gaussian (σ-independent cost, running
+  sums, threaded: ≤ 5% of a direct gaussian on band-limited input for σ ≤ 2,
+  10% at σ = 6 — the box widths are quantised to odd integers — and ~10× the
+  direct convolution at σ=4 on 512²); a pyramid shift estimator
+  (coarse-to-fine SAD + parabolic sub-pixel refinement) that recovers synthetic
+  translations to < 0.05 px and costs ~0.5 ms at 192×160; Sobel-x/y and
+  Laplace-8 derivatives with clamped-column borders; an inverse-mapped
+  bilinear affine warp (2×3 forward matrix, OpenCV convention, singular
+  matrix refused); and the value histogram plus intensity-weighted image
+  moments (m00…m02; the centroid primitive that seeds Gaussian fits).
+  Benchmarks and the honest caveats (the 3×3 min/max keeps the plain 9-tap
+  gather — the separable two-pass measured *slower* there and was reverted;
+  the general area resizer is ~2.5× a hardcoded 2×2 mean loop now, the price
+  of fractional scales) in `benchmarks/bench_image_kernels.cpp`; A/B against
+  brute-force references in `test/cpp/`.
+- **`ImageOps.h` + `ext/python/ImageOps.i`**: the concrete, non-template
+  facade and the SWIG interface that expose all of the above to Python as
+  NumPy-in/NumPy-out calls — `tttrlib.median_filter/min_filter/max_filter/
+  midpoint_filter` (float64 and uint16, window by name), `resize` (area /
+  bilinear / bicubic), `gaussian_blur`, `sobel_dx/sobel_dy/laplace`,
+  `warp_affine`, `estimate_drift`, `integral_image_u16` + `rect_sum_u64`,
+  `image_histogram`, `moments`. Outputs come back as ARGOUTVIEWM views (no
+  per-element marshalling — the ~50 ns/element lesson of the seam), every
+  long-running entry releases the GIL. Binding-level parity:
+  `test/python/misc/test_image_ops.py` (14 tests against numpy references);
+  the end-to-end tutorial with its own smoke test:
+  `examples/miscellaneous/plot_image_kernels.py` +
+  `test/python/misc/test_image_kernel_examples.py`.
 
 ## Examples
 
 - `examples/miscellaneous/plot_watershed_marching_squares.py` (+ `.ipynb`): `watershed` and `marching_squares` on a simulated field of touching cells -- markers, mask, labels as ROIs, iso-contour outlines, connectivity 1 vs 2.
 - `examples/miscellaneous/plot_richardson_lucy_deconvolution.py` (+ `.ipynb`): `richardson_lucy_2d` on a simulated blurred, Poisson-noised image -- the iteration count as the regularisation (error-vs-truth minimum), `wiener_deconvolve_2d` for comparison, and the list-mode `richardson_lucy_events_2d` on photon coordinates.
-- `examples/single_molecule/plot_burst_feature_clustering.py` (+ `.ipynb`): `kmeans` (caller-owned uniforms) and the HDBSCAN pipeline `core_distances` -> `mutual_reachability_mst` -> `hdbscan_condensed_tree` -> excess-of-mass selection (in the caller) -> `hdbscan_label_points` on a simulated burst table with two FRET populations and noise.
+- `examples/single_molecule/plot_burst_feature_clustering.py` (+ `.ipynb`): `kmeans` (caller-owned uniforms) and `hdbscan` (the whole pipeline in one call, plus membership strengths and the leaf policy) on a simulated burst table with two FRET populations and noise.
 - `examples/single_molecule/plot_kalman_burst_detection.py` (+ `.ipynb`): `kalman_filter` on a simulated two-channel count trace -- filtered background rate, Mahalanobis distance as burst score, and `TTTR.burst_search_kalman` on the same photons.
 - `examples/single_molecule/plot_hmm_lattice_two_state.py` (+ `.ipynb`): `hmm_forward_log`, `hmm_backward_posteriors_xi`, `hmm_viterbi_log` on a simulated two-state Poisson trace -- the caller builds `log_frameprob`, the lattice returns log-likelihood, posteriors, xi sums (one M-step shown) and the Viterbi path.
 
@@ -226,9 +270,57 @@ time in:
   makes it what the Borůvka is checked against: the two must agree edge for
   edge. Nothing dispatches to it.
 
+Both return their edges **sorted in the total order below**, which is what the
+linkage downstream requires — it rejects an unsorted edge list rather than
+building a plausible, wrong dendrogram from one.
+
 It lives here rather than in an analysis module because none of it knows what a
 photon is, and because a k-d tree over a table of doubles is wanted in several
 places at once.
+
+### Downstream of the MST: the rest of HDBSCAN
+
+Four calls, because the third of them is *policy* and a caller must be able to
+substitute its own:
+
+* `hdbscan_condensed_tree(sources, targets, weights, min_cluster_size)` — union-find
+  single linkage over the sorted edge list, condensed into
+  `(parent, child, lambda, size)`. `n_samples` is the root and cluster ids run
+  upward from it; `lambda` is `1 / merge distance`.
+* `hdbscan_select_clusters(parent, child, lambda, size, method, allow_single_cluster,
+  cluster_selection_epsilon, max_cluster_size)` — which clusters to keep, as one
+  byte per node id. `"eom"` is the excess-of-mass optimisation of Campello,
+  Moulavi & Sander (PAKDD 2013, §4); `"leaf"` takes every leaf of the cluster
+  tree. The corner cases follow `sklearn.cluster.HDBSCAN` deliberately: it is
+  what the A/B test compares against, and matching it is worth more than being
+  tidy.
+* `hdbscan_label_points(parent, child, is_selected, n_points)` — collapse the
+  unselected clusters into their parents and read a root off per point. A point
+  left at the root cluster was claimed by nothing; calling that noise is again
+  the caller's policy.
+* `hdbscan_cluster_stability(parent, child, lambda, size)` — each cluster's
+  stability, `sum over its rows of (lambda - lambda_birth) * size`: the mass
+  excess of mass optimises, indexed by node id like the selection is. It scales
+  with cluster size, so the comparable form is the reference implementation's
+  *persistence*, `stability / (points in the cluster * max lambda)`, which
+  `tttrlib.hdbscan` returns: how much of the density range a cluster survives.
+  It is **not** a purity signal — two overlapping populations are one density
+  mode and persist as one, which is why excess of mass merges them, and in
+  simulation the merged mixture outscored the pure population. Whether a cluster
+  is one population or two is answered by its *cluster children* in the
+  condensed tree, not by this.
+* `hdbscan_membership_strengths(parent, child, lambda, roots)` — how firmly each
+  point sits in the cluster it landed in, `lambda_point / lambda_death` clamped
+  to one. This is scikit-learn's `probabilities_`, and it is what one thresholds
+  to drop the points at a cluster's edge.
+
+Python has `tttrlib.hdbscan(x, min_cluster_size, ...)`, which is those four plus
+the MST and the label numbering — the five lines every caller would otherwise
+write. It returns `(labels, probabilities, persistence)`. Mind which of the last
+two is which: `probabilities` ranks points *within* a cluster (every cluster
+reaches one, however diffuse) and `persistence` compares clusters. The kernels stay separate because a
+caller with its own selection rule has to be able to step in between them; that
+they are separate is not a reason for the standard policies to be missing.
 
 ### The edge order is part of the contract
 
