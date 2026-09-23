@@ -92,9 +92,9 @@ namespace {
 /*!
  * Canonical state order: descending emission of symbol 0.
  *
- * Any deterministic, permutation-equivariant rule works; this one matches
- * `canonical_order` in HMMSurrogate.cpp so the two never disagree about which
- * state is "state 0".
+ * Any deterministic, permutation-equivariant rule works; this one fixes which
+ * state is "state 0" so that posterior samples related by a label permutation
+ * are reported in the same order. Ties keep their original order (stable sort).
  */
 std::vector<int> canonical_order(const double* par, int n, int n_symbols) {
     const double* obs = par + n + n * n;

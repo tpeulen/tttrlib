@@ -69,7 +69,7 @@ bool register_algorithm(const AlgorithmDescriptor& desc);
  * An entry's optional `api` array names the symbols it owns, and those names
  * are **Python** paths resolved from the `tttrlib` module -- `Class.method`,
  * with a dot, and a nested C++ type by the flat name SWIG gives it
- * (`NeuralNet::Backward` crosses as `NeuralNetBackward`). Writing C++ notation
+ * (`BurstML::FitResult` crosses as `BurstMLFitResult`). Writing C++ notation
  * here resolves to nothing and leaves the entry documenting an API no caller
  * can reach; `test_registry_completeness.py::test_every_api_symbol_exists`
  * fails on it and says so.

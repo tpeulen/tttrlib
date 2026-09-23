@@ -6,11 +6,10 @@ tttrlib_add_module(
              "${CMAKE_CURRENT_SOURCE_DIR}/src/HMMConstraints.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/HMMRestraints.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/HMMState.cpp"
-             "${CMAKE_CURRENT_SOURCE_DIR}/src/HMMSurrogate.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/HMMVB.cpp"
     HEADERS  "${CMAKE_CURRENT_SOURCE_DIR}/include"
     DEPENDS  math core burst decay simulation
     EXTERNAL_DEPS tttrlib::json
-    SWIG_INTERFACES HMM.i HMMConstraints.i HMMRestraints.i HmmSurrogate.i
+    SWIG_INTERFACES HMM.i HMMConstraints.i HMMRestraints.i
     TEST_DIR test/python/hmm
 )

@@ -29,7 +29,7 @@ Product Requirements Documents for tttrlib. One `.md` per initiative,
 | [007](PRD-007-burstnet-simulator-integration.md) | BurstNet integration for the photon simulator | 🟡 In Progress |
 | [008](PRD-008-simulator-openmm-api.md) | Simulator OpenMM-style API, manual & use-case coverage | 🟡 In Progress |
 | [009](PRD-009-sim-driven-feature-docs.md) | Documenting every tttrlib feature by simulated example | 🔵 Proposed |
-| [010](PRD-010-neural-net-and-surrogate-models.md) | Reusable neural network + surrogate models, AD gradients | 🟢 Done |
+| [010](PRD-010-neural-net-and-surrogate-models.md) | Reusable neural network + surrogate models, AD gradients | 🚫 Superseded |
 | [011](PRD-011-photon-hmm.md) | Photon-by-photon HMM: one class, three inference paths | 🟢 Done |
 | [012](PRD-012-flimlabs-brighteyes-readers.md) | FLIM LABS and BrightEyes-TTM native readers | 🟢 Done |
 | [013](PRD-013-gaussian-emission-hmm.md) | Gaussian emissions: the binned-trace HMM on the photon HMM's core | ⚪ Draft |

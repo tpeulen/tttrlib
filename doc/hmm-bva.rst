@@ -945,8 +945,8 @@ carries float32 round-off (~1e-2), the convergence threshold is floored at 1e-3.
 The benefit grows with the cache size (more states, more distinct gaps), so it is
 intended for exploratory fits on very large datasets, not for final numbers.
 (ChiSurf's other approximate estimator — a neural *surrogate* that predicts a
-model in one forward pass — is not ported: it needs a trained network and so
-falls outside tttrlib's dependency-free C++ core.)
+model in one forward pass — is not part of tttrlib, which carries no learned
+models. It lives in IMP.bff as ``IMP.bff.HmmSurrogate``.)
 
 Reproducing the benchmark
 -------------------------

@@ -281,14 +281,6 @@ OPS <- list(
   # TTTRMask__get_indices__SWIG_0, with no stable dispatcher to call.
   "mask.mask_array" = function(on, a) as.numeric(unlist(TTTRMask_get_mask_array(on))),
 
-  # -- neural net ---------------------------------------------------------------
-  "nn.from_json" = function(on, a) NeuralNet_from_json_string(a[[1]]),
-  "nn.predict" = function(on, a)
-    as.numeric(NeuralNet_predict(on, as.numeric(unlist(a[[1]])))),
-  "nn.n_layers" = function(on, a) NeuralNet_n_layers(on),
-  "nn.n_inputs" = function(on, a) NeuralNet_n_inputs(on),
-  "nn.n_outputs" = function(on, a) NeuralNet_n_outputs(on),
-
   # -- csv files ----------------------------------------------------------------
   "csvfile.write" = function(on, a) write_csv(a[[1]], a[[2]], CsvWriteOptions()),
   "csvfile.read" = function(on, a) {

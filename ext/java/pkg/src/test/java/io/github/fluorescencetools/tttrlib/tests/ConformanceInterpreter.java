@@ -469,14 +469,6 @@ final class ConformanceInterpreter {
                 return out;
             }
 
-            // -- neural net -----------------------------------------------------
-            case "nn.from_json": return NeuralNet.from_json_string(s(a, 0));
-            case "nn.predict":
-                return vectorDoubles(((NeuralNet) on).predict(doubleVector(numbers(a.get(0)))));
-            case "nn.n_layers": return (double) ((NeuralNet) on).n_layers();
-            case "nn.n_inputs": return (double) ((NeuralNet) on).n_inputs();
-            case "nn.n_outputs": return (double) ((NeuralNet) on).n_outputs();
-
             // -- csv files ------------------------------------------------------
             case "csvfile.write":
                 tttrlib.write_csv(s(a, 0), (DataStore) a.get(1), new CsvWriteOptions());

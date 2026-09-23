@@ -599,8 +599,8 @@ of the acquisition. What is left is dominated by the per-photon Python call
 Every ported spectroscopy algorithm sits on two headers: `modules/math/Mat.h`
 (solvers, GEMM) and `modules/math/QREigen.h` (non-symmetric eigendecomposition).
 They have their own benchmark, their own recorded baseline, and a regression
-check, because a change here moves the Kalman burst search, the HMM
-surrogate, Gopich–Szabo and BurstML at once and none of those benchmarks would
+check, because a change here moves the Kalman burst search, the HMMs,
+Gopich–Szabo and BurstML at once and none of those benchmarks would
 say which kernel did it.
 
 ### The tracked baseline — recorded 2026-08-10

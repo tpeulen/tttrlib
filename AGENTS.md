@@ -124,6 +124,15 @@ comment instead — what breaks, the measured number, the one-line reproduction.
 A GitHub issue is the one pointer that is allowed. The `okf/` document may
 reference code freely; the direction is one-way.
 
+## tttrlib is ML-free
+
+Learned models and neural nets live in imp.bff even when their inputs are
+photons. The feed-forward network and the HMM surrogate moved there
+(`IMP.bff.NeuralNet`, `IMP.bff.HmmSurrogate`); do not add a trained model, a
+network or a training loop here. A numerical kernel a learned model needs (an
+AD type, a solver) may live in tttrlib, header-only and std-only, and be
+vendored by imp.bff the way `Dual.h`, `GradVec.h` and `LatticeDiffusion.h` are.
+
 ## The rest
 
 Build commands, test invocation and the hard constraints (no public API breaks,

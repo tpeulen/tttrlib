@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+- **Removed: the neural network and the HMM surrogate. They live in IMP.bff
+  now.** `NeuralNet` (with `TrainOptions`, `DenseLayer`, the JSON, ONNX and
+  safetensors loaders), the header-only core `MlpCore.h` (`MlpModel`,
+  `StandardScaler`) and `HmmSurrogate` are gone from the C++ library and from
+  every binding, together with their tests, the `nn.*` conformance operations,
+  the physics-informed and differentiable-network examples and
+  `benchmarks/bench_nn.py`. Use `IMP.bff.NeuralNet` and `IMP.bff.HmmSurrogate`.
+  tttrlib is now ML-free: learned models and neural networks live in IMP.bff,
+  even when their inputs are photons. `Dual.h` and `GradVec.h` stay in tttrlib
+  unchanged; the `Dual` operator checks the network tests used to carry moved to
+  `test/cpp/test_ad_gradient.cpp`.
+
 - **ptolib is a compiled library now, vendored as its source package.**
   `thirdparty/ptolib` holds ptolib's CMake project (public header
   `include/ptolib/ptolib.h`, sources in `src/`, codecs bundled or taken from the

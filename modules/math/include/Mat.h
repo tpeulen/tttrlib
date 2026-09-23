@@ -11,9 +11,8 @@
 // Design goals, in priority order:
 //
 //   1. No external dependency.  std-only C++17, plus OpenMP when the compiler
-//      offers it.  Replaces Eigen inside tttrlib's modules so that the neural
-//      net (and anything else that needs a GEMM) builds without a third-party
-//      linear-algebra package.
+//      offers it.  Replaces Eigen inside tttrlib's modules so that anything
+//      that needs a GEMM builds without a third-party linear-algebra package.
 //
 //   2. Armadillo-flavoured syntax.  ``Mat A(3, 4, fill::zeros); Mat C = A *
 //      B.t(); A.each_row() -= mu; double s = accu(square(C));`` read like
@@ -22,7 +21,7 @@
 //   3. Competitive GEMM.  The matrix product is the only O(n^3) kernel; it
 //      gets cache-friendly ikj loop nesting, compiler auto-vectorisation
 //      hints (``#pragma omp simd``), and OpenMP thread parallelism.  For the
-//      matrix sizes inside the neural net (hidden layers up to 256) this
+//      matrix sizes tttrlib uses (up to a few hundred per side) this
 //      lands within striking distance of a hand-tuned BLAS, which is all the
 //      application needs.
 //
@@ -1373,8 +1372,8 @@ inline std::vector<double> mat_power(const double* a, int n, int power) {    // 
     for (int i = 0; i < n; ++i) result[static_cast<size_t>(i) * n + i] = 1.0;
 
     // One scratch buffer, reused: binary exponentiation does up to 2*log2(p)
-    // products and a fresh allocation for each one shows up in HMM surrogate
-    // fitting, where mat_power runs per E-step.
+    // products and a fresh allocation for each one shows up in HMM fitting,
+    // where mat_power runs per E-step.
     std::vector<double> tmp(static_cast<size_t>(n) * n);
     while (power > 0) {
         if (power & 1) {

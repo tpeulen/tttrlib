@@ -521,7 +521,7 @@ IF(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/cxxopts/cxxopts.hpp")
 ENDIF()
 
 # Eigen is gone. It was a `REQUIRED` of the whole project for two things: the
-# batched GEMMs in NeuralNet, now Mat.h (modules/math), and the derivative slot
+# batched GEMMs of the former neural net, now Mat.h (modules/math), and the derivative slot
 # of the vectorized forward-mode gradient in ImageLocalization, now GradVec<N>
 # (modules/math). Both replacements are measured against Eigen in
 # benchmarks/bench_mat.cpp and benchmarks/bench_gradvec.cpp. Nothing else in the
@@ -652,16 +652,12 @@ ADD_SUBDIRECTORY(examples/plugin)
 OPTION(TTTRLIB_BUILD_CPP_TESTS "Build the header-only C++ math tests" OFF)
 IF(TTTRLIB_BUILD_CPP_TESTS)
     ENABLE_TESTING()
-    FOREACH(_cpp_test test_mat_linalg test_qreigen test_ad_gradient test_mlp_core test_lattice_diffusion)
+    FOREACH(_cpp_test test_mat_linalg test_qreigen test_ad_gradient test_lattice_diffusion)
         ADD_EXECUTABLE(${_cpp_test} "${PROJECT_SOURCE_DIR}/test/cpp/${_cpp_test}.cpp")
         TARGET_INCLUDE_DIRECTORIES(${_cpp_test}
             PRIVATE "${PROJECT_SOURCE_DIR}/modules/math/include")
         ADD_TEST(NAME ${_cpp_test} COMMAND ${_cpp_test})
     ENDFOREACH()
-
-    # test_mlp_core reads the ONNX fixtures PyTorch wrote (skips if absent).
-    SET_TESTS_PROPERTIES(test_mlp_core PROPERTIES
-        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
 
     # test_ad_gradient also exercises DecayFit23's objective (fconv_per_cs_ad,
     # Wcm_ad/log_m_ext_ad), which are header-only templates in the decay

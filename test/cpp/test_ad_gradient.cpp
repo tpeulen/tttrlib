@@ -364,6 +364,25 @@ static void test_dual_algebra() {
     check(std::fabs(f.grad[1] - (2.0 - e2 / 9.0)) < 1e-14, "vector carrier: d/db");
 }
 
+/// The transcendental, power and min/max overloads and the comparisons
+/// against double, each against a derivative written by hand.
+static void test_dual_ops() {
+    std::printf("Dual tanh/sin/cos/sqrt/pow/min/max\n");
+    const double x = 0.83;
+    Dual<double> d(x, 1.0);
+    using tttrlib::tanh; using tttrlib::sin; using tttrlib::cos;
+    using tttrlib::sqrt; using tttrlib::pow; using tttrlib::min; using tttrlib::max;
+    report(std::fabs(tanh(d).grad - (1 - std::tanh(x) * std::tanh(x))) < 1e-15, "tanh'", tanh(d).grad, 1e-15);
+    report(std::fabs(sin(d).grad - std::cos(x)) < 1e-15, "sin'", sin(d).grad, 1e-15);
+    report(std::fabs(cos(d).grad + std::sin(x)) < 1e-15, "cos'", cos(d).grad, 1e-15);
+    report(std::fabs(sqrt(d).grad - 0.5 / std::sqrt(x)) < 1e-15, "sqrt'", sqrt(d).grad, 1e-15);
+    report(std::fabs(pow(d, 2.5).grad - 2.5 * std::pow(x, 1.5)) < 1e-14, "pow'", pow(d, 2.5).grad, 1e-14);
+    Dual<double> e(1.5, 7.0);
+    report(min(d, e).grad == 1.0 && max(d, e).grad == 7.0, "min/max pick the winner's derivative", 0.0, 0.0);
+    report((d <= 0.83) && (d >= 0.83) && (d == 0.83) && !(d != 0.83) && (0.83 <= d) && (1.0 >= d),
+           "comparisons against double", 0.0, 0.0);
+}
+
 // --------------------------------------------------------------------------
 // DecayFit23's objective (PRD-010's second AD candidate, N=4). Reuses the
 // actual production kernels -- fconv_per_cs_ad (DecayConvolution.h) and
@@ -699,6 +718,7 @@ int main() {
 
     test_gradvec_algebra();
     test_dual_algebra();
+    test_dual_ops();
 
     std::printf("vectorized dual vs scalar dual\n");
     double gv[NP], gs[NP], gl[NP], gc[NP];

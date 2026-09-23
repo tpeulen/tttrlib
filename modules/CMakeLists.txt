@@ -30,7 +30,7 @@
 # originally planned: core had to come first, because everything else sits on
 # both ends of an edge with the residual `legacy` module until it moves out.
 add_subdirectory(util)
-add_subdirectory(math)   # Mat.h, NeuralNet, i_lbfgs, RNGs — depends on util
+add_subdirectory(math)   # Mat.h, i_lbfgs, RNGs — depends on util
 add_subdirectory(streaming)  # online/streaming consumers — header-only
 add_subdirectory(io)   # declares `io` and, beneath it, one module per format
 add_subdirectory(plugin)  # the drop-in binary plugin ABI, host and loader; sits on `io`

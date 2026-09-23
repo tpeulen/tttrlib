@@ -19,12 +19,9 @@
 #ifndef TTTRLIB_WITHOUT_CLSM
 #include "CLSMImage.h"
 #endif
-#ifndef TTTRLIB_WITHOUT_MATH
-#include "NeuralNet.h"
-#endif
 %}
 %import "split/mod_core.i"
-%import "split/mod_kernels.i"      // HmmSurrogate takes a NeuralNet, BurstFeatureExtractor uses it
+%import "split/mod_kernels.i"
 %pythoncode %{
 _tttrlib = _spectroscopy
 from tttrlib.core import *   # bare names in the helpers below (TTTR, Channel, VectorDouble, ...)
@@ -54,23 +51,6 @@ from tttrlib.kernels import *
 %include "HMMRestraints.i"
 %include "HMMConstraints.i"
 %include "HMM.i"
-#endif
-// The active global %exception here must be what this fragment inherited in
-// the monolith's include order (a directive in an %imported file does not
-// carry over); restated verbatim from the fragment that set it there.
-%exception {
-    try {
-        $action
-    } catch (const std::invalid_argument& e) {
-        SWIG_exception(SWIG_ValueError, e.what());
-    } catch (const std::exception& e) {
-        SWIG_exception(SWIG_RuntimeError, e.what());
-    } catch (...) {
-        SWIG_exception(SWIG_UnknownError, "Unknown exception");
-    }
-}
-#ifndef TTTRLIB_WITHOUT_HMM
-%include "HMMSurrogate.i"
 #endif
 // The active global %exception here must be what this fragment inherited in
 // the monolith's include order (a directive in an %imported file does not

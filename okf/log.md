@@ -1,5 +1,21 @@
 # Bundle update log
 
+## 2026-09-23 — the neural net and the HMM surrogate leave tttrlib for imp.bff (T-20260923-nn)
+
+tttrlib is ML-free: learned models and neural nets live in imp.bff even when
+their inputs are photons (rule added to `AGENTS.md`). Removed outright, no
+shims: `NeuralNet` (`NeuralNet.h/.cpp/.i`), `MlpCore.h`, `HmmSurrogate`
+(`HMMSurrogate.h/.cpp/.i`), their Python/C++ tests and ONNX fixtures, the
+`nn.*` conformance ops and `neuralnet.json` cases in all four runners, the JS
+`layerWeights`/`layerBias` helpers, the three network examples, the surrogate
+example and `benchmarks/bench_nn.py`. They continue as `IMP.bff.NeuralNet` and
+`IMP.bff.HmmSurrogate`. `Dual.h`, `GradVec.h` and `LatticeDiffusion.h` are
+byte-identical (imp.bff's `test_vendored_headers.py` SHA-checks them), so their
+comments still name `MlpCore.h`. `test_dual_ops` moved from `test_mlp_core.cpp`
+into `test/cpp/test_ad_gradient.cpp`. The math module no longer links
+nlohmann/json. [PRD-010](prds/PRD-010-neural-net-and-surrogate-models.md) is
+marked superseded.
+
 ## 2026-09-17 — 2D-FLC harvest part 2: nothing of the MATLAB is left
 
 The four pieces the first harvest found unported are in: `TK_CreateExpCurve` (the

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
 // Self-checking tests for the dense linear algebra in Mat.h — the solvers the
-// Kalman burst search and the HMM surrogate depend on. Header-only, so this builds with nothing but the include path:
+// Kalman burst search and the HMMs depend on. Header-only, so this builds with nothing but the include path:
 //
 //   c++ -std=c++17 -O2 -I modules/math/include \
 //       test/cpp/test_mat_linalg.cpp -o /tmp/test_mat_linalg && /tmp/test_mat_linalg

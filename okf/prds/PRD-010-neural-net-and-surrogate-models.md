@@ -1,6 +1,7 @@
 # PRD-010 — Reusable neural network + surrogate models, AD gradients, optimiser benchmarks
 
-> **PRD #:** 010 · **Status:** ✅ Done · **Created:** 2026-07-20 · **Updated:** 2026-08-13 · **Owner:** tpeulen
+> **PRD #:** 010 · **Status:** 🚫 Superseded · **Created:** 2026-07-20 · **Updated:** 2026-09-23 · **Owner:** tpeulen
+> **Superseded:** moved to IMP.bff (T-20260923-nn).
 > **Related:** PRD-005 (photon simulator, reuses `SimPcgRandom`), ChiSurf OKF `prd-60`
 > (amortised neural estimator for H2MM)
 

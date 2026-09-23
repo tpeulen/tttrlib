@@ -157,7 +157,6 @@ def experimental(cls):
 %include "HMM.i"
 #endif
 #ifndef TTTRLIB_WITHOUT_MATH
-%include "NeuralNet.i"
 /* k-d tree nearest neighbours, and the mutual-reachability MST behind HDBSCAN */
 %include "Cluster.i"
 /* Kalman filter recursion over a count-rate trace */
@@ -171,9 +170,6 @@ def experimental(cls):
    binned-trace counterpart to the photon-stream HMM above */
 %include "HmmLattice.i"
 %include "Sampling.i"
-#endif
-#ifndef TTTRLIB_WITHOUT_HMM
-%include "HMMSurrogate.i"
 #endif
 %include "MicrotimeLinearization.i"
 #ifndef TTTRLIB_WITHOUT_KINETICS

@@ -123,7 +123,7 @@ static void bench_solvers(std::mt19937_64& rng) {
         }));
     }
 
-    // The HMM surrogate's shape: a stochastic matrix raised to a power.
+    // The HMM transition shape: a stochastic matrix raised to a power.
     {
         const int n = 5;
         auto A = random_matrix(n, n, rng);

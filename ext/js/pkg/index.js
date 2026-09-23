@@ -920,25 +920,6 @@ if (native.HMM) {
   };
 }
 
-if (native.NeuralNet) {
-  /** The weight matrix of layer `i`, as rows of n_in. Python: `layer_weights(i)`. */
-  native.NeuralNet.prototype.layerWeights = function (i) {
-    const layer = this.get_layers().get(i);
-    const flat = layer.weight;
-    const nIn = Number(layer.n_in);
-    const rows = [];
-    for (let r = 0; r < Number(layer.n_out); r++) {
-      rows.push(Float64Array.from(flat.slice(r * nIn, (r + 1) * nIn)));
-    }
-    return rows;
-  };
-
-  /** The bias vector of layer `i`. Python: `layer_bias(i)`. */
-  native.NeuralNet.prototype.layerBias = function (i) {
-    return this.get_layers().get(i).bias;
-  };
-}
-
 // ---------------------------------------------------------------------------
 exported.registry = registry;
 
