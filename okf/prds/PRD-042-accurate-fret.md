@@ -81,6 +81,61 @@ chisurf code kept beside the tests (`test/python/corrections/afret_reference/`),
 so the A/B survives the deletion of chisurf's copy; while chisurf still has
 it, a test also checks the transcription against chisurf itself.
 
+## Extension (tpeulen, 2026-09-23): all dimensions, species-specific factors
+
+Built **after** the A/B-pinned port (stages 1-4), so the chisurf behaviour is
+fixed first. Validated against ground truth on synthetic data; the A/B only
+covers what chisurf already has (S-only gating, one global factor set).
+
+**Multidimensional populations.** Gating and estimation use every per-burst
+dimension present, declared rather than hardcoded: the caller passes a
+`dimensions` list naming columns from a declared vocabulary (`S`, `E`,
+`tau_d` donor lifetime, `tau_a` acceptor lifetime, `r_d`/`r_a` anisotropies,
+and the raw ALEX/PIE channel counts). The mixture becomes a diagonal-covariance
+Gaussian mixture over the standardised declared columns; components are still
+*labelled* by their S centre (donor-only S ≈ 1, acceptor-only S ≈ 0) when S is
+present, otherwise by E and tau_d (donor-only: E ≈ 0 and tau_d ≈ tau_D(0)).
+Missing columns degrade to the S-only path, which stays bit-compatible with
+the port. From the reference classes come tau_D(0) (donor-only mean lifetime,
+replacing the "longest observed lifetime" fallback) and tau_A (acceptor-only),
+reported as an acceptor-photophysics check.
+
+**Lifetime as independent information for gamma.** For a static population
+the lifetime fixes the efficiency, E_tau = 1 - tau_D(A)/tau_D(0) (no linker
+dynamics) or the static FRET line E_line(tau_f) including linker broadening
+(Kalinin et al., J. Phys. Chem. B 114, 7983, 2010; Sisamakis et al., Methods
+Enzymol. 475, 455, 2010; Barth et al., J. Chem. Phys. 156, 141501, 2022).
+Intensity E(gamma) = F_DA / (F_DA + gamma F_DD) must equal it, which gives
+gamma per population. Combined with the E-S route (Lee et al., Biophys. J.
+88, 2939, 2005; Hellenkamp et al., Nat. Methods 15, 669, 2018) gamma is
+constrained by both. Caveat, stated in the result: a dynamic population lies
+off the static line (towards longer tau_f at the same E), which the lifetime
+route would read as a smaller gamma; populations flagged as off-line by more
+than their uncertainty are excluded from the lifetime gamma.
+
+**Species-specific factors.** A local environment can change the donor or
+acceptor quantum yield of one species, and with it gamma (gamma =
+eta_A phi_A / eta_D phi_D). beta is an excitation-flux ratio and phi_A cancels
+from S, so beta stays shared unless requested. alpha and delta need a
+reference population of that species and are always pooled; the result says
+so. Model: per FRET population s the observations are its mean corrected
+S (must equal 0.5 for 1:1 labelling, which defines beta) and, when lifetimes
+exist, E(gamma_s) - E_line(tau_s), each weighted by its standard error. The
+shared model fits (gamma, beta); the species model fits (gamma_1..gamma_n,
+beta). The species model is adopted only when it lowers the BIC
+(chi² + k ln N_obs); the result reports both BICs and the decision. Without
+lifetimes the species model is not identifiable (n + 1 unknowns, n
+equations) and is never selected. Per-burst corrected E/S use the burst's
+population factors weighted by the mixture's assignment probabilities.
+
+**Result additions:** `factors` (global), `population_factors` (per
+population: gamma, beta, sigma, `pooled` flags), `model_selection` (`bic_shared`,
+`bic_species`, `selected`), `tau_d0`, `tau_a`, the declared `dimensions` used.
+
+**Extension tests:** synthetic bursts with known species-specific gamma and
+known lifetimes (recovered within uncertainty); a shared-gamma dataset (no
+species factors invented, BIC keeps the shared model); the cal1 .pto.
+
 ## Criteria
 
 1. Kernels above in C++, SWIG-exposed, tests green on the arm64 build.
@@ -89,6 +144,8 @@ it, a test also checks the transcription against chisurf itself.
    `auto_calibrate` options.
 4. arm64 and Pyodide wheels rebuilt; accurate-FRET check under Node.
 5. chisurf callers switched, chisurf copies deleted.
+6. Extension: multidimensional gating and species-specific gamma pass the
+   ground-truth tests above.
 
 ## Results
 
