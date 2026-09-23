@@ -81,7 +81,7 @@ The `math` module houses tttrlib's shared numerical infrastructure: dense linear
   the general area resizer is ~2.5× a hardcoded 2×2 mean loop now, the price
   of fractional scales) in `benchmarks/bench_image_kernels.cpp`; A/B against
   brute-force references in `test/cpp/`.
-- **`ImageOps.h` + `ext/python/ImageOps.i`**: the concrete, non-template
+- **`ImageOps.h` / `ImageOps.cpp` + `ext/python/ImageOps.i`**: the concrete, non-template
   facade and the SWIG interface that expose all of the above to Python as
   NumPy-in/NumPy-out calls — `tttrlib.median_filter/min_filter/max_filter/
   midpoint_filter` (float64 and uint16, window by name), `resize` (area /
