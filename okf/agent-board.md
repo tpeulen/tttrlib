@@ -1839,7 +1839,7 @@ retired so nobody works the same thing twice.)*
   - Why: tpeulen: ndX moves off PyQt to emtk (web-native later); new app beside the Qt GUI until parity, verified by tools/parity screenshots.
   - Done when: main-view parity scenarios captured in parity/emtk and compared by control inventory (tools/parity/features.md), unported controls closed, OKF resume point + log.
   - Touching: ndxplorer `ndxplorer/app/**`, `ndxplorer/tests/test_app/**`, `ndxplorer/__main__.py` (--emtk), Qt-free extractions (`core/gates.py`, `core/histograms.py`, `plotting/colormap_lut.py`, `settings/bundle.py`, package `__init__`s) with minimal Qt call-site edits, `tools/parity/features.md` (ticks only); emtk `view_form`, `widgets/data_table`, `file_dialog`, `im_*`, `texture`/`gpu_atlas`/`wgpu_host`/`wgsl` (nearest filter), fonts; chisurf `okf/plugins/ndxplorer.md`, `okf/log.md`. NOT touching tools/parity scripts or parity/qt.
-  - Progress: ndxplorer 76a11ee, d6ee00f, 09d6ac5; emtk dd923f6, ac8029d, f1cc8c9, c69b40e, 0da6c19, c6e7c48.
+  - Progress: core landed. ndxplorer 76a11ee, d6ee00f, 09d6ac5, 5f680df (feature hooks), 3cf8811, 8b6ce92 (default look), 2d7569e, 3a13a2f, 45ef97d, be26939, d916240, 0918633, d4b529f (features.md main view); emtk dd923f6, ac8029d, f1cc8c9, c69b40e, 0da6c19, c6e7c48, cf53b0b, ccbd1e8, 4c25c4e, 0821285, c7d929d, a947a6a; chisurf c417cc9c2 (OKF). Feature groups own the rest. Resume: okf/plugins/ndxplorer-emtk-port.md "Where to pick this up" / core (window title, Retina re-check, browser boot).
 
 - **T-20260918-01 · [imp.bff] The pair screen must not claim a dye model it did not use**
   - Status: 🔄 in-progress
