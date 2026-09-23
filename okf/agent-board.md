@@ -1832,6 +1832,15 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
+- **T-20260923-nn · [tttrlib+imp.bff+chisurf] HmmSurrogate + NeuralNet move from tttrlib to imp.bff; tttrlib becomes ML-free**
+  - Status: ✅ done — Parts A+C: imp.bff 8ef6c968 (NeuralNetTraining, HmmSurrogate; 43 passed/2 skipped), chisurf 195c58531 (burst_h2mm surrogate_bff.py; 110 passed). Part B: tttrlib dev fast-forwarded 46d2759ed → 10858cf19 (`nn-removal`). The 12 overlapping files' uncommitted edits were stashed and re-applied on top (stash `nn-overlap` kept); conflicts resolved in CMakeLists.txt, ci.yml, modules/math/CMakeLists.txt (new image-kernel tests + ImageOps.i kept; test_mlp_*, NeuralNet.i, json dep dropped), NeuralNet.cpp edit discarded. Untracked MlpGemm.h/MlpQuant.h/test_mlp_{gemm,quant}.cpp/bench_mlp_gemm.cpp deleted; their mentions removed from bench_image_kernels.cpp, modules/math/README.md and the unreleased CHANGELOG entry (all still uncommitted WIP of their owners). Dual.h/LatticeDiffusion.h untouched (vendored SHA). Verified: ctest 10/10; pytest 3400 passed, 20 failed, none NN-related (17 tifffile/numpy ABI in env, 3 uncommitted ImageOps WIP: integral_image_u16 signature, registry entries).
+  - Owner: opus-5.5/nn-move
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: tpeulen: tttrlib needs no neural nets; "The HmmSurrogate (entire code) must move to imp.bff, trim / remove in tttrlib." Rule change: learned models / neural nets live in imp.bff even when their inputs are photons; tttrlib stays ML-free.
+  - Done when: IMP.bff has `NeuralNet::train` + `HmmSurrogate` (built only with `IMP_BFF_HAS_TTTRLIB`, linking tttrlib's HMM), tests + example ported; tttrlib has no NeuralNet/Mlp*/HmmSurrogate code, bindings, tests, conformance cases or examples (Dual.h/GradVec.h stay byte-identical); chisurf `burst_h2mm/core/surrogate_tttrlib.py` uses IMP.bff.
+  - Touching (planned, not yet started): imp.bff `include/NeuralNet.h`, `src/NeuralNet.cpp`, NEW `include/HMMSurrogate.h`, `src/HMMSurrogate.cpp`, `pyext/include/IMP_bff.hmm_surrogate.i`, `test/test_hmm_surrogate.py`, `test/test_neural_net.py`, `AGENTS.md`; tttrlib `modules/math/{include/{NeuralNet,MlpCore,MlpGemm,MlpQuant}.h,src/NeuralNet.cpp}`, `modules/spectroscopy/hmm/*/HMMSurrogate.*`, the NN bindings/tests/conformance/examples/benchmarks, AGENTS.md; chisurf `chisurf/plugins/burst/burst_h2mm/core/surrogate_tttrlib.py` + its test.
+  - Plan: ~/.claude/plans/i-think-there-is-peppy-flamingo.md
+
 - **T-20260923-02 · [ndxplorer+emtk] ndX emtk port, phase 1: main window on emtk (ndxplorer/app)**
   - Status: 🔄 in-progress
   - Owner: opus-5.5/ndx-emtk
