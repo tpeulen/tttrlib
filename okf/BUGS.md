@@ -3,6 +3,167 @@
 Found from outside the library, with a reproduction each. Anything fixed moves
 to the changelog and leaves here.
 
+## Environment: `import torch` before `numpy`/`tttrlib` loads a second OpenMP runtime, and `KMP_DUPLICATE_LIB_OK=TRUE` turns the resulting error into a segfault
+
+**Not a tttrlib defect — an environment fact, recorded because the crash lands
+inside a tttrlib call and a user will report it here.** Found 2026-09-09 by an
+agent who lost twenty minutes to it, believing it a regression in their own
+change.
+
+**The symptom to search for**: a **SIGSEGV with no Python traceback** inside a
+`tcspc_run_mem` (or any other OpenMP-using) call, in a process that also imports
+torch. `faulthandler` prints `Fatal Python error:` and dies before writing the
+trace, which reads like a stack overflow rather than a bad pointer. The fix is
+to **remove** an environment variable, which is the opposite of what anyone
+tries.
+
+**The whole thing in four cells** (conda env with both torch and tttrlib; here
+`mambaforge/envs/arm64`, torch 2.x, python 3.12). Both sides reproduced this
+independently:
+
+| import order | OpenMP runtimes loaded | `KMP_DUPLICATE_LIB_OK` unset | `=TRUE` |
+|---|---|---|---|
+| `import numpy, torch` | 1 (the env's) | runs | runs |
+| `import torch, numpy` | 2 (both files) | `OMP: Error #15`, stops | **SIGSEGV, no traceback** |
+
+**Reproduction**:
+
+```python
+import torch, numpy as np      # this order
+import tttrlib
+tttrlib.tcspc_run_mem(...)     # -> exit 139 (SIGSEGV), no Python traceback
+```
+
+```python
+import numpy as np, torch      # this order
+import tttrlib
+tttrlib.tcspc_run_mem(...)     # -> fine
+```
+
+**Mechanism, measured rather than inferred.** Both libraries link
+`@rpath/libomp.dylib`, and the two rpaths resolve to *different files*:
+
+| loader | resolves to |
+|---|---|
+| tttrlib | `envs/arm64/lib/libomp.dylib` (the env's) |
+| torch | `site-packages/torch/lib/libomp.dylib` (its own bundled copy) |
+
+Counting loaded images with `_dyld_get_image_count` after each import order:
+
+* `numpy` first — **1** OpenMP runtime (the env's). torch finds it already
+  loaded and reuses it. This is a real fix, not luck.
+* `torch` first — **2** OpenMP runtimes, both files in one process.
+
+**`KMP_DUPLICATE_LIB_OK=TRUE` is what makes it silent.** Without it, OpenMP
+detects the second initialisation and says so plainly — *"OMP: Error #15:
+Initializing libomp.dylib, but found libomp.dylib already initialized"*, with a
+hint naming the cause. The variable suppresses that guard, and the process then
+runs into the undefined behaviour the guard exists to prevent: SIGSEGV inside
+the first threaded region entered, which for the reporter was the MaxEnt solve.
+So the flag does not work around the problem, it converts a legible error into
+a crash. Anyone carrying `KMP_DUPLICATE_LIB_OK=TRUE` in an env with torch
+should try removing it before debugging a segfault.
+
+**Is the flag needed at all? Measured: no, at least in one stack.** The
+reporter's project carried `KMP_DUPLICATE_LIB_OK=TRUE` in its runbook with the
+note that the environment "needed" it. With the variable unset, a full
+three-node fit ran to completion — exit 0, D/dof 1.0675 on 1694 dof, the same
+evidences and node weights to every printed digit. They have dropped it from
+that project's documentation. Worth repeating before anyone assumes an
+inherited flag is load-bearing; the sentence claiming it was needed had no
+measurement behind it.
+
+Scope of that measurement, stated by them: one machine's arm64 env. Remote
+scripts on heinzehub still export the flag and nothing there has been measured.
+
+**What tttrlib does about it: nothing, deliberately.** Linking the
+environment's OpenMP runtime is the correct thing for a conda package to do;
+torch bundling its own is the unusual half, and it is not ours to fix. Both
+sides agree this entry is the right resting place rather than code.
+
+If a second person does hit it, the cheap version is a diagnostic at import that
+counts loaded `libomp` images and **warns**. Do not pin the runtime instead —
+that hides the same problem again, and the reporter's preference (having lost
+the twenty minutes) is to be told rather than protected.
+
+## `MaxEntTcspc` weights by the data (Neyman), which tttrlib's own objective catalogue says not to do
+
+**Found 2026-09-09 from outside, by an agent that went to read the solver after
+being told it existed.** Both MEM builders take the residual weight from the
+observed counts:
+
+```
+modules/spectroscopy/decay/src/MaxEntTcspc.cpp:171   (lifetime solver)
+modules/spectroscopy/decay/src/MaxEntTcspc.cpp:342   (FRET solver)
+    sigma[i] = std::sqrt(y[i]) + (y[i] == 0.0 ? 1.0 : 0.0);
+```
+
+That is Neyman weighting. `DecayFitDescriptors.cpp`'s own catalogue entry for
+`neyman_lsq` says what it costs, in the library's own words: *"biased low at
+small counts because a channel that happens to fluctuate down is given more
+weight. Use it for well-populated decays ... prefer the Poisson likelihood
+otherwise."* The MEM engine contradicts the objective catalogue sitting beside
+it.
+
+**Reproduction** (reported at 3 counts/bin as −31.2 %; reproduced here
+independently, and swept, which is the part that matters). Estimate one rate
+from 400 Poisson bins, 4000 trials, weighted least squares:
+
+| counts/bin | Neyman (data-weighted) | Pearson (model-weighted, iterated) |
+|---|---|---|
+| 3 | 2.067 (**−31.1 %**) | 3.004 (+0.12 %) |
+| 10 | 8.854 (**−11.5 %**) | 10.004 (+0.04 %) |
+| 100 | 98.99 (−1.0 %) | 99.99 (−0.01 %) |
+
+```python
+import numpy as np
+rng = np.random.default_rng(20260909)
+y = rng.poisson(3.0, size=(4000, 400)).astype(float)
+w = 1.0 / np.maximum(y, 1.0)
+print((y * w).sum(1).mean() / w.sum(1).mean(), y.mean())   # 2.07 vs 3.00
+```
+
+**Why it matters more here than the percentage suggests.** The bias is a
+function of counts per bin, so it is *not* a uniform scale on a recovered
+distribution — it is largest exactly in the low-count tail, which is where the
+long lifetimes live. It therefore distorts the **shape** of `P(tau)`, and for
+the FRET solver the long-distance end. And the biased fit does not look bad:
+nothing in a residual plot distinguishes it.
+
+**The fix is the ordinary one and is cheap in this structure:** iteratively
+reweighted least squares — build the normal equations with sigma from the
+current model rather than the data, re-forming them once or twice as the fit
+moves. `run_mem` already re-linearises the non-quadratic entropy term per
+iterate (Skilling-Bryan), so the reweighting rides the same outer loop at no
+structural cost.
+
+**Not fixed here, deliberately, because it is a numbers-moving change to a
+shipped solver and that is the owner's call.** `MaxEntTcspc` is a port of
+chisurf's `maxent_decay.core.solver` and has recorded fixtures; changing the
+weighting moves every MaxEnt result. The reporter's own project carries the
+identical line (`ucfret/maxent/mem.py`, `sqrt(max(data, 1))`) knowingly, with a
+comment recording that IRLS is the upgrade and that it was not taken because it
+would have moved a large body of stored results mid-study. That is a reasonable
+choice; the point of this entry is that it should be made deliberately here
+rather than inherited from the port.
+
+**Related caution on `run_mem_target_chisq`**, not a fault: choosing `nu` to
+land the fit at a target chi-square is standard MaxEnt practice, but the
+resulting chi-square is then not evidence — it was guaranteed, so it cannot
+fail, and it says nothing about whether the distribution is right. The two
+interact, because Neyman weighting changes what "chi-square equals one" means.
+
+**Partly addressed 2026-09-09 — a second output path.** `MemTcspcResult` now
+also carries `chisq_pearson` (and `chisq_esm_pearson`): the same solution scored
+with weights from the *model*, formed after the solve and never optimised
+against, so it neither inherits the Neyman bias nor can be driven to a target.
+On a two-lifetime simulation with `target_chisq = 1.0`, `chisq` reads 0.9993 at
+2 000 counts while `chisq_pearson` reads 1.5155; at 200 000 they are 1.0284 and
+1.0769. The gap closing with counts is the signature of the weighting.
+`test_maxent_tcspc.py::TestTheSecondChiSquare`. **The weighting itself is still
+Neyman and this entry stays open** — the fit is unchanged and the bias above is
+undiminished; what the caller now has is a number that can disagree with it.
+
 ## FIXED — `neyman_lsq` / `gehrels_lsq` were advertised objectives that every fit2x kernel ignored
 
 **Fixed 2026-08-17.** The registry's `objective` category (and `setup_vector(...,

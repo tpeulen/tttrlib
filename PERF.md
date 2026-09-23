@@ -56,7 +56,7 @@ directly comparable.
 | **Marching squares** (1024², one level) | **3.1 ms** | scikit-image segments 10.9 ms | **3.5×** — identical segments, in order |
 | **Richardson–Lucy** (512², 15² PSF, 30 it.) | **203 ms** | scikit-image 358 ms | **1.8×** — identical (4e-15) |
 | **k-means** (n=200 k, d=8, k=10; k-means++ + Lloyd) | **29.6 ms** (seed 21.4 + Lloyd 8.2) | scikit-learn 176 ms (k-means++ + Lloyd) · 24.0 ms (Lloyd only, given init) | **5.9×** same job · **2.9× on Lloyd** — identical centres/labels/inertia |
-| **HDBSCAN** (n=20 k, d=4) | **72.7 ms** | scikit-learn HDBSCAN 1548 ms | **21×** — identical partition (ARI 1.0) |
+| **HDBSCAN** (n=20 k, d=4) | **69.8 ms** | scikit-learn HDBSCAN 1649 ms | **24×** — identical partition (ARI 1.0) |
 | **Kalman filter** (50 k steps × 2 ch) | **2.2 ms** | filterpy 1140 ms | **510×** — identical (5e-16) |
 | **HMM lattice** (T=200 k, K=4: forward + posteriors + Viterbi) | **60.9 ms** | hmmlearn `_hmmc` 113 ms | **1.8×** — identical (log-prob, posteriors 4e-16, paths) |
 | **VB-HMM** to convergence (200 dense chains, 49 780 ticks, K=3) | **128 ms** | hmmlearn `VariationalCategoricalHMM` 1698 ms | **13×** — `elbo` = hmmlearn's bound at tttrlib's posterior (2e-10); posteriors 1e-4 |
@@ -105,6 +105,60 @@ its per-trial linear scans with one prefix array + binary search (same
 numbers); Richardson–Lucy threads its pocketfft transforms. A batched phasor
 binding (`compute_phasor_bincounts_batch`) was added so a decay stack is one
 call rather than a per-decay loop that measures the binding, not the kernel.
+
+Re-run 2026-09-08 (HDBSCAN row only, both sides in one session). The timed
+region changed: the excess-of-mass cluster selection was a pure-Python pass in
+the benchmark script, because no kernel for it existed — the benchmark was
+therefore partly timing a Python dict loop against Cython. It is now
+`hdbscan_select_clusters`, and the script calls `tttrlib.hdbscan`. 72.7 → 69.8
+ms against 1649 ms for scikit-learn (21× → 24×); the change is a few per cent
+of the pipeline at these settings, because `min_samples=25` makes the spanning
+tree the bulk of it. The partition is still identical (ARI 1.0, 11 clusters,
+the same points called noise).
+
+Run 2026-09-09 (periodic convolution kernels). The hand-written SIMD
+convolutions were slower than plain scalar code and are rewritten -- all three
+of them, `fconv`, `fconv_per` and `fconv_per_cs`, on both instruction sets. The
+old kernels put 2 species (NEON) or 4 (AVX) in one register: that is *one*
+dependency chain for a recursion that is latency-bound, and it reduced the
+register to a scalar — on AVX by storing it to memory and adding four doubles
+back — once per channel *per species-group*, so 33 species meant 17 passes over
+the output array. They now advance several registers at once (2R species for R
+registers, R chosen by species count) and do one horizontal add and one output
+update per channel per block. Measured at 1563 channels on Apple silicon,
+`CLOCK_THREAD_CPUTIME_ID`, min of 9 × 200 reps
+(`benchmarks/bench_convolution_kernels.cpp`):
+
+| lifetimes | `fconv` before | after | `fconv_per` before | after | `fconv_per_cs` before | after | yardstick: blocked scalar `fconv_per_cs_ad<double>` |
+|---|---|---|---|---|---|---|---|
+| 8 | 0.0147 ms | **0.0043** | 0.0230 ms | **0.0068** | 0.0229 ms | **0.0066** | 0.0076 |
+| 16 | 0.0289 | **0.0049** | 0.0458 | **0.0085** | 0.0453 | **0.0086** | 0.0153 |
+| 33 | 0.0609 | **0.0136** | 0.0962 | **0.0240** | 0.0959 | **0.0246** | 0.0376 |
+| 64 | 0.1145 | **0.0178** | 0.1813 | **0.0319** | 0.1817 | **0.0330** | 0.0602 |
+
+So 3.4-6.4× across the three, and the optimized path is now the fastest path at
+every species count — which is the actual requirement, and was not true before:
+the blocked scalar AD kernel beat every hand-written SIMD kernel outright. The
+last column is the yardstick to keep using: a SIMD kernel that does not beat
+plain blocked scalar code is a SIMD kernel with something wrong in it.
+
+Two things this leaves standing deliberately. The **scalar fallback** kernels
+are not blocked and are ~5× slower than the AD kernel; they are the
+obviously-correct oracle the SIMD kernels are checked against, and a caller who
+wants blocked scalar has `fconv_per_cs_ad<double>`. And the **AVX** rewrite is
+the same transformation as the NEON one but its speedup is *inferred, not
+measured* — this is developed on AArch64 and no x86 machine was available. What
+is checked on x86 is correctness, in CI, by the tests that compare the SIMD and
+scalar dispatch paths.
+
+Numerically the rewrite changes the summation order (a block is summed in a
+vector accumulator, then reduced, instead of one species-group at a time into
+the output). That is 2.1e-16 relative to the peak against the old kernel — the
+same class of change as the AD kernel's documented 5e-16, and inside every
+pinned tolerance in the tree (1e-10 to 1e-14). `fconv_per` and `fconv_per_cs`
+still agree bit for bit with each other over the full range, and the circular
+convolution pin in `test_dfa_kernel.py` (1.3e-15 against the spectral backend)
+is unchanged.
 
 Run 2026-08-17 (FRET / burst rows). The kernels whose upstream code is a
 MEX source, a MATLAB file or FRETBursts are timed against exactly that:
@@ -251,6 +305,11 @@ delegates to the optimized C++ API, using `fit_buffers` for single curves and
 
 - The convolution kernels (`fconv_per_cs` and its NEON/AVX variants) are
   already SIMD-optimised with runtime CPU dispatch; no further gains there.
+  **Wrong, and corrected 2026-09-09 — see the run note below.** Being
+  SIMD-optimised with runtime dispatch is a statement about the code, not about
+  its speed: those kernels were 2.6-3.1× *slower* than a plain blocked scalar
+  kernel in the same file. "It uses intrinsics" was taken as evidence it was
+  fast, and nothing measured it against an alternative.
 - The CLSM image paths (`fill`, `get_intensity_masked`, `get_mean_lifetime`,
   `get_fluorescence_decay`) were already optimised in 0.27 (lazy stream masks,
   cached moments, fused mask scans); no regression was found.
