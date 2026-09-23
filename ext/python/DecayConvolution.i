@@ -39,6 +39,12 @@ static inline void PyErr_Format(int, const char* fmt, ...) {
     (double *instrument_response_function, int n_instrument_response_function)
 }
 
+// The Jacobian is the one 2D buffer here. In-place like `fit` above, and for
+// the same reason: the caller in a fit loop allocates once and reuses.
+%apply (double* INPLACE_ARRAY2, int DIM1, int DIM2) {
+    (double* jacobian, int n_jac1, int n_jac2)
+}
+
 void add_pile_up_to_model(
         double* model, int n_model,
         double* decay, int n_decay,
@@ -322,6 +328,46 @@ void my_fconv_per(
                      stop, n_fit);
     }
     fconv_per(fit, x, irf, n_x / 2, start, stop, n_irf, period, dt);
+}
+%}
+
+//// fconv_per_cs_jacobian
+///////////////////
+// Exposed by hand, like the rest of this file, so the argument order is the
+// one a Python caller wants (buffers, then data, then settings) rather than
+// the C order.
+%feature("docstring") my_fconv_per_cs_jacobian
+"Model curve and its exact derivatives, in one pass.
+
+Fills ``fit`` with the periodic decay of ``x`` against ``irf`` shifted by
+``time_shift``, and ``jacobian`` with its derivatives: one row per channel, one
+column per parameter. Columns ``0 .. len(x)-1`` are the entries of ``x`` in its
+own interleaved order (``a0, tau0, a1, tau1, ...``) and the last column is
+``d fit / d time_shift``, so ``jacobian`` must have ``len(x) + 1`` columns.
+
+The derivatives are forward-mode automatic differentiation of the same
+recursion that produces the curve -- exact to round-off, not a finite
+difference -- and cost ``ceil((len(x)+1)/8)`` passes rather than the
+``2*(len(x)+1)`` model evaluations a central-difference gradient needs.
+
+Both output arrays are written in place, so a fit loop allocates them once."
+
+%rename (fconv_per_cs_jacobian) my_fconv_per_cs_jacobian;
+%inline %{
+void my_fconv_per_cs_jacobian(
+        double* fit, int n_fit,
+        double* jacobian, int n_jac1, int n_jac2,
+        double* irf, int n_irf,
+        double* x, int n_x,
+        double period,
+        double time_shift = 0.0,
+        int conv_stop = -1,
+        int stop = -1,
+        double dt = 1.0
+){
+    if (conv_stop < 0) conv_stop = n_fit - 1;
+    fconv_per_cs_jacobian(fit, n_fit, jacobian, n_jac1, n_jac2, x, n_x,
+                          irf, n_irf, period, time_shift, conv_stop, stop, dt);
 }
 %}
 

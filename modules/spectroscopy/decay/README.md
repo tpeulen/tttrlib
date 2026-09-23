@@ -50,6 +50,125 @@ Iterative reconvolution fitting algorithms and maximum likelihood estimation for
 
 - Depends on `core`, `util`.
 
+## Writing a SIMD kernel for a recursion
+
+`fconv_per` and `fconv_per_cs` are recursions: `fitcurr = fitcurr * e + l2[i]`,
+one step depending on the last. The obvious way to vectorise that is to put
+several lifetimes in one register and run the recursion on all of them — which
+is what the first NEON and AVX kernels did, and they were **slower than plain
+scalar code**. One register is one dependency chain; an FMA takes several cycles
+to retire; and with nothing else in flight the machine waits. Blocked scalar
+code with eight independent chains beat two-lane SIMD by 2.6× and four-lane AVX
+by more.
+
+What the kernels do now, and what to preserve if you touch them:
+
+* **Several registers, not one.** `R` registers is `R` independent chains and
+  `2R` (NEON) or `4R` (AVX) lifetimes in flight. `R` is a template parameter
+  chosen per call from the species count — a two-lifetime spectrum in an
+  eight-register block pays for the empty lanes.
+* **One reduction per channel per block.** The old kernels did a cross-lane
+  reduction *and* a read-modify-write of `fit[]` per species-group per channel:
+  17 passes over the array for 33 lifetimes. The contributions are now summed in
+  a vector accumulator and reduced once.
+* **The cap is the register file.** NEON stops at R=8 (32 registers, and the
+  main loop keeps 3R live); AVX stops at R=4 (16 registers).
+
+Measured at 1563 channels: 3.4–6.4× over the kernels they replace, across all
+three of `fconv`, `fconv_per` and `fconv_per_cs`, and — the point of the
+exercise — faster than the blocked scalar kernel at every species count, which
+they had not been. Keep `fconv_per_cs_ad<double>` as the yardstick: a
+hand-written SIMD kernel that does not beat plain blocked scalar code has
+something wrong in it, and that is how this was found. `benchmarks/bench_convolution_kernels.cpp`
+reproduces it, and running it with `TTTRLIB_USE_NEON=0` shows the fallback.
+
+The **scalar** kernels are deliberately left unblocked. They are the
+obviously-correct body the SIMD ones are checked against, and that is worth more
+than their speed; a caller who wants blocked scalar has `fconv_per_cs_ad<double>`.
+
+## Derivatives: `fconv_per_cs_jacobian`
+
+The `_ad` kernels here are templates on the scalar type so they can be
+instantiated with `tttrlib::Dual<GradVec<N>>` and produce derivatives from the
+same recursion that produces the curve. `fconv_per_cs_jacobian` is that
+instantiation reaching the language bindings: it fills the model *and* a
+`(n_points, 2*numexp + 1)` Jacobian — one column per lifetime-spectrum entry in
+`x`'s own interleaved order, then `d fit / d time_shift`.
+
+Two design points worth keeping:
+
+* **Blocked, not dispatched on the parameter count.** `GradVec<N>` is sized at
+  compile time and a spectrum may have any number of lifetimes, so rather than a
+  `switch` over instantiations (what `DecayFitNExp` does, where the count is 1–6)
+  this uses one width, `FCONV_JAC_BLOCK = 8`, and fills the columns
+  `ceil(P/8)` passes at a time. Any parameter count, one instantiation.
+* **Every entry of `x` gets a column.** A subset would be policy, and a caller
+  fitting only amplitudes can take the columns it wants.
+
+Measured against the `2*P` model evaluations a central-difference Jacobian
+costs, at 1563 channels:
+
+| lifetimes | parameters | Jacobian | central differences | |
+|---|---|---|---|---|
+| 2 | 5 | 0.107 ms | 0.093 ms | **0.9×** |
+| 5 | 11 | 0.196 ms | 0.447 ms | 2.3× |
+| 16 | 33 | 0.922 ms | 3.290 ms | 3.6× |
+| 33 | 67 | 3.967 ms | 13.568 ms | 3.4× |
+
+Below about eight parameters it is a wash or slightly slower — one pass carries
+eight lanes whether or not they are used — and the reason to call it there is
+that the derivatives are exact, with no step size to choose. Above that it is
+three-ish times faster *and* exact.
+
+Getting a `Dual` through the shift needed two fixes that are worth knowing
+about, because both had been latent since the templates were written:
+`shift_lamp_ad` took a `double*` output, so a dual shift could never have been
+stored, and it called `floor` on the dual (there is no such overload). Its
+output is now `T*` and the integer part comes from `tttrlib::ad_value(ts)` — the
+shift's integer part is piecewise constant, so the fraction carries the whole
+derivative. `fconv_per_cs_ad` gained a second, defaulted template parameter for
+the response's sample type, so the shifted IRF can carry `d/d(shift)` into the
+convolution; every existing call site is unchanged and the `double`
+instantiation compiles to the same code.
+
+## `stop` bounds the output, not the precomputed response
+
+`fconv_per`'s recursion runs to `stop1 = min(period_n + lamp_start, n_points)`,
+which is bounded by the point count and **not** by the caller's `stop`. The
+`dt/2 * lamp` array it reads along the way must therefore be sized by
+`n_points`. All three kernels sized it by `stop` until 2026-09-09, so a caller
+passing `stop = n_points - 1` read one element past the end — and a caller
+passing a stop well short of the point count read further.
+
+The symptom is worth remembering because it does not look like an overrun. The
+function appeared to hold *state*: allocating a fresh response and a fresh
+zeroed output on every call, the result still grew by about one species' worth
+per call. What grew was the heap — the previous call's freed arrays were what
+lay past the end of the buffer. Anything that reads uninitialised or recycled
+memory will look like history dependence before it looks like a bounds bug, and
+the first instinct (the library is caching something) sends you looking in the
+wrong place.
+
+## Whether a convolution clears its output buffer
+
+Every convolution here **overwrites** `fit`; none accumulates. That is worth
+stating because until 2026-09-09 `fconv_per()` did each of them depending on
+which kernel the runtime dispatch chose: the scalar kernel never cleared the
+buffer and both SIMD kernels did. Since `kSimdMinNumexp` is 2, that meant a **one-lifetime model accumulated
+and a two-lifetime model did not, on the same machine, with nothing set** — a
+fit loop reusing its buffer saw a single-exponential curve grow without bound.
+The scalar kernel now clears. The two paths were, and remain, bit-identical on a
+cleared buffer; only the clearing differed.
+
+If you add a kernel to this file, this is the property to check first, and to
+check it you have to drive both dispatch paths — `TTTRLIB_USE_NEON=0` /
+`TTTRLIB_USE_AVX=0` in a subprocess, as
+`test_simd_convolution_correctness.py::TestTheScalarAndSimdKernelsActuallyAgree`
+does. The rest of that file could not have caught this: it compares `fconv_per`
+against `fconv_per_simd`, which are the same function since the alias was
+deprecated, and its classes are `skipUnless(get_avx_enabled())`, so on AArch64
+they all skip.
+
 ## The model floor in the Poisson likelihoods
 
 `Wcm` and `wcm_p2s` (`DecayStatistics`) are the objectives `DecayFit23/24/25/26`
