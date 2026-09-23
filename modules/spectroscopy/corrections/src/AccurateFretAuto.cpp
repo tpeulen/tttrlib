@@ -365,6 +365,30 @@ void auto_calibrate_finish(AutoCalibration& s, const AutoCalibrateOptions& o) {
     s.populations.clear();
     for (const FretPopulation& p : fin.populations)
         if (p.label != -1) s.populations.push_back(p);
+
+    // species-specific gamma against the shared one, on the final populations
+    s.has_species = false;
+    if (!o.species_factors || !s.has_split || s.data_aa.empty()) return;
+    const size_t n = s.data_dd.size();
+    int P = s.split.n_fret_populations;
+    std::vector<double> prob = s.split.fret_probabilities;
+    if (prob.empty()) {
+        P = 0;
+        for (size_t b = 0; b < n; ++b)
+            if (s.split.fret[b]) P = std::max(P, s.split.fret_labels[b] + 1);
+        prob.assign(n * P, 0.0);
+        for (size_t b = 0; b < n; ++b)
+            if (s.split.fret[b] && s.split.fret_labels[b] >= 0) prob[b * P + s.split.fret_labels[b]] = 1.0;
+    }
+    if (P < 1) return;
+    const size_t m = s.extra_names.size();
+    const size_t ia = std::find(s.extra_names.begin(), s.extra_names.end(), "tau_a") - s.extra_names.begin();
+    std::vector<double> tau_a;
+    if (ia < m)
+        for (size_t b = 0; b < n; ++b) tau_a.push_back(s.data_extra[b * m + ia]);
+    s.species = species_factors(s.data_dd, s.data_da, s.data_aa, prob, P, s.factors, s.data_tau, tau_a,
+                                s.line_tau_f, s.line_efficiency, o.sigma_model);
+    s.has_species = true;
 }
 
 AutoCalibration auto_calibrate(const std::vector<double>& i_dd, const std::vector<double>& i_da,

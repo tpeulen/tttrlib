@@ -12,6 +12,7 @@ _AFRET_OPTION_KEYS = (
     "gamma_source", "n_iterations", "tolerance", "n_bootstrap", "seed", "use_priors",
     "assume_one_to_one", "min_population", "max_fret_populations", "donor_only_above",
     "acceptor_only_below", "donor_lifetime", "min_probability", "max_components_nd",
+    "species_factors", "sigma_model",
 )
 
 #: The declared per-burst dimensions the multidimensional gating understands:
@@ -88,6 +89,8 @@ def _afret_calibration_dict(st):
         "split": _afret_split_dict(st.split) if st.has_split else None,
         "tau_d0": float(st.tau_d0),
         "tau_a": float(st.tau_a),
+        "dimensions": list(st.split.dimensions) if st.has_split else [],
+        "species": _afret_species_dict(st) if st.has_species else None,
         "populations": [_afret_population_dict(p) for p in st.populations],
         "iterations": int(st.iterations),
         "converged": bool(st.converged),

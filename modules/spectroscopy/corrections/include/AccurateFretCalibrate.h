@@ -17,6 +17,7 @@
 
 #include "AccurateFret.h"
 #include "AccurateFretPopulations.h"
+#include "AccurateFretSpecies.h"
 
 namespace tttrlib {
 
@@ -120,6 +121,9 @@ std::vector<double> lightpath_correction_factors(
  * `auto_calibrate_set_dimensions`. Empty keeps the stoichiometry gating.
  * Corrected S or E outside [-0.5, 1.5] (a ratio of nearly empty channels)
  * counts as missing for the gating.
+ *
+ * `species_factors` runs `species_factors` on the final FRET populations
+ * (with an acceptor-excitation channel), `sigma_model` being its model floor.
  */
 struct AutoCalibrateOptions {
     std::string gamma_source = "auto";
@@ -148,6 +152,8 @@ struct AutoCalibrateOptions {
     double donor_lifetime = -1.0;
     double min_probability = 0.9;
     int max_components_nd = 6;
+    bool species_factors = true;
+    double sigma_model = 0.01;
 };
 
 /*!
@@ -204,6 +210,8 @@ struct AutoCalibration {
     double tau_d0 = 0.0, tau_a = 0.0;
     std::string tau_d0_source;
     std::vector<double> line_tau_f, line_efficiency;
+    SpeciesFactors species;
+    bool has_species = false;
 };
 
 /*!

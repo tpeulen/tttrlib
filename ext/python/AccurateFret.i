@@ -5,6 +5,7 @@
 #include "AccurateFretCalibrate.h"
 #include "AccurateFretUncertainty.h"
 #include "AccurateFretMultiDim.h"
+#include "AccurateFretSpecies.h"
 %}
 
 // the raw kernels take flat vectors and return structs; the Python layer in
@@ -38,10 +39,12 @@
 %rename(_afret_best_gaussian_mixture_nd) tttrlib::best_gaussian_mixture_nd;
 %rename(_afret_classify_populations_nd) tttrlib::classify_populations_nd;
 %rename(_afret_auto_calibrate_set_dimensions) tttrlib::auto_calibrate_set_dimensions;
+%rename(_afret_species_factors) tttrlib::species_factors;
 
 namespace tttrlib {};
 %include "AccurateFret.h"
 %include "AccurateFretPopulations.h"
+%include "AccurateFretSpecies.h"
 %include "AccurateFretCalibrate.h"
 %template(VectorFretPopulation) std::vector<tttrlib::FretPopulation>;
 %include "AccurateFretUncertainty.h"
@@ -51,4 +54,5 @@ namespace tttrlib {};
 %pythoncode "./ext/python/AccurateFret.py"
 %pythoncode "./ext/python/AccurateFretCalibrate.py"
 %pythoncode "./ext/python/AccurateFretMultiDim.py"
+%pythoncode "./ext/python/AccurateFretSpecies.py"
 #endif

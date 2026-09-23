@@ -88,9 +88,11 @@ MixtureNdResult best_gaussian_mixture_nd(
  * "tau_d", its lifetime centre is at least 90% of the longest one; there is
  * then no acceptor-only class. A burst joins its most likely component's
  * class; the reference classes additionally need a probability of at least
- * `min_probability` (purity). FRET components with fewer than
- * `min_population` bursts are merged into the nearest one in E (in the first
- * dimension without E); the kept ones, ordered by E, are the FRET
+ * `min_probability` (purity). A FRET component closer to a larger one than
+ * two pooled widths (sum over dimensions of delta^2/(sigma_a^2 + sigma_b^2)
+ * below 4) is the same species and is merged into it, as is one with fewer
+ * than `min_population` bursts (into the nearest by that distance); the kept
+ * ones, ordered by E (the first dimension without E), are the FRET
  * sub-populations, and `fret_probabilities` holds each FRET burst's
  * normalised probability for each of them. Reference classes smaller than
  * `min_population` are emptied. Missing values are marginalised; a burst

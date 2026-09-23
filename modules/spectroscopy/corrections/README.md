@@ -54,6 +54,12 @@ Correction utilities for single-molecule fluorescence.
     tau_D(0) from the donor-only and tau_A from the acceptor-only class, and
     falls back to the no-linker line E = 1 - tau/tau_D(0) for the lifetime
     gamma when no static FRET line is given
+  - `AccurateFretSpecies.h` — `AccurateFretSpecies.cpp` (`species_factors`:
+    gamma per FRET population against one shared gamma, both fitted to
+    S_s = 0.5 and, with a donor lifetime, E_s = E_line(tau_s); the species
+    model is adopted only when identifiable and its BIC is lower; per-burst
+    E/S use each burst's population gammas weighted by its assignment
+    probabilities). `auto_calibrate` returns it as `species`
   - Known inherited quirk: the mixture's width update weights squared
     residuals by the *squared* responsibility, `sum((r (x - mu))^2) / N_k`,
     as chisurf's spherical `GaussianMixture` did; the standard EM update is

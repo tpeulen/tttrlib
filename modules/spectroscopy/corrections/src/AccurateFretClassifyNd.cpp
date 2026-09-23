@@ -43,16 +43,12 @@ PopulationSplit classify_populations_nd(const std::vector<double>& x, int n_rows
         }
     }
 
-    // FRET components: largest first; one lying within a width of a kept one in
-    // every dimension is the same species split by a non-Gaussian shape (shot
-    // noise skews E) and is merged, as is one below min_population
+    // FRET components: largest first; one closer to a kept one than two pooled
+    // widths (sum over dimensions of delta^2 / (s_a^2 + s_b^2) < 4) is the same
+    // species split by a non-Gaussian shape -- shot noise skews E, a wrong gamma
+    // tilts S against E -- and is merged, as is one below min_population
     const int iOrder = iE >= 0 ? iE : 0;
     auto sigma = [&](int c, int j) { return fit.sigmas[static_cast<size_t>(c) * d + j]; };
-    auto same = [&](int a, int b) {
-        for (int j = 0; j < d; ++j)
-            if (std::abs(centre(a, j) - centre(b, j)) >= std::max(sigma(a, j), sigma(b, j))) return false;
-        return true;
-    };
     auto distance = [&](int a, int b) {
         double q = 0.0;
         for (int j = 0; j < d; ++j) {
@@ -61,6 +57,7 @@ PopulationSplit classify_populations_nd(const std::vector<double>& x, int n_rows
         }
         return q;
     };
+    auto same = [&](int a, int b) { return distance(a, b) < 4.0; };
     std::vector<long> hard(k, 0);
     for (int i = 0; i < n_rows; ++i)
         if (fit.labels[i] >= 0) hard[fit.labels[i]] += 1;

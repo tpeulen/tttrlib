@@ -208,3 +208,34 @@ species factors invented, BIC keeps the shared model); the cal1 .pto.
   `dimensions=["S","E"]`: 24.6 s for 44 270 bursts (S-only: 2.4 s), 4 FRET
   populations, gamma 0.731 vs 0.826 S-only -- not validated against anything
   on real data yet. `test_accurate_fret_multidim.py`, 6 cases.
+- **Extension E2, species-specific gamma (2026-09-23):** `species_factors`
+  (C++), run by `auto_calibrate` on the final FRET populations and returned
+  as `result["species"]`. Implemented as specified above with one change:
+  beta is always shared (phi_A cancels from S; a per-species beta would be
+  exactly determined by S_s = 0.5 plus the lifetime and adds nothing to test),
+  alpha/delta always pooled; FRET components of the multidimensional gating
+  closer than two pooled widths are one species. Ground truth: gamma_s =
+  (0.6, 1.2) recovered within 8% (e.g. 0.602 +- 0.025, 1.207 +- 0.056;
+  BIC 4.2 species vs 125.4 shared), per-burst E of each species within 0.02;
+  gamma = 1.0 for both species keeps the shared model (BIC 2.8 vs 4.2);
+  without lifetimes not identifiable, never selected; cal1 (no lifetimes)
+  keeps the shared factors. Acceptor lifetime per population is reported
+  (tracks phi_A). `test_accurate_fret_species.py`, 12 cases.
+
+Result structure (`result["species"]`), for vector-valued constants in ndX:
+
+```
+{"labels": [0, 1, ...], "names": ["FRET 1", ...],
+ "populations": [{"label", "name", "n", "E", "S", "tau_d", "E_line", "tau_a"}, ...],
+ "factors": {"gamma"|"beta"|"alpha"|"delta":
+             {"global": float, "values": [per population], "sigma": [per population],
+              "pooled": bool}},
+ "assignment": ndarray (n_bursts, n_populations)  # 0 rows outside FRET
+ "label": ndarray (n_bursts,)                      # hard label, -1 outside FRET
+ "E", "S": ndarray (n_bursts,)                     # corrected with population factors
+ "model_selection": {"selected": "shared"|"species", "identifiable", "criterion",
+                     "bic_shared", "bic_species", "chi2_shared", "chi2_species",
+                     "n_obs", "k_shared", "k_species", "gamma_shared",
+                     "sigma_gamma_shared", "beta_shared", "gamma_species",
+                     "sigma_gamma_species", "beta_species"}}
+```
