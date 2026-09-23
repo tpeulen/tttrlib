@@ -483,8 +483,10 @@ class TestTheScalarAndSimdKernelsActuallyAgree(unittest.TestCase):
 
         The overrun fix made `fconv_per` stable; stable is not the same as
         right. Over the full range (`stop = n_points`, no convolution stop)
-        these two independently written kernels produce the same curve bit for
-        bit, which is a much stronger statement than any tolerance — and the
+        these two independently written kernels produce the same curve to
+        rounding — bit for bit on arm64, within an ulp on x86_64 (CI measured
+        5.6e-17 on ubuntu), so the bound is 1e-14 absolute on a curve of order
+        one: rounding passes, the overrun (which doubled values) cannot — and the
         reporter's own unfixed build gave this value on its *first* call, before
         the growth started, which is the other half of the confirmation.
 
@@ -515,12 +517,12 @@ class TestTheScalarAndSimdKernelsActuallyAgree(unittest.TestCase):
                            ("scalar", {"TTTRLIB_USE_NEON": "0", "TTTRLIB_USE_AVX": "0"})):
             with self.subTest(kernel=label):
                 full_vs_cs, short_vs_cs_body, short_vs_cs_last = self.run_in(env, body)
-                self.assertEqual(full_vs_cs, 0.0,
-                                 "the two periodic kernels no longer agree over "
-                                 "the full range")
-                self.assertEqual(short_vs_cs_body, 0.0,
-                                 "a short stop changed a bin other than the last")
-                self.assertGreater(short_vs_cs_last, 0.0,
+                self.assertLessEqual(full_vs_cs, 1e-14,
+                                     "the two periodic kernels no longer agree over "
+                                     "the full range")
+                self.assertLessEqual(short_vs_cs_body, 1e-14,
+                                     "a short stop changed a bin other than the last")
+                self.assertGreater(short_vs_cs_last, 1e-14,
                                    "the last bin should lack its periodic tail "
                                    "when stop excludes it")
 

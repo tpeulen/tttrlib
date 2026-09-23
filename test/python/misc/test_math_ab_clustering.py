@@ -491,6 +491,7 @@ class TestClusterSelectionAgainstSklearn(unittest.TestCase):
                     np.testing.assert_array_equal(result.probabilities, strength)
 
 
+@unittest.skipUnless(HAVE_SKLEARN, "scikit-learn not installed (regenerates the data sets)")
 class TestPersistenceAgainstTheReferenceImplementation(unittest.TestCase):
     """`hdbscan_cluster_stability`, against the `hdbscan` package's
     `cluster_persistence_`, from `test/data/reference/`.
