@@ -1,6 +1,6 @@
 # PRD-042 — Accurate FRET in tttrlib: corrected E/S, auto-calibration, uncertainties
 
-> **PRD #:** 042 · **Status:** 🟡 In Progress · **Created:** 2026-09-23 · **Owner:** tpeulen
+> **PRD #:** 042 · **Status:** 🟡 In Progress (stages 0-7 and the extension landed on branch `accurate-fret`; not merged into `dev`) · **Created:** 2026-09-23 · **Owner:** tpeulen
 > **Related:** PRD-027 (algorithm registry), PRD-029 (drop-in verification),
 > PRD-041 (Pyodide wheel — ndXplorer in the browser needs these kernels too)
 
@@ -239,6 +239,20 @@ species factors invented, BIC keeps the shared model); the cal1 .pto.
   `tools/pyodide/build_wheel.sh` (3.15 MB); `smoke_test.mjs` gained an
   accurate-FRET check: synthetic ALEX bursts drawn by numpy's PCG64 give the
   native arm64 factors and bootstrap sigmas to rtol 1e-9 under Node.
+
+- **Stage 7, chisurf switched (2026-09-24):** chisurf `burst/es.py` deleted;
+  `fret/accurate.py` reduced to the `CalibrationParameters` plumbing around
+  `tttrlib.auto_calibrate` (priors, static line, write-back, report); the
+  estimators, `rcm_from_dye_solutions` and the arithmetic of
+  `refine_calibration`/`lightpath_correction_factors` removed from
+  `fret/calibration.py`; callers and tests import from tttrlib. Bootstrap
+  draws stay numpy's (`bootstrap_indices`), so chisurf's numbers are unchanged.
+  The ndX bridge returns `species` and `vectors` (set_vector arguments for the
+  non-pooled factors, on the injected `Population` and `P(FRET n)` columns);
+  ndX's `apply_result` writes them, and the calibration file stores the
+  vectors. `dev` was merged into this branch first: another session had
+  installed a `dev` wheel over this one, which removed `auto_calibrate` from
+  the env; the merged wheel carries both.
 
 Result structure (`result["species"]`), for vector-valued constants in ndX:
 
