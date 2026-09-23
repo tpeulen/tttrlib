@@ -63,7 +63,7 @@ def _afret_calibration_dict(st):
         "estimated": {"alpha": bool(st.estimated_alpha), "delta": bool(st.estimated_delta),
                       "gamma": bool(st.estimated_gamma)},
         "split": _afret_split_dict(st.split) if st.has_split else None,
-        "populations": [],
+        "populations": [_afret_population_dict(p) for p in st.populations],
         "iterations": int(st.iterations),
         "converged": bool(st.converged),
         "cancelled": bool(st.cancelled),
@@ -98,7 +98,10 @@ def auto_calibrate(columns, constants=None, options=None, progress=None):
         ``use_priors``, ``assume_one_to_one``, ``min_population``,
         ``max_fret_populations``, ``donor_only_above``, ``acceptor_only_below``,
         ``line`` (static FRET line, ``(tau_f, E)`` or an object with those
-        attributes) and ``bounds`` (``{"gamma": (lo, hi), ...}``).
+        attributes), ``bounds`` (``{"gamma": (lo, hi), ...}``) and
+        ``bootstrap_indices``: a callable ``draw(size) -> positions`` used for
+        every class of every resample (donor-only, acceptor-only, FRET, in that
+        order); without it tttrlib's own generator draws them from ``seed``.
     progress : callable, optional
         ``progress(step, total, message)`` after each pass; returning
         ``False`` stops the calibration after that pass.
@@ -119,6 +122,7 @@ def auto_calibrate(columns, constants=None, options=None, progress=None):
     st = _afret_auto_calibrate_start(vec("i_dd"), vec("i_da"), vec("i_aa"), vec("tau_f"),
                                      _afret_factors_from(constants), o)
     total = int(o.n_iterations) + int(o.n_bootstrap)
+    it = 0
     for it in range(1, int(o.n_iterations) + 1):
         small = _afret_auto_calibrate_iterate(st, o)
         if progress is not None and progress(
@@ -128,5 +132,151 @@ def auto_calibrate(columns, constants=None, options=None, progress=None):
         if small:
             st.converged = True
             break
+    if not st.cancelled and int(o.n_bootstrap) > 0:
+        _afret_run_bootstrap(st, o, options.get("bootstrap_indices"), progress, it, total)
     _afret_auto_calibrate_finish(st, o)
     return _afret_calibration_dict(st)
+
+
+def _afret_run_bootstrap(st, o, draw, progress, step, total):
+    """Resample the three classes ``n_bootstrap`` times (positions drawn by ``draw(size)``
+    in the order donor-only, acceptor-only, FRET, or by tttrlib's generator)."""
+    np = _afret_np()
+    sizes = [int(np.count_nonzero(st.split.donor_only)),
+             int(np.count_nonzero(st.split.acceptor_only)) if len(st.data_aa) else 0,
+             int(np.count_nonzero(st.split.fret))]
+    n = int(o.n_bootstrap)
+    for r in range(n):
+        step += 1
+        if progress is not None and progress(
+                step, total, f"bootstrapping the uncertainties ({r + 1}/{n})") is False:
+            break
+        pos = [[] if (draw is None or size == 0) else [int(v) for v in draw(size)] for size in sizes]
+        _afret_auto_calibrate_bootstrap(st, o, *pos)
+
+
+def _afret_population_dict(p):
+    entry = {"label": int(p.label), "n": int(p.n), "E": p.E, "sigma_E": p.sigma_E,
+             "sigma_E_statistical": p.sigma_E_statistical,
+             "sigma_E_systematic": p.sigma_E_systematic, "S": p.S, "distance": p.distance,
+             "sigma_distance": p.sigma_distance}
+    if p.has_tau:
+        entry["tau_f"] = p.tau_f
+    if p.has_line:
+        entry["E_line"] = p.E_line
+        entry["deviation"] = p.deviation
+    return entry
+
+
+def efficiency_uncertainty(efficiency, f_dd, f_aa=None, *, gamma=1.0, sigma_gamma=0.0,
+                           sigma_alpha=0.0, sigma_delta=0.0, sigma_statistical=None):
+    """Propagate the gamma/alpha/delta uncertainties into the efficiency.
+
+    ``dE/dgamma = -E(1-E)/gamma``, ``dE/dalpha = -(1-E)^2/gamma``,
+    ``dE/ddelta = -(1-E)^2 F_aa/(gamma F_dd)``; the systematic error is their
+    quadrature sum, the total adds ``sigma_statistical``.
+
+    Returns
+    -------
+    dict
+        ``{"total", "systematic", "statistical", "terms": {"gamma", "alpha", "delta"}}``.
+    """
+    np = _afret_np()
+    e = np.asarray(efficiency, dtype=float)
+    shape = e.shape
+    arrays = [e, np.asarray(f_dd, dtype=float)] + ([] if f_aa is None else [np.asarray(f_aa, dtype=float)])
+    if sigma_statistical is not None:
+        arrays.append(np.asarray(sigma_statistical, dtype=float))
+    arrays = np.broadcast_arrays(*arrays)
+    shape = arrays[0].shape
+    flat = [_afret_vec(a) for a in arrays]
+    aa = flat[2] if f_aa is not None else []
+    st = flat[-1] if sigma_statistical is not None else []
+    r = _afret_efficiency_uncertainty(flat[0], flat[1], aa, float(gamma or 0.0), float(sigma_gamma),
+                                      float(sigma_alpha), float(sigma_delta), st)
+    out = lambda v: np.asarray(v, dtype=float).reshape(shape)
+    return {"total": out(r.total), "systematic": out(r.systematic), "statistical": out(r.statistical),
+            "terms": {"gamma": out(r.d_gamma), "alpha": out(r.d_alpha), "delta": out(r.d_delta)}}
+
+
+def distance_from_efficiency(efficiency, r0, *, sigma_efficiency=None, sigma_r0=0.0):
+    """``R = R0 (1/E - 1)^(1/6)`` and its error; NaN outside ``0 < E < 1``.
+
+    Returns
+    -------
+    dict
+        ``{"distance", "sigma"}`` in the unit of ``r0``, shaped like ``efficiency``.
+    """
+    np = _afret_np()
+    e = np.asarray(efficiency, dtype=float)
+    se = [] if sigma_efficiency is None else _afret_vec(np.broadcast_to(sigma_efficiency, e.shape))
+    r = _afret_distance_from_efficiency(_afret_vec(e), float(r0), se, float(sigma_r0))
+    return {"distance": np.asarray(r.distance, dtype=float).reshape(e.shape),
+            "sigma": np.asarray(r.sigma, dtype=float).reshape(e.shape)}
+
+
+def accurate_fret(i_dd, i_da, i_aa=None, *, factors=None, uncertainties=None, tau_f=None,
+                  line=None, labels=None):
+    """Accurate per-burst E and S, their errors, distances and population summaries.
+
+    Parameters
+    ----------
+    factors : mapping, optional
+        ``gamma, alpha, beta, delta, bg_dd, bg_da, bg_aa, r0`` (``Bg_DD``/``R0``
+        accepted); uncorrected defaults otherwise.
+    uncertainties : mapping, optional
+        ``{"gamma", "alpha", "delta", "r0"}`` standard uncertainties; missing
+        or non-finite ones count as 0.
+    tau_f, line : optional
+        Per-burst donor lifetime and a static FRET line (``(tau_f, E)`` or an
+        object with those attributes) for the deviation from the line.
+    labels : array_like, optional
+        Population label per burst; one population when omitted.
+
+    Returns
+    -------
+    dict
+        ``{"E", "S", "fc", "sigma_E", "sigma_E_systematic", "distance",
+        "sigma_distance", "deviation", "populations", "calibration"}``.
+    """
+    np = _afret_np()
+    f = _afret_factors_from(dict(factors or {}))
+    u = {"gamma": 0.0, "alpha": 0.0, "delta": 0.0, "r0": 0.0}
+    for key, value in (uncertainties or {}).items():
+        if key in u and value is not None:
+            u[key] = float(value)
+    lt, le = _afret_line(line)
+    vec = lambda v: [] if v is None else _afret_vec(v)
+    lab = [] if labels is None else [int(v) for v in np.asarray(labels).ravel()]
+    r = _afret_accurate_fret(_afret_vec(i_dd), _afret_vec(i_da), vec(i_aa), f, u["gamma"], u["alpha"],
+                             u["delta"], u["r0"], vec(tau_f), lt, le, lab)
+    arr = lambda v: np.asarray(v, dtype=float)
+    return {"E": arr(r.es.E), "S": arr(r.es.S) if i_aa is not None else None, "fc": arr(r.es.fc),
+            "sigma_E": arr(r.sigma_E), "sigma_E_systematic": arr(r.sigma_E_systematic),
+            "distance": arr(r.distance), "sigma_distance": arr(r.sigma_distance),
+            "deviation": arr(r.deviation) if r.has_deviation else None,
+            "populations": [_afret_population_dict(p) for p in r.populations],
+            "calibration": _afret_factor_dict(r.factors)}
+
+
+def refine_gamma(i_dd, i_da, i_aa, labels, *, alpha=0.0, delta=0.0, prior=None, data_sigma=None,
+                 n_bootstrap=60, seed=0, indices=None):
+    """Precision-weighted gamma from the 1/S vs E fit and a ``(mu, sigma)`` prior.
+
+    ``indices`` (``(n_bootstrap, n_bursts)``) makes the bootstrap of the data
+    uncertainty reproducible from outside; tttrlib's generator otherwise.
+
+    Returns
+    -------
+    dict
+        ``{"gamma_data", "beta", "data_sigma", "gamma_prior", "gamma_posterior"}``.
+    """
+    np = _afret_np()
+    mu, sigma = prior if prior is not None else (0.0, -1.0)
+    idx = [] if indices is None else [int(v) for v in np.asarray(indices).ravel()]
+    r = _afret_refine_gamma(_afret_vec(i_dd), _afret_vec(i_da), _afret_vec(i_aa),
+                            [int(v) for v in np.asarray(labels).ravel()], float(alpha), float(delta),
+                            float(mu), float(sigma), -1.0 if data_sigma is None else float(data_sigma),
+                            int(n_bootstrap), int(seed), idx)
+    keys = ("gamma_data", "beta", "data_sigma", "gamma_prior", "gamma_posterior")
+    return {k: float(v) for k, v in zip(keys, r)}

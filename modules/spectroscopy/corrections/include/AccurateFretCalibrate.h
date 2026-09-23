@@ -137,6 +137,22 @@ struct AutoCalibrateOptions {
 };
 
 /*!
+ * \brief Summary of one population: mean E (nanmean), its standard error
+ * (nanstd / sqrt(n)), the mean per-burst systematic error, their quadrature
+ * sum `sigma_E`, mean S, and the distance of the mean E with its error. With
+ * lifetimes: the mean finite tau_f and, with a line, E_line(tau_f) and
+ * deviation = E - E_line.
+ */
+struct FretPopulation {
+    int label = 0;
+    int n = 0;
+    double E = 0.0, sigma_E = 0.0, sigma_E_statistical = 0.0, sigma_E_systematic = 0.0;
+    double S = 0.0, distance = 0.0, sigma_distance = 0.0;
+    bool has_tau = false, has_line = false;
+    double tau_f = 0.0, E_line = 0.0, deviation = 0.0;
+};
+
+/*!
  * \brief State and result of the automatic calibration.
  *
  * `factors` are the current (after `finish`: final) factors. `sigma_*` are
@@ -144,7 +160,9 @@ struct AutoCalibrateOptions {
  * estimates of the last pass: E-S fit, lifetime line (and its spread),
  * data value adopted, light-path prior mean and posterior. `estimated_*`
  * say whether the data identified that factor. `split` is the last
- * population assignment. The `data_*` vectors hold the input bursts.
+ * population assignment. The `data_*` vectors hold the input bursts,
+ * `boot_*` the bootstrap samples of each factor, and `populations` the
+ * summary of each FRET sub-population after `finish`.
  */
 struct AutoCalibration {
     FretFactors factors;
@@ -163,6 +181,10 @@ struct AutoCalibration {
     std::vector<std::string> iteration_messages;
     std::vector<double> previous;
     std::vector<double> data_dd, data_da, data_aa, data_tau;
+    std::vector<double> boot_alpha, boot_delta, boot_gamma, boot_beta;
+    int boot_resamples = 0;
+    unsigned long long boot_draws = 0;
+    std::vector<FretPopulation> populations;
 };
 
 /*!

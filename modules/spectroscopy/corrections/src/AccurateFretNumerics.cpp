@@ -70,6 +70,30 @@ std::vector<double> np_linspace(double lo, double hi, int k) {
     return out;
 }
 
+double np_nanmean(const std::vector<double>& a) {
+    std::vector<double> z(a.size());
+    size_t cnt = 0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        const bool nan = std::isnan(a[i]);
+        z[i] = nan ? 0.0 : a[i];
+        cnt += !nan;
+    }
+    return np_sum(z) / static_cast<double>(cnt);
+}
+
+double np_nanstd(const std::vector<double>& a) {
+    const double avg = np_nanmean(a);
+    std::vector<double> sq(a.size());
+    size_t cnt = 0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (std::isnan(a[i])) { sq[i] = 0.0; continue; }
+        const double d = a[i] - avg;
+        sq[i] = d * d;
+        ++cnt;
+    }
+    return std::sqrt(np_sum(sq) / static_cast<double>(cnt));
+}
+
 std::vector<double> finite_only(const std::vector<double>& x) {
     std::vector<double> out;
     out.reserve(x.size());

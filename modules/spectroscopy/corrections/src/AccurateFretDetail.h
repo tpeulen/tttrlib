@@ -28,6 +28,12 @@ double np_std(const std::vector<double>& a);
 std::vector<double> np_quantile(std::vector<double> a, const std::vector<double>& q);
 // np.linspace(lo, hi, k) with its endpoint
 std::vector<double> np_linspace(double lo, double hi, int k);
+// np.nanmean / np.nanstd (ddof 0): NaNs zeroed in place and summed with the rest,
+// divided by the non-NaN count -- the exact reduction numpy performs
+double np_nanmean(const std::vector<double>& a);
+double np_nanstd(const std::vector<double>& a);
+// np.interp(x, xp, fp) for one x (clamped at the ends, NaN for non-finite x)
+double np_interp(double x, const std::vector<double>& xp, const std::vector<double>& fp);
 // finite entries of x, in order
 std::vector<double> finite_only(const std::vector<double>& x);
 

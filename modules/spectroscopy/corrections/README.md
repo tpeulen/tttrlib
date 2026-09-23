@@ -37,6 +37,13 @@ Correction utilities for single-molecule fluorescence.
     (`auto_calibrate`, also as `auto_calibrate_start/iterate/cancel/finish`
     steps so a caller can report progress and stop between passes; factors are
     clamped to bounds on every write and combined with light-path priors)
+  - `AccurateFretUncertainty.h` — `AccurateFretUncertainty.cpp`
+    (`efficiency_uncertainty`: gamma/alpha/delta propagated into E;
+    `distance_from_efficiency`; `accurate_fret` with per-population summaries)
+    and `AccurateFretBootstrap.cpp` (`auto_calibrate_bootstrap`, one class-wise
+    resample whose positions can be injected so a caller reproduces a given
+    bootstrap exactly, otherwise drawn by the counter-based `Random`;
+    `refine_gamma`, the precision-weighted gamma of a labelled FRET sample)
   - Known inherited quirk: the mixture's width update weights squared
     residuals by the *squared* responsibility, `sum((r (x - mu))^2) / N_k`,
     as chisurf's spherical `GaussianMixture` did; the standard EM update is

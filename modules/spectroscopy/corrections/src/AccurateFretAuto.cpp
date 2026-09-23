@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 #include "AccurateFretCalibrate.h"
+#include "AccurateFretUncertainty.h"
 #include "AccurateFretDetail.h"
 
 #include <algorithm>
@@ -198,6 +199,11 @@ void auto_calibrate_cancel(AutoCalibration& s) {
 void auto_calibrate_finish(AutoCalibration& s, const AutoCalibrateOptions& o) {
     s.messages.insert(s.messages.end(), s.iteration_messages.begin(), s.iteration_messages.end());
     s.gamma_data = s.factors.gamma;
+    // bootstrap spread, where there were more than two resampled values
+    const std::vector<double>* boots[4] = {&s.boot_alpha, &s.boot_delta, &s.boot_gamma, &s.boot_beta};
+    double* sigmas[4] = {&s.sigma_alpha, &s.sigma_delta, &s.sigma_gamma, &s.sigma_beta};
+    for (int k = 0; k < 4; ++k)
+        if (boots[k]->size() > 2) *sigmas[k] = np_std(*boots[k]);
     if (!std::isfinite(s.sigma_gamma))
         s.sigma_gamma = s.has_lifetime_gamma ? s.gamma_lifetime_sigma : kNaN;
     if (o.use_priors) {
@@ -241,6 +247,17 @@ void auto_calibrate_finish(AutoCalibration& s, const AutoCalibrateOptions& o) {
         }
     }
     s.gamma_posterior = s.factors.gamma;
+
+    // the final summary per FRET sub-population, with the adopted uncertainties
+    std::vector<int> labels(s.data_dd.size(), -1);
+    if (s.has_split)
+        for (size_t b = 0; b < labels.size(); ++b) labels[b] = s.split.fret[b] ? s.split.fret_labels[b] : -1;
+    AccurateFretResult fin = accurate_fret(s.data_dd, s.data_da, s.data_aa, s.factors, s.sigma_gamma,
+                                           s.sigma_alpha, s.sigma_delta, s.sigma_r0, s.data_tau,
+                                           o.line_tau_f, o.line_efficiency, labels);
+    s.populations.clear();
+    for (const FretPopulation& p : fin.populations)
+        if (p.label != -1) s.populations.push_back(p);
 }
 
 AutoCalibration auto_calibrate(const std::vector<double>& i_dd, const std::vector<double>& i_da,
@@ -249,6 +266,7 @@ AutoCalibration auto_calibrate(const std::vector<double>& i_dd, const std::vecto
     AutoCalibration s = auto_calibrate_start(i_dd, i_da, i_aa, tau_f, factors, o);
     for (int it = 1; it <= o.n_iterations; ++it)
         if (auto_calibrate_iterate(s, o)) { s.converged = true; break; }
+    for (int k = 0; k < o.n_bootstrap; ++k) auto_calibrate_bootstrap(s, o);
     auto_calibrate_finish(s, o);
     return s;
 }

@@ -92,6 +92,7 @@ double beta_from_stoichiometry(const std::vector<double>& i_dd, const std::vecto
     return dm / (nm * (1.0 / t - 1.0));
 }
 
+namespace afret_detail {
 double np_interp(double x, const std::vector<double>& xp, const std::vector<double>& fp) {
     if (!std::isfinite(x)) return kNaN;
     const size_t n = xp.size();
@@ -108,6 +109,7 @@ double np_interp(double x, const std::vector<double>& xp, const std::vector<doub
     }
     return v;
 }
+} // namespace afret_detail
 
 LifetimeGamma gamma_from_lifetime(const std::vector<double>& i_dd,
                                   const std::vector<double>& i_da,

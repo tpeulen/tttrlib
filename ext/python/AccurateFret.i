@@ -3,6 +3,7 @@
 #include "AccurateFret.h"
 #include "AccurateFretPopulations.h"
 #include "AccurateFretCalibrate.h"
+#include "AccurateFretUncertainty.h"
 %}
 
 // the raw kernels take flat vectors and return structs; the Python layer in
@@ -27,11 +28,18 @@
 %rename(_afret_auto_calibrate_iterate) tttrlib::auto_calibrate_iterate;
 %rename(_afret_auto_calibrate_cancel) tttrlib::auto_calibrate_cancel;
 %rename(_afret_auto_calibrate_finish) tttrlib::auto_calibrate_finish;
+%rename(_afret_auto_calibrate_bootstrap) tttrlib::auto_calibrate_bootstrap;
+%rename(_afret_efficiency_uncertainty) tttrlib::efficiency_uncertainty;
+%rename(_afret_distance_from_efficiency) tttrlib::distance_from_efficiency;
+%rename(_afret_accurate_fret) tttrlib::accurate_fret;
+%rename(_afret_refine_gamma) tttrlib::refine_gamma;
 
 namespace tttrlib {};
 %include "AccurateFret.h"
 %include "AccurateFretPopulations.h"
 %include "AccurateFretCalibrate.h"
+%template(VectorFretPopulation) std::vector<tttrlib::FretPopulation>;
+%include "AccurateFretUncertainty.h"
 
 #ifdef SWIGPYTHON
 %pythoncode "./ext/python/AccurateFret.py"

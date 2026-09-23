@@ -176,3 +176,16 @@ species factors invented, BIC keeps the shared model); the cal1 .pto.
   (diff 1.8e-15), beta 0.967539 (diff 1.1e-15), 6 passes, converged, splits
   identical. The chisurf transcription check passes against chisurf's own
   auto_calibrate. `test_accurate_fret_calibrate.py`, 25 cases.
+- **Stage 4, uncertainties (2026-09-23):** `efficiency_uncertainty`,
+  `distance_from_efficiency`, `accurate_fret` (+ population summaries,
+  numpy-exact nanmean/nanstd), `auto_calibrate_bootstrap` (class-wise
+  resampling, positions injectable via `bootstrap_indices`, else
+  `Random::deterministic(seed, counter)`), `refine_gamma`. No numpy PCG64 was
+  written: the A/B hands tttrlib chisurf's own `default_rng(seed).integers`
+  draws. Per-burst E, sigma_E, distance and its sigma to rtol 1e-12; population
+  summaries max abs diff 3.6e-14; bootstrap sigmas max rel diff 2.1e-14 over 4
+  seeds x 50 resamples. cal1 with 50 resamples: alpha 0.15740 +- 0.00223,
+  delta 0.06733 +- 0.00057, gamma 0.82564 +- 0.00712, beta 0.96754 +- 0.00428,
+  sigmas equal to the reference to 1e-13 relative; FRET populations at
+  E = 0.360 (R = 57.24 +- 0.12 A) and E = 0.802 (R = 41.21 +- 0.06 A).
+  `test_accurate_fret_uncertainty.py`, 16 cases.
