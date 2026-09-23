@@ -20,6 +20,7 @@ tttrlib_add_module(
     NAME     math
     SOURCES  "${CMAKE_CURRENT_SOURCE_DIR}/src/Cluster.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/Deconvolution.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageOps.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/Jitter.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/HmmLattice.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/Nnls.cpp"

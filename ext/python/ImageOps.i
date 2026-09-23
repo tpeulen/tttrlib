@@ -16,13 +16,13 @@
 %apply (double* IN_ARRAY2, int DIM1, int DIM2) {(const double* ref, int ref_rows, int ref_cols)}
 %apply (double* IN_ARRAY2, int DIM1, int DIM2) {(const double* img, int img_rows, int img_cols)}
 %apply (double* IN_ARRAY1, int DIM1) {(const double* matrix, int matrix_n)}
-%apply (unsigned long long* IN_ARRAY1, int DIM1) {(const std::uint64_t* integral, int table_n)}
+%apply (unsigned long long* IN_ARRAY1, int DIM1) {(const unsigned long long* integral, int table_n)}
 %apply (unsigned char* IN_ARRAY2, int DIM1, int DIM2) {(const std::uint8_t* mask, int mask_rows, int mask_cols)}
 
 // ---- outputs --------------------------------------------------------------
 %apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double** dst, int* dst_n)}
 %apply (unsigned short** ARGOUTVIEWM_ARRAY1, int* DIM1) {(std::uint16_t** dst, int* dst_n)}
-%apply (unsigned long long** ARGOUTVIEWM_ARRAY1, int* DIM1) {(std::uint64_t** sum, int* sum_n)}
+%apply (unsigned long long** ARGOUTVIEWM_ARRAY1, int* DIM1) {(unsigned long long** sum, int* sum_n)}
 %apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double** hist, int* n_bins)}
 %apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double** out, int* n)}
 %apply (double* OUTPUT) {(double* dx)}
@@ -38,6 +38,9 @@
     }
 }
 
+// argument checks, not operations: kept out of the Python surface
+%ignore tttrlib::image_ops::detail::check_dims;
+%ignore tttrlib::image_ops::detail::shape_from_int;
 %include "ImageOps.h"
 
 #ifdef SWIGPYTHON

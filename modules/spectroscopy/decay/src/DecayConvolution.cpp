@@ -1145,6 +1145,7 @@ const char* const kDecayConvolutionEntry = R"JSON({
     "fconv_per",
     "fconv_per_cs",
     "fconv_per_cs_2ch",
+    "fconv_per_cs_jacobian",
     "fconv_per_cs_time_axis",
     "fconv_per_simd",
     "fconv_ref",

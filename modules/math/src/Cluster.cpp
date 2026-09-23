@@ -1325,6 +1325,8 @@ const char* const kClusteringEntry = R"JSON({
     "hdbscan_cluster_stability",
     "hdbscan_label_points",
     "hdbscan_membership_strengths",
+    "hdbscan",
+    "HdbscanResult",
     "OptsCluster",
     "ResultsCluster"
   ],

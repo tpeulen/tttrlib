@@ -85,6 +85,7 @@ PLUMBING = {
         # analyses. `pack8`/`popcount64`/`spread8` are BitMask's own bit-packing helpers.
         "Element", "Encoding", "ExprColumn", "ExpressionEngine", "Problem", "PtoFileBase",
         "StoreOptions", "classify_by_extension", "codecs", "element_name", "has_codec",
+        "can_compress", "can_decompress",
         "pack8", "popcount64", "split_encoding", "spread8", "store_format_version",
     },
     "the registry itself": {
