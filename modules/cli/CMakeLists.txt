@@ -42,7 +42,9 @@ tttrlib_add_module(
     # The pipeline document a run writes names the tttrlib that produced it.
 )
 
-TARGET_COMPILE_DEFINITIONS(tttrlib_cli_objects PRIVATE TTTRLIB_VERSION_STRING="${PROJECT_VERSION}")
+if(TARGET tttrlib_cli_objects)
+    TARGET_COMPILE_DEFINITIONS(tttrlib_cli_objects PRIVATE TTTRLIB_VERSION_STRING="${PROJECT_VERSION}")
+endif()
 
 # No cli module, no tttr binary: main.cpp is the module's front door.
 IF(BUILD_LIBRARY AND WITH_CLI)
