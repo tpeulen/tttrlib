@@ -70,6 +70,9 @@ Correction utilities for single-molecule fluorescence.
     as chisurf's spherical `GaussianMixture` did; the standard EM update is
     `sum(r (x - mu)^2) / N_k`. Kept so the port is exact; soft assignments
     make the widths come out narrower than the ML estimate.
+  - Python: `ext/python/AccurateFretColumns.py` holds the burst-table channel
+    conventions (`guess_burst_columns`, `gated_stream_columns`) and
+    `calibration_report`, shared by ChiSurf and ndXplorer
   - Python: `ext/python/AccurateFret.py` wraps the `_afret_*` kernels with
     numpy-in, dict-out signatures (`tttrlib.corrected_es(...)` etc.)
 
