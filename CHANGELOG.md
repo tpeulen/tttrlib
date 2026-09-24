@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- **Fixed: ALEX-2CDE had the sign of one brightness ratio wrong.**
+  `TwoCDE` computed `100 - 50 (BR_Dex - BR_Aex)`, copied from the FRETBursts
+  2CDE notebook code; Tomov et al. 2012, eq. 12 is `100 - 50 (BR_Dex + BR_Aex)`.
+  Each ratio is ~1 for a burst whose Dex/Aex brightness ratio is constant, so a
+  clean burst now scores ~0 (it scored ~100), and acceptor blinking raises it --
+  the scale the paper and the usual "keep below 10-15" cutoff assume. Any
+  ALEX-2CDE threshold tuned against the old values must be re-derived. FRET-2CDE
+  is unchanged. See `okf/BUGS.md`.
+
 - **Removed: the neural network and the HMM surrogate. They live in IMP.bff
   now.** `NeuralNet` (with `TrainOptions`, `DenseLayer`, the JSON, ONNX and
   safetensors loaders), the header-only core `MlpCore.h` (`MlpModel`,

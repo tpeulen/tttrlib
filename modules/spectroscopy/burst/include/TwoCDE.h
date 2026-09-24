@@ -33,8 +33,10 @@ namespace tttrlib {
  *
  *  - **ALEX-2CDE** flags acceptor blinking / donor-only or acceptor-only
  *    contamination in ALEX/PIE data:
- *    @f$ 100 - 50\,[BR_{Dex} - BR_{Aex}] @f$.  Streams: donor-excitation
- *    (DexDem+DexAem) and acceptor-excitation (AexAem).  Uses the raw KDE.
+ *    @f$ 100 - 50\,[BR_{Dex} + BR_{Aex}] @f$ (Tomov 2012, eq. 12),
+ *    @f$ \approx 0 @f$ for bursts with a constant Dex/Aex brightness ratio and
+ *    rising with acceptor blinking.  Streams: donor-excitation (DexDem+DexAem)
+ *    and acceptor-excitation (AexAem).  Uses the raw KDE.
  *
  * This is a bit-exact C++ port of the reference FRETBursts implementation:
  * KDEs are computed on the full photon stream (avoiding burst-edge artefacts)

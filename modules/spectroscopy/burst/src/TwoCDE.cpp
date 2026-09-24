@@ -13,7 +13,11 @@ std::function<double(int, int64_t, int64_t)> TwoCDE::make_reducer(int variant, i
         // Streams: Dex (donor excitation, DexDem+DexAem), Aex (acceptor exc., AexAem).
         // BR_Dex = <KDE_Aex / KDE_Dex> over Dex photons, normalised by N_Aex.
         // BR_Aex = <KDE_Dex / KDE_Aex> over Aex photons, normalised by N_Dex.
-        // ALEX-2CDE = 100 - 50 (BR_Dex - BR_Aex).  Raw KDE (no nbKDE).
+        // ALEX-2CDE = 100 - 50 (BR_Dex + BR_Aex)  (Tomov et al. 2012, eq. 12).
+        // Each BR is ~1 when the Dex/Aex brightness ratio is constant, so a
+        // clean burst sits near 0 and acceptor blinking raises it. Raw KDE.
+        // (FRETBursts' 2CDE notebook code has "- BR_Aex", which puts clean
+        // bursts at ~100; this port copied it until 2026-09.)
         const std::vector<uint8_t>& is_dex = membership(DONOR_EXC);
         const std::vector<uint8_t>& is_aex = membership(ACCEPTOR_EXC);
         const std::vector<double>& kde_dex = kde(DONOR_EXC);
@@ -40,7 +44,7 @@ std::function<double(int, int64_t, int64_t)> TwoCDE::make_reducer(int variant, i
             }
             const double br_dex = sum_dex / static_cast<double>(n_aex);
             const double br_aex = sum_aex / static_cast<double>(n_dex);
-            return 100.0 - 50.0 * (br_dex - br_aex);
+            return 100.0 - 50.0 * (br_dex + br_aex);
         };
     }
 

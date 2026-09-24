@@ -80,7 +80,9 @@ def alex_2cde_ref(tau, macro, mask_dex, mask_aex, bursts):
         n_chdex = mask_dex[sl].sum()
         br_dex = np.sum(kde_aexdex / kde_dexdex) / n_chaex
         br_aex = np.sum(kde_dexaex / kde_aexaex) / n_chdex
-        out.append(100 - 50 * (br_dex - br_aex))
+        # Tomov 2012 eq. 12. FRETBursts' notebook code subtracts BR_Aex,
+        # contradicting the equation its own markdown quotes.
+        out.append(100 - 50 * (br_dex + br_aex))
     return np.array(out)
 
 
@@ -178,6 +180,27 @@ class TestTwoCDEParity(unittest.TestCase):
         got_s, _ = self._run(static, tau_ticks=40.0, variant="fret", kernel_name="laplace")
         got_d, _ = self._run(dynamic, tau_ticks=40.0, variant="fret", kernel_name="laplace")
         self.assertLess(np.nanmean(got_s), np.nanmean(got_d))
+
+    def test_alex_2cde_is_near_zero_for_clean_bursts(self):
+        """Tomov eq. 12: constant Dex/Aex ratio -> ~0; acceptor blinking -> higher.
+
+        The copied FRETBursts notebook formula ("- BR_Aex") put clean bursts at
+        ~100, so a documented "keep below 10-15" cutoff rejected every one.
+        """
+        rng = np.random.default_rng(5)
+        clean, blinking = [], []
+        for _ in range(60):
+            r = rng.random(400)
+            clean.append(np.where(r < 0.35, 0, np.where(r < 0.7, 1, 2)))
+            ch = np.where(r < 0.35, 0, np.where(r < 0.7, 1, 2))
+            ch[200:][ch[200:] == 2] = 0   # acceptor dark for the second half
+            blinking.append(ch)
+        got_c, _ = self._run(clean, tau_ticks=40.0, variant="alex", kernel_name="laplace",
+                             donor=(0, 1), acceptor=(2,))
+        got_b, _ = self._run(blinking, tau_ticks=40.0, variant="alex", kernel_name="laplace",
+                             donor=(0, 1), acceptor=(2,))
+        self.assertLess(np.nanmedian(got_c), 15.0)
+        self.assertGreater(np.nanmedian(got_b), np.nanmedian(got_c) + 10.0)
 
     def test_missing_stream_is_nan(self):
         """Bursts with only donor (or only acceptor) photons yield NaN."""

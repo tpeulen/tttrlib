@@ -282,7 +282,9 @@ def alex_2cde_from_kdes(kde_dex, kde_aex, mask_dex, mask_aex, bounds):
         n_aex, n_dex = mask_aex[sl].sum(), mask_dex[sl].sum()
         br_dex = np.sum(kde_aexdex / kde_dexdex) / n_aex
         br_aex = np.sum(kde_dexaex / kde_aexaex) / n_dex
-        out.append(100 - 50 * (br_dex - br_aex))
+        # Tomov 2012 eq. 12. FRETBursts' notebook code subtracts BR_Aex,
+        # contradicting the equation its own markdown quotes.
+        out.append(100 - 50 * (br_dex + br_aex))
     return np.array(out)
 
 

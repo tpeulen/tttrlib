@@ -105,7 +105,8 @@ fig.tight_layout()
 # ----------------------------------------------------------
 # With ALEX/PIE, donor-excitation photons (DexDem + DexAem) and
 # acceptor-excitation photons (AexAem) are two more streams; a burst in which
-# the acceptor blinks off for part of the transit gives ALEX-2CDE far from 100.
+# the acceptor blinks off for part of the transit raises ALEX-2CDE well above
+# the ~0 of a burst whose Dex/Aex brightness ratio stays constant.
 # Simulate the streams as separate channels: 0/1 under donor excitation,
 # 2 = acceptor under acceptor excitation, with half the bursts blinking.
 macro2, chan2, bounds2, blink = [], [], [], []

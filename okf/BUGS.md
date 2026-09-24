@@ -164,6 +164,28 @@ On a two-lifetime simulation with `target_chisq = 1.0`, `chisq` reads 0.9993 at
 Neyman and this entry stays open** — the fit is unchanged and the bias above is
 undiminished; what the caller now has is a number that can disagree with it.
 
+## FIXED — ALEX-2CDE: `100 - 50 (BR_Dex - BR_Aex)` where Tomov eq. 12 has `+`
+
+Found 2026-09-23 from chisurf while citing its 2CDE concept page. `TwoCDE`
+(`modules/spectroscopy/burst/src/TwoCDE.cpp`, the ALEX reducer) was a bit-exact
+port of the FRETBursts *notebook code*, which subtracts `BR_Aex`; the same
+notebook's markdown quotes eq. 12 with a `+` (and a 110 offset), and the paper
+(Tomov et al., Biophys. J. 102, 1013 (2012), doi:10.1016/j.bpj.2011.11.4025,
+eq. 12) reads `ALEX-2CDE = 100 - 50 x [BR_DEX + BR_AEX]`, stating the bracket
+converges to 2 -- ALEX-2CDE to 0 -- for a fixed brightness ratio.
+
+| burst population (chisurf, 200 static bursts) | old formula | eq. 12 |
+|---|---|---|
+| median ALEX-2CDE | 98.5 | 7.3 |
+
+With the old scale a "keep ALEX-2CDE below 10-15" selection rejected every good
+burst. The Python references in `test_twocde.py` and
+`test_ab_bva_2cde_recurrence_reference.py` had copied the same notebook line, so
+the parity tests agreed with the bug; they now transcribe eq. 12, and
+`test_alex_2cde_is_near_zero_for_clean_bursts` pins the scale itself (clean
+median < 15, blinking higher). Also corrected: `BVA.cpp`'s step summary credited
+BVA to Hoffmann et al.; it is Torella et al. 2011.
+
 ## FIXED — `neyman_lsq` / `gehrels_lsq` were advertised objectives that every fit2x kernel ignored
 
 **Fixed 2026-08-17.** The registry's `objective` category (and `setup_vector(...,
