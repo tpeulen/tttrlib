@@ -1,0 +1,4 @@
+# Vendored ptolib is checked byte-for-byte against thirdparty/ptolib/VENDORING.json
+# (test_vendored_ptolib.py). Without this, a Windows checkout (core.autocrlf=true,
+# the runner default) rewrites LF to CRLF and every hash mismatches.
+thirdparty/ptolib/** -text
