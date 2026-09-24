@@ -265,6 +265,7 @@ TTTRLIB_R_UINT64_TYPEMAPS
 #ifndef TTTRLIB_WITHOUT_CORRECTIONS
 %include "SpectralCrosstalk.i"
 %include "BackgroundEstimation.i"
+%include "AccurateFret.i"
 #endif
 #ifndef TTTRLIB_WITHOUT_DECAY
 %include "BlindIRF.i"
