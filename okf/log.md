@@ -1,5 +1,19 @@
 # Bundle update log
 
+## 2026-09-24 — accurate FRET: HDBSCAN population finder, outlier pre-cleaning
+
+The multidimensional gating of `auto_calibrate` finds populations with
+tttrlib's own HDBSCAN (modules/math) by default: `population_method` =
+"hdbscan" | "gmm". Declared columns are pre-cleaned per dimension before any
+scale is computed (`flag_dimension_outliers`: physical range, then a
+wide-quantile fence), scaled by median/IQR, clustered (leaf selection, at most
+10 000 bursts, the rest assigned), tails reclaimed, shot-noise-close clusters
+merged; per-cluster Gaussians give the assignment probabilities. Noise and
+outliers are reported separately and excluded from the factors. The
+stoichiometry-only path is unchanged (cal1: gamma 0.7502 alpha 0.1570 beta
+1.0599 delta 0.0674). cal1 S+E: 3 FRET populations, 3.0 s vs 45 s for the
+mixture. PRD-042 Extension E3. Tests: `test_accurate_fret_hdbscan.py`.
+
 ## 2026-09-24 — the PTO.MFDB tag layer moves from ChiSurf into tttrlib
 
 `ext/python/PtoMfdb.py` (appended to `Pto.i`'s Python code): `pto_tag`,

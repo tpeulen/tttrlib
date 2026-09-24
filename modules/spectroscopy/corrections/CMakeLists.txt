@@ -42,5 +42,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretAuto.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretUncertainty.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretBootstrap.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretOutliers.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretHdbscan.cpp"
         PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 endif()

@@ -92,9 +92,8 @@ def correlation():
 
 check("Correlator (64-bit macro times)", correlation)
 
-def accurate_fret():
-    # synthetic ALEX bursts (numpy's PCG64 draws the same numbers in both
-    # builds); the factors and bootstrap sigmas are the native arm64 values
+def afret_bursts():
+    # synthetic ALEX bursts (numpy's PCG64 draws the same numbers in both builds)
     rng = np.random.default_rng(7)
     def pop(n, e, g=0.8, b=0.9, a=0.07, d=0.05, kind="fret"):
         tot = rng.uniform(40, 160, n)
@@ -105,7 +104,11 @@ def accurate_fret():
         fdd, fda, faa = tot * (1 - e) / g, tot * e, tot * b
         return rng.poisson(fdd), rng.poisson(fda + a * fdd + d * faa), rng.poisson(faa)
     parts = [pop(300, 0, kind="donor"), pop(300, 0, kind="acceptor"), pop(800, 0.3), pop(800, 0.7)]
-    dd, da, aa = (np.concatenate([p[i] for p in parts]).astype(float) for i in range(3))
+    return [np.concatenate([p[i] for p in parts]).astype(float) for i in range(3)]
+
+def accurate_fret():
+    # the factors and bootstrap sigmas are the native arm64 values
+    dd, da, aa = afret_bursts()
     r = tttrlib.auto_calibrate({"i_dd": dd, "i_da": da, "i_aa": aa}, None,
                                {"n_bootstrap": 20, "seed": 3})
     keys = ("alpha", "delta", "gamma", "beta")
@@ -120,6 +123,20 @@ def accurate_fret():
             f"R={acc['populations'][0]['distance']:.2f}")
 
 check("accurate FRET auto_calibrate (equals native)", accurate_fret)
+
+def accurate_fret_hdbscan():
+    # density-based populations over S and E (HDBSCAN from modules/math); the
+    # factors are the native arm64 values
+    dd, da, aa = afret_bursts()
+    r = tttrlib.auto_calibrate({"i_dd": dd, "i_da": da, "i_aa": aa}, None, {"dimensions": ["S", "E"]})
+    keys = ("alpha", "delta", "gamma", "beta")
+    native_f = [0.0712005003456335, 0.04733165397218232, 0.7968978322745337, 0.899002539542906]
+    np.testing.assert_allclose([r["factors"][k] for k in keys], native_f, rtol=1e-9)
+    c = r["split"]["counts"]
+    assert r["split"]["method"] == "hdbscan" and c["fret_populations"] == 2 and c["noise"] == 15, c
+    return f"gamma={r['factors']['gamma']:.6f} populations={c['fret_populations']} noise={c['noise']}"
+
+check("accurate FRET HDBSCAN populations (equals native)", accurate_fret_hdbscan)
 ok
 `;
 const ok = await pyodide.runPythonAsync(script);
