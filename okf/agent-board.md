@@ -125,6 +125,33 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
+- **T-20260924-01 · [imp.bff] TODO: greedy Olga (FRET network selection) chooses pairs that also resolve the dynamics — the transitions, not only the static states**
+  - Status: 🆕 open
+  - Owner: —
+  - Opened: 2026-09-24 · Picked: — · Done: —
+  - Why: owner request (2026-09-24). Greedy Olga (`ProbePairSelection`,
+    `select_informative_pairs` / `select_informative_sites`) scores a pair set
+    by how well it separates the *structures* in an ensemble. It does not
+    reward pairs that tell different *transitions* apart. Two pairs can both
+    separate A from B while seeing the same exchange, and the network then
+    reports one kinetic observable twice. Examples of what gets missed: which
+    step of A→B→C a pair reports on, whether an exchange falls into the
+    sub-ms window (dynamic shift, fluctuations inside a burst), and pairs whose
+    FRET changes along *different* transition coordinates.
+  - Done when: the selector can take a transition model (states plus a
+    rate/connectivity matrix, or the per-transition distance changes) and
+    adds a dynamics term to the greedy score. That term rewards pairs whose
+    ΔE (or Δ⟨R⟩) vectors over transitions are large and not collinear with the
+    pairs already picked. It is off by default, and with it off the selection
+    is unchanged. A test on a three-state synthetic system picks a pair set that
+    resolves both transitions where the static-only score resolves just one.
+  - Touching: `imp.bff/include/ProbePairSelection.h`,
+    `imp.bff/src/ProbePairSelection.cpp`,
+    `imp.bff/pyext/include/IMP_bff.probepairselection.i`,
+    `imp.bff/test/restraints/test_greedy_*.py`, one example in
+    `imp.bff/ipynb/example/`.
+  - Progress: —
+
 - **T-20260923-11 · [tttrlib] ALEX-2CDE sign: `TwoCDE.cpp:43` computes 100 − 50(BR_Dex − BR_Aex); Tomov 2012 eq. 12 is 100 − 50(BR_Dex + BR_Aex)**
   - Status: ✅ done
   - Owner: opus-5.5/b1a8cea6
