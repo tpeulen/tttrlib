@@ -1,5 +1,18 @@
 # Bundle update log
 
+## 2026-09-24 — the PTO.MFDB tag layer moves from ChiSurf into tttrlib
+
+`ext/python/PtoMfdb.py` (appended to `Pto.i`'s Python code): `pto_tag`,
+`pto_parents`, `pto_read_blob`, `pto_describe`, `pto_add_blob`,
+`pto_settings_hash`, `PtoWriteLock`, `PtoLockedError`,
+`deinterleave_burst_rows`. Moved from ChiSurf's `chisurf.core.fio.pto`
+(`Measurement.tag/parents/get_blob/_describe`, `_WriteLock`) and
+`burst_container.deinterleave_bursts`, which now call these; the dictionary
+term checks and dictionary version stamps stay in ChiSurf (they need mmfdb).
+ndXplorer reads and writes `.pto` containers (burst and image tables,
+background, stored calibrations) through them with ChiSurf and IMP absent.
+Test: `test/python/test_pto_mfdb.py`.
+
 ## 2026-09-23 — the neural net and the HMM surrogate leave tttrlib for imp.bff (T-20260923-nn)
 
 tttrlib is ML-free: learned models and neural nets live in imp.bff even when

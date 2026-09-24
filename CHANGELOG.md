@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+- **Added: the PTO.MFDB profile layer in Python.** `pto_tag(file, uid, name)`
+  (typed mmCIF tag value), `pto_parents` (lineage edges), `pto_read_blob`
+  (payload checked against its recorded SHA-256), `pto_describe` /
+  `pto_add_blob` (the artifact, operation and edge tags a write carries),
+  `pto_settings_hash`, `PtoWriteLock` / `PtoLockedError` (one writer per
+  container, an advisory `flock` on `<file>.lock`) and
+  `deinterleave_burst_rows` (drops the legacy `.bur` zero-row interleave and
+  blank columns). ChiSurf's `Measurement` and ndXplorer's `.pto` reader both
+  read containers through these, so ndXplorer opens a `.pto` without ChiSurf.
+
 - **Fixed: ALEX-2CDE had the sign of one brightness ratio wrong.**
   `TwoCDE` computed `100 - 50 (BR_Dex - BR_Aex)`, copied from the FRETBursts
   2CDE notebook code; Tomov et al. 2012, eq. 12 is `100 - 50 (BR_Dex + BR_Aex)`.

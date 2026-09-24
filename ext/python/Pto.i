@@ -167,5 +167,8 @@ def pto_events(spec, first_event=0, n_events=0):
         raise RuntimeError("could not read events from " + str(spec))
     return out
 %}
+// The PTO.MFDB profile (typed tags, lineage, verified payloads, the writer
+// lock, the .bur interleave): what ChiSurf and ndXplorer read containers by.
+%pythoncode "./ext/python/PtoMfdb.py"
 #endif  // SWIGPYTHON
 
