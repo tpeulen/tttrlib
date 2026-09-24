@@ -70,12 +70,14 @@ def test_nd_mixture_recovers_components():
     assert fit["labels"][3] == -1 and np.isnan(fit["responsibilities"][3]).all()
 
 
-def test_nd_gating_uses_lifetimes():
+@pytest.mark.parametrize("method", ["hdbscan", "gmm"])
+def test_nd_gating_uses_lifetimes(method):
     c = mfd_bursts(0)
     dims = ["S", "E", "tau_d", "tau_a"]
-    r = tttrlib.auto_calibrate(c, None, dict(dimensions=dims))
+    r = tttrlib.auto_calibrate(c, None, dict(dimensions=dims, population_method=method))
     split, truth = r["split"], c["truth"]
-    assert split["method"] == "mixture_nd" and split["components"]["dimensions"] == dims
+    assert split["method"] == {"gmm": "mixture_nd"}.get(method, method)
+    assert split["components"]["dimensions"] == dims
     assert _purity(split["donor_only"], truth, -2) > 0.99
     assert _purity(split["acceptor_only"], truth, -1) > 0.99
     assert split["counts"]["fret_populations"] == 2
@@ -91,13 +93,15 @@ def test_nd_gating_uses_lifetimes():
     assert f["beta"] == pytest.approx(BETA, rel=0.05)
 
 
-def test_lifetime_splits_what_s_and_e_cannot():
+@pytest.mark.parametrize("method", ["hdbscan", pytest.param("gmm", marks=pytest.mark.slow)])
+def test_lifetime_splits_what_s_and_e_cannot(method):
     # two species at the same E, one of them off the static line (dynamic). The
     # lifetime route would read the dynamic one as a different gamma, and the E-S
     # line has one E only, so gamma stays put ("es") and only the gating is tested
     c = mfd_bursts(2, fret=((0.5, 1.0, 1500), (0.5, 1.0, 1500)), dynamic={1: 3.2})
     s_only = tttrlib.auto_calibrate(c)
-    nd = tttrlib.auto_calibrate(c, None, dict(dimensions=["S", "E", "tau_d"], gamma_source="es"))
+    nd = tttrlib.auto_calibrate(c, None, dict(dimensions=["S", "E", "tau_d"], gamma_source="es",
+                                                  population_method=method))
     assert s_only["split"]["counts"]["fret_populations"] == 1
     assert nd["split"]["counts"]["fret_populations"] == 2
     labels = nd["split"]["fret_labels"]
@@ -116,9 +120,10 @@ def test_no_alex_gating_with_donor_lifetime():
     assert r["tau_d0"] == pytest.approx(TAU_D0, abs=0.05)
 
 
-def test_lifetime_gamma_with_the_no_linker_line():
+@pytest.mark.parametrize("method", ["hdbscan", "gmm"])
+def test_lifetime_gamma_with_the_no_linker_line(method):
     c = mfd_bursts(4, fret=((0.4, 0.7, 2500),))
-    r = tttrlib.auto_calibrate(c, None, dict(dimensions=["S", "E", "tau_d"]))
+    r = tttrlib.auto_calibrate(c, None, dict(dimensions=["S", "E", "tau_d"], population_method=method))
     assert np.isnan(r["gamma_estimates"]["es"])
     assert r["gamma_estimates"]["lifetime"] == pytest.approx(0.7, rel=0.05)
     assert r["factors"]["gamma"] == pytest.approx(0.7, rel=0.05)
