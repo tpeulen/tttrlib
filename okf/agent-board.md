@@ -125,6 +125,15 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
+- **T-20260923-11 · [tttrlib] ALEX-2CDE sign: `TwoCDE.cpp:43` computes 100 − 50(BR_Dex − BR_Aex); Tomov 2012 eq. 12 is 100 − 50(BR_Dex + BR_Aex)**
+  - Status: 🔄 in-progress
+  - Owner: opus-5.5/b1a8cea6
+  - Opened: 2026-09-23 · Picked: 2026-09-24 · Done: —
+  - Why: found while citing chisurf docs/concepts/burst_2cde.md. On 200 static bursts the code's form has median 98.5, the paper's 7.3; the documented "keep ALEX-2CDE below 10–15" then rejects every good burst. `test_twocde.py` and the FRETBursts pin copy the notebook code, not the paper, so they agree with the bug. Also `BVA.cpp:134` credits BVA to Hoffmann (it is Torella 2011).
+  - Done when: sign fixed against eq. 12 with a guard test on a static-burst simulation (median ALEX-2CDE < 15), chisurf burst_2cde.md drops its "both formulas" note.
+  - Touching: tttrlib modules/spectroscopy/burst/src/TwoCDE.cpp, BVA.cpp, their tests.
+  - Progress: —
+
 - **T-20260916-03 · [chisurf] `pixi install` blocked outright: 3 real bugs, all fixed, one real blocker left (imp-bff not on PyPI)**
   - Status: ✅ done (everything I can fix without a real PyPI publish) — CONFIRMED on real CI, run
     35146005921: https://github.com/tpeulen/chisurf/actions/runs/35146005921. All four jobs (Lint,
@@ -1832,6 +1841,15 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
+- **T-20260923-afret · [tttrlib+chisurf+ndxplorer] Accurate-FRET algorithms move from chisurf to tttrlib (C++/SWIG)**
+  - Status: 🔄 in-progress
+  - Owner: opus-5.5/accurate-fret
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: —
+  - Why: tpeulen: one implementation of accurate FRET (corrected E/S, error propagation, distance, auto-calibration: S mixture, alpha/delta/gamma/beta, self-consistency) shared by chisurf and ndXplorer (Qt + emtk, desktop + browser).
+  - Done when: tttrlib `spectroscopy/corrections` has the algorithms + registry entry + tests (A/B vs chisurf on synthetic and cal1 .pto); arm64 + pyodide wheels rebuilt; chisurf callers call tttrlib, moved Python deleted; PRD-042.
+  - Touching: worktree ~/dev/worktrees/tttrlib-accurate-fret (branch accurate-fret, off pyodide-build) only: `modules/spectroscopy/corrections/**`, `ext/python/*AccurateFret*`, `test/python/corrections/test_accurate_fret*.py`, `okf/prds/PRD-042-*`, tools/pyodide smoke. chisurf: `chisurf/core/fluorescence/fret/{accurate,calibration}.py`, `burst/es.py`, their callers (ndxplorer calibration_bridge, alex_suite, PIE burst workflow) and tests, docs/concepts on accurate FRET, okf/log.md. No IMP rebuild (lock not taken).
+  - Progress: reading source; worktree created.
+
 - **T-20260923-10 · [chisurf] Docs for undocumented visible tools: PSF calculator, TTTR decay/correlate, intensity trace + file tools, FCS toolbox**
   - Status: ✅ done
   - Owner: opus-5.5/b1a8cea6
@@ -1904,6 +1922,13 @@ retired so nobody works the same thing twice.)*
   - Done when: overlays_curve, overlays_equation_list, curve_fit_dialog, parameters_panel, add_parameter, equations_panel, store_editor captured in parity/emtk with control inventory matched. -- all seven PARITY.
   - Touching: ndxplorer `ndxplorer/app/features/overlays.py`, `ndxplorer/app/features/overlays/`, `ndxplorer/tests/test_app/test_overlays.py`, Qt-free `core/overlay_curves.py`, `analysis/curve_fit_setup.py`, `core/equation_table.py`, `core/store_edits.py` with Qt call sites; emtk `widgets/data_table.py`.
   - Resume: chisurf okf/plugins/ndxplorer-emtk-port.md "Where to pick this up" / overlays (browser blocked on chisurf parameters needing IMP.bff).
+
+- **T-20260923-ndxparams · [ndxplorer+emtk] ndX parameter tables: edit bug, one shared table, ndX-own parameter model (works without chisurf)**
+  - Status: 🔄 in progress
+  - Owner: opus-5.5/ndx-params
+  - Opened: 2026-09-23 · Picked: 2026-09-23
+  - Why: tpeulen "parameter edit does not work" (Gaussian Fit table) + "must work even without chisurf": ndX's constants, curves, Gaussians become ndX's own Parameter/ParameterGroup; chisurf FittingParameters are an optional mirror (Global View, links).
+  - Touching: emtk `emtk/widgets/data_table.py` (+ test); ndxplorer NEW `core/parameters.py`, `core/chisurf_binding.py`, `app/parameter_table.py`; `core/{constants_group,curve_parameters,gaussian_parameters,overlay_curves}.py`, `analysis/{curve_fit,curve_fit_setup,gaussian_mixture}.py`, `app/features/{analysis,overlays,constant_rows}.py` + their view.json tables, Qt call sites that hand groups to chisurf widgets; chisurf `okf/plugins/ndxplorer-emtk-port.md`, `okf/log.md`.
 
 - **T-20260923-ndxafret · [ndxplorer+chisurf] ndX emtk port: Accurate FRET UI (what the ChiSurf-hosted window adds)**
   - Status: ⏸ waiting (library API)
