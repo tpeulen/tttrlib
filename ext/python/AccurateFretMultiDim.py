@@ -103,7 +103,7 @@ def classify_populations_hdbscan(columns, names=None, *, donor_only_above=0.75,
                                  acceptor_only_below=0.25, min_population=20,
                                  min_probability=0.9, min_cluster_fraction=0.02,
                                  min_cluster_size=0, min_samples=0, max_points=10000,
-                                 selection="leaf"):
+                                 selection="leaf", epsilon=0.0, width_floor=None):
     """Donor-only, acceptor-only and FRET bursts by density-based clustering (HDBSCAN).
 
     Columns as in :func:`classify_populations_nd`. Each column is centred on
@@ -112,6 +112,9 @@ def classify_populations_hdbscan(columns, names=None, *, donor_only_above=0.75,
     clustered (an even stride), the rest join a cluster through their nearest
     clustered neighbours. ``min_cluster_size``/``min_samples`` of 0 mean
     ``max(10, min_cluster_fraction * clustered bursts)``. Assignment
+    probabilities come from per-cluster Gaussians; ``width_floor`` (the
+    shape of the columns, NaN where unknown) is each burst's shot-noise width,
+    the least width of a species in the same-species merge. Assignment
     probabilities come from per-cluster Gaussians (HDBSCAN's membership strength
     is a rank within one cluster, returned as ``"membership"``).
 
@@ -126,7 +129,8 @@ def classify_populations_hdbscan(columns, names=None, *, donor_only_above=0.75,
         _afret_vec(m), int(m.shape[0]), VectorString(names), float(donor_only_above),
         float(acceptor_only_below), int(min_population), float(min_probability),
         float(min_cluster_fraction), int(min_cluster_size), int(min_samples), int(max_points),
-        str(selection))
+        str(selection), float(epsilon),
+        [] if width_floor is None else _afret_vec(_afret_np().asarray(width_floor, dtype=float).reshape(m.shape)))
     return _afret_split_dict(r)
 
 

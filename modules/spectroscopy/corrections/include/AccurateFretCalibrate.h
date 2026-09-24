@@ -198,6 +198,7 @@ struct AutoCalibrateOptions {
     int hdbscan_min_samples = 0;
     int hdbscan_max_points = 10000;
     std::string hdbscan_selection = "leaf";
+    double hdbscan_epsilon = 0.0;
     bool remove_outliers = true;
     double outlier_es_lo = -0.2, outlier_es_hi = 1.2;
     double outlier_tau_max = 20.0;

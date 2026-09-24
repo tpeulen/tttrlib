@@ -37,6 +37,7 @@ const char* const kAccurateFretEntry = R"JSON({
       "hdbscan_min_samples": {"type": "integer", "title": "HDBSCAN density neighbours, 0 = smallest cluster", "minimum": 0, "default": 0},
       "hdbscan_max_points": {"type": "integer", "title": "HDBSCAN most bursts clustered (rest assigned)", "minimum": 0, "default": 10000},
       "hdbscan_selection": {"type": "string", "title": "HDBSCAN cluster selection", "enum": ["leaf", "eom"], "default": "leaf"},
+      "hdbscan_epsilon": {"type": "number", "title": "HDBSCAN: no split closer than this many median core distances, 0 off", "minimum": 0, "default": 0.0},
       "remove_outliers": {"type": "boolean", "title": "remove outliers before scaling the gating dimensions", "default": true},
       "outlier_es_lo": {"type": "number", "title": "S and E below this are outliers", "default": -0.2},
       "outlier_es_hi": {"type": "number", "title": "S and E above this are outliers", "default": 1.2},

@@ -42,7 +42,7 @@ struct Density {
 };
 
 Density run_hdbscan(const KDTree& tree, const std::vector<double>& core, int m, int mcs,
-                    const std::string& selection) {
+                    const std::string& selection, double epsilon) {
     const std::vector<double> mst = tree.mutual_reachability_mst(core, 1.0);
     const int e = m - 1;
     std::vector<long long> src(e), dst(e);
@@ -58,7 +58,7 @@ Density run_hdbscan(const KDTree& tree, const std::vector<double>& core, int m, 
     hdbscan_condensed_tree(src.data(), e, dst.data(), e, w.data(), e, mcs, &par.p, &par.n, &chi.p,
                            &chi.n, &lam.p, &lam.n, &siz.p, &siz.n);
     hdbscan_select_clusters(par.p, par.n, chi.p, chi.n, lam.p, lam.n, siz.p, siz.n, selection.c_str(),
-                            false, 0.0, 0, &sel.p, &sel.n);
+                            false, epsilon, 0, &sel.p, &sel.n);
     hdbscan_label_points(par.p, par.n, chi.p, chi.n, sel.p, sel.n, m, &roots.p, &roots.n);
     hdbscan_membership_strengths(par.p, par.n, chi.p, chi.n, lam.p, lam.n, roots.p, roots.n, &str.p,
                                  &str.n);
@@ -88,11 +88,14 @@ PopulationSplit classify_populations_hdbscan(const std::vector<double>& x, int n
                                              int min_population, double min_probability,
                                              double min_cluster_fraction, int min_cluster_size,
                                              int min_samples, int max_points,
-                                             const std::string& selection) {
+                                             const std::string& selection, double epsilon,
+                                             const std::vector<double>& width_floor) {
     const int d = static_cast<int>(names.size());
     const size_t n = static_cast<size_t>(n_rows);
     if (d == 0 || x.size() != n * d)
         throw std::invalid_argument("classify_populations_hdbscan: x must be (n_rows, len(names))");
+    if (!width_floor.empty() && width_floor.size() != n * d)
+        throw std::invalid_argument("classify_populations_hdbscan: width_floor must be empty or (n_rows, len(names))");
     if (selection != "leaf" && selection != "eom")
         throw std::invalid_argument("classify_populations_hdbscan: selection must be 'leaf' or 'eom'");
 
@@ -145,7 +148,12 @@ PopulationSplit classify_populations_hdbscan(const std::vector<double>& x, int n
         std::copy_n(&z[sample[i] * d], d, &zs[static_cast<size_t>(i) * d]);
     const KDTree tree(zs.data(), m, d, KDTree::default_leaf_size(d));
     const std::vector<double> core = tree.core_distances(ms);
-    const Density dens = run_hdbscan(tree, core, m, mcs, selection);
+    // splits closer than `epsilon` median core distances are not taken: shot
+    // noise splits a population where it is dense, species part where it is sparse
+    std::vector<double> sorted_core(core);
+    std::nth_element(sorted_core.begin(), sorted_core.begin() + m / 2, sorted_core.end());
+    const double eps = epsilon > 0 ? epsilon * sorted_core[m / 2] : 0.0;
+    const Density dens = run_hdbscan(tree, core, m, mcs, selection, eps);
     const int k0 = static_cast<int>(dens.birth.size());
     if (k0 == 0) return fallback();
 
@@ -183,7 +191,8 @@ PopulationSplit classify_populations_hdbscan(const std::vector<double>& x, int n
     std::vector<double> w_(k0), mu_(static_cast<size_t>(k0) * d), sd_(static_cast<size_t>(k0) * d),
         miss_(static_cast<size_t>(k0) * d);
     auto describe = [&]() {
-        std::vector<double> cnt(k0, 0.0), fin(k0 * d, 0.0), sum(k0 * d, 0.0), sum2(k0 * d, 0.0);
+        std::vector<double> cnt(k0, 0.0), fin(k0 * d, 0.0), sum(k0 * d, 0.0), sum2(k0 * d, 0.0),
+            fl2(k0 * d, 0.0), nfl(k0 * d, 0.0);
         for (size_t b : rows) {
             const int c = label[b];
             if (c < 0) continue;
@@ -191,6 +200,8 @@ PopulationSplit classify_populations_hdbscan(const std::vector<double>& x, int n
             for (int j = 0; j < d; ++j) {
                 const double v = x[b * d + j];
                 if (std::isfinite(v)) fin[c * d + j] += 1, sum[c * d + j] += v, sum2[c * d + j] += v * v;
+                const double f = width_floor.empty() ? kNaN : width_floor[b * d + j];
+                if (std::isfinite(v) && std::isfinite(f)) fl2[c * d + j] += f * f, nfl[c * d + j] += 1;
             }
         }
         const double total = std::accumulate(cnt.begin(), cnt.end(), 0.0);
@@ -203,7 +214,11 @@ PopulationSplit classify_populations_hdbscan(const std::vector<double>& x, int n
                 if (f < 2) continue;
                 const double mu = sum[c * d + j] / f;
                 mu_[c * d + j] = mu;
-                sd_[c * d + j] = std::max(std::sqrt(std::max(sum2[c * d + j] / f - mu * mu, 0.0)), 1e-3 * wid[j]);
+                double sd = std::max(std::sqrt(std::max(sum2[c * d + j] / f - mu * mu, 0.0)), 1e-3 * wid[j]);
+                // no species is narrower than its shot noise (a leaf that cut a
+                // population in two is narrower than the population)
+                if (nfl[c * d + j] > 0) sd = std::max(sd, std::sqrt(fl2[c * d + j] / nfl[c * d + j]));
+                sd_[c * d + j] = sd;
             }
         }
     };
@@ -295,9 +310,25 @@ PopulationSplit classify_populations_hdbscan(const std::vector<double>& x, int n
         for (int c = 0; c < k0; ++c) fit.responsibilities[b * k0 + rank[c]] = std::exp(lp[c] - top) / norm;
     }
 
+    // a species is at least as wide as its shot noise: the members' rms floor
+    std::vector<double> floor_kd;
+    if (!width_floor.empty()) {
+        floor_kd.assign(static_cast<size_t>(k0) * d, 0.0);
+        std::vector<double> cnt(static_cast<size_t>(k0) * d, 0.0);
+        for (size_t b : rows) {
+            if (label[b] < 0) continue;
+            const size_t r = static_cast<size_t>(rank[label[b]]);
+            for (int j = 0; j < d; ++j) {
+                const double f = width_floor[b * d + j];
+                if (std::isfinite(f)) floor_kd[r * d + j] += f * f, cnt[r * d + j] += 1;
+            }
+        }
+        for (size_t i = 0; i < floor_kd.size(); ++i)
+            floor_kd[i] = cnt[i] > 0 ? std::sqrt(floor_kd[i] / cnt[i]) : kNaN;
+    }
     PopulationSplit out = afret_detail::split_from_components(fit, n_rows, names, donor_only_above,
                                                               acceptor_only_below, min_population,
-                                                              min_probability);
+                                                              min_probability, floor_kd);
     out.method = "hdbscan";
     out.noise.assign(n, 0);
     out.cluster_labels = fit.labels;

@@ -180,6 +180,14 @@ DimensionOutliers flag_dimension_outliers(
  * cluster and does not sum to one across them. From there the rules of
  * `classify_populations_nd` label, merge and purify, with the density label as
  * the hard label; noise bursts belong to no class and are marked in `noise`.
+ * Leaf selection also splits one broad population where its top is flat
+ * (shot noise); `width_floor` (n_rows, d; NaN where unknown), the per-burst
+ * shot-noise width of each dimension, floors the cluster widths in the
+ * same-species test, so two clusters closer than two shot-noise widths are
+ * merged -- no measurement resolves them. `auto_calibrate` passes
+ * sqrt(E(1-E)/N_Dex) for E and sqrt(S(1-S)/N) for S. `epsilon` (in median core
+ * distances; 0 off) is HDBSCAN's cluster_selection_epsilon, kept as an option:
+ * no single value suited both the synthetic and the cal1 data.
  * When HDBSCAN finds no cluster the Gaussian mixture is used instead.
  */
 PopulationSplit classify_populations_hdbscan(
@@ -187,7 +195,8 @@ PopulationSplit classify_populations_hdbscan(
     double donor_only_above = 0.75, double acceptor_only_below = 0.25,
     int min_population = 20, double min_probability = 0.9,
     double min_cluster_fraction = 0.02, int min_cluster_size = 0, int min_samples = 0,
-    int max_points = 10000, const std::string& selection = "leaf"
+    int max_points = 10000, const std::string& selection = "leaf", double epsilon = 0.0,
+    const std::vector<double>& width_floor = std::vector<double>()
 );
 
 } // namespace tttrlib

@@ -14,7 +14,7 @@ _AFRET_OPTION_KEYS = (
     "acceptor_only_below", "donor_lifetime", "min_probability", "max_components_nd",
     "species_factors", "sigma_model", "population_method", "hdbscan_min_cluster_fraction",
     "hdbscan_min_cluster_size", "hdbscan_min_samples", "hdbscan_max_points",
-    "hdbscan_selection", "remove_outliers", "outlier_es_lo", "outlier_es_hi",
+    "hdbscan_selection", "hdbscan_epsilon", "remove_outliers", "outlier_es_lo", "outlier_es_hi",
     "outlier_tau_max", "outlier_r_lo", "outlier_r_hi", "outlier_fence", "outlier_quantile", "e_min_significance",
 )
 

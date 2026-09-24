@@ -34,7 +34,8 @@ PopulationSplit classify_populations_nd(const std::vector<double>& x, int n_rows
 PopulationSplit afret_detail::split_from_components(const MixtureNdResult& fit, int n_rows,
                                                     const std::vector<std::string>& names,
                                                     double donor_only_above, double acceptor_only_below,
-                                                    int min_population, double min_probability) {
+                                                    int min_population, double min_probability,
+                                                    const std::vector<double>& width_floor) {
     const int d = static_cast<int>(names.size());
     const int k = fit.n_components;
     const int iS = index_of(names, "S"), iE = index_of(names, "E"), iT = index_of(names, "tau_d");
@@ -72,7 +73,12 @@ PopulationSplit afret_detail::split_from_components(const MixtureNdResult& fit, 
     auto distance = [&](int a, int b) {
         double q = 0.0;
         for (int j = 0; j < d; ++j) {
-            const double s2 = sigma(a, j) * sigma(a, j) + sigma(b, j) * sigma(b, j);
+            double s2 = sigma(a, j) * sigma(a, j) + sigma(b, j) * sigma(b, j);
+            if (!width_floor.empty()) {
+                const double fa = width_floor[static_cast<size_t>(a) * d + j];
+                const double fb = width_floor[static_cast<size_t>(b) * d + j];
+                if (std::isfinite(fa) && std::isfinite(fb)) s2 = std::max(s2, fa * fa + fb * fb);
+            }
             const double t = (centre(a, j) - centre(b, j)) * (centre(a, j) - centre(b, j)) / s2;
             if (std::isfinite(t)) q += t;  // a dimension a density cluster has no value in
         }

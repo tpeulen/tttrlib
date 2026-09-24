@@ -199,9 +199,29 @@ void update_lifetimes(AutoCalibration& s, const AutoCalibrateOptions& o) {
     s.line_efficiency = {1.0, 0.0};
 }
 
+// per-burst shot-noise width of S and E (binomial over the photons they are
+// made of; NaN for the other dimensions): no species is narrower
+std::vector<double> shot_noise_widths(const AutoCalibration& s, const EsResult& es,
+                                      const std::vector<std::string>& names) {
+    const size_t n = s.data_dd.size(), d = names.size();
+    std::vector<double> w(n * d, kNaN);
+    for (size_t j = 0; j < d; ++j) {
+        if (names[j] != "S" && names[j] != "E") continue;
+        for (size_t b = 0; b < n; ++b) {
+            const double dex = std::max(s.data_dd[b], 0.0) + std::max(s.data_da[b], 0.0);
+            const double tot = dex + (s.data_aa.empty() ? 0.0 : std::max(s.data_aa[b], 0.0));
+            const double v = names[j] == "S" ? es.S[b] : es.E[b];
+            const double p = std::min(std::max(v, 0.02), 0.98);
+            w[b * d + j] = std::sqrt(p * (1.0 - p) / std::max(names[j] == "S" ? tot : dex, 1.0));
+        }
+    }
+    return w;
+}
+
 // pre-clean the declared columns (outlier rows become all-missing, so no finder
 // sees them and no scale is taken from them), then the chosen finder
-PopulationSplit gate_dimensions(std::vector<double> x, int n, const AutoCalibrateOptions& o) {
+PopulationSplit gate_dimensions(std::vector<double> x, int n, const AutoCalibrateOptions& o,
+                                const std::vector<double>& floor) {
     const std::vector<std::string>& names = o.dimensions;
     const size_t d = names.size();
     DimensionOutliers out;
@@ -218,7 +238,8 @@ PopulationSplit gate_dimensions(std::vector<double> x, int n, const AutoCalibrat
         sp = classify_populations_hdbscan(x, n, names, o.donor_only_above, o.acceptor_only_below,
                                           o.min_population, o.min_probability,
                                           o.hdbscan_min_cluster_fraction, o.hdbscan_min_cluster_size,
-                                          o.hdbscan_min_samples, o.hdbscan_max_points, o.hdbscan_selection);
+                                          o.hdbscan_min_samples, o.hdbscan_max_points, o.hdbscan_selection,
+                                          o.hdbscan_epsilon, floor);
     } else if (o.population_method == "gmm") {
         sp = classify_populations_nd(x, n, names, o.donor_only_above, o.acceptor_only_below,
                                      o.max_components_nd, o.min_population, o.min_probability);
@@ -265,7 +286,8 @@ bool auto_calibrate_iterate(AutoCalibration& s, const AutoCalibrateOptions& o) {
         s.split = p;
     }
     if (!o.dimensions.empty()) {
-        s.split = gate_dimensions(dimension_matrix(s, es, o.dimensions, o), static_cast<int>(dd.size()), o);
+        s.split = gate_dimensions(dimension_matrix(s, es, o.dimensions, o), static_cast<int>(dd.size()), o,
+                                  shot_noise_widths(s, es, o.dimensions));
     } else if (alex) {
         s.split = classify_es_populations(es.S, es.E, o.donor_only_above, o.acceptor_only_below, 4,
                                           o.max_fret_populations, o.min_population);

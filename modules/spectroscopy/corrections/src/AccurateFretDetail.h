@@ -42,11 +42,13 @@ std::vector<double> finite_only(const std::vector<double>& x);
 
 // classify_populations_nd's labelling, merging and purity rules applied to any
 // set of components: `fit.labels` is the hard label per row (-1: in no
-// component), `fit.responsibilities` the (n_rows, k) probabilities
+// component), `fit.responsibilities` the (n_rows, k) probabilities;
+// `width_floor` (k, d) floors the widths of the same-species test (empty: none)
 PopulationSplit split_from_components(const MixtureNdResult& fit, int n_rows,
                                       const std::vector<std::string>& names,
                                       double donor_only_above, double acceptor_only_below,
-                                      int min_population, double min_probability);
+                                      int min_population, double min_probability,
+                                      const std::vector<double>& width_floor = std::vector<double>());
 
 } // namespace afret_detail
 } // namespace tttrlib
