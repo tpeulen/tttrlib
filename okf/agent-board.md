@@ -1932,11 +1932,12 @@ retired so nobody works the same thing twice.)*
   - Resume: chisurf okf/plugins/ndxplorer-emtk-port.md "Where to pick this up" / overlays (browser blocked on chisurf parameters needing IMP.bff).
 
 - **T-20260923-ndxparams · [ndxplorer+emtk] ndX parameter tables: edit bug, one shared table, ndX-own parameter model (works without chisurf)**
-  - Status: 🔄 in progress
+  - Status: ✅ done
   - Owner: opus-5.5/ndx-params
   - Opened: 2026-09-23 · Picked: 2026-09-23
   - Why: tpeulen "parameter edit does not work" (Gaussian Fit table) + "must work even without chisurf": ndX's constants, curves, Gaussians become ndX's own Parameter/ParameterGroup; chisurf FittingParameters are an optional mirror (Global View, links).
   - Touching: emtk `emtk/widgets/data_table.py` (+ test); ndxplorer NEW `core/parameters.py`, `core/chisurf_binding.py`, `app/parameter_table.py`; `core/{constants_group,curve_parameters,gaussian_parameters,overlay_curves}.py`, `analysis/{curve_fit,curve_fit_setup,gaussian_mixture}.py`, `app/features/{analysis,overlays,constant_rows}.py` + their view.json tables, Qt call sites that hand groups to chisurf widgets; chisurf `okf/plugins/ndxplorer-emtk-port.md`, `okf/log.md`.
+  - Progress: done. emtk 8e33b9e, 743319a, 8519acc; ndxplorer 4bca2ba, ab285d4, dae540c, fa4035d; chisurf 647f1f533 (OKF). Touching: released. Resume: chisurf okf/plugins/ndxplorer-emtk-port.md "Parameter tables" (next: fold the plugin's NdxConstants into ndX's chisurf_binding).
 
 - **T-20260923-ndxafret · [ndxplorer+chisurf] ndX emtk port: Accurate FRET UI (what the ChiSurf-hosted window adds)**
   - Status: ⏸ waiting (library API)
