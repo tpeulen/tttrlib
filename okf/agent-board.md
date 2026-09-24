@@ -1885,6 +1885,14 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
+- **T-20260924-embed · [tttrlib+ndxplorer] t-SNE and UMAP in tttrlib for segmentation; ndX drops umap-learn**
+  - Status: 🔄 in-progress
+  - Owner: opus-5.5/embedding
+  - Opened: 2026-09-24 · Picked: 2026-09-24 · Done: —
+  - Why: tpeulen: "implement t-SNE and UMAP in tttrlib for segmentation"; generic points API (burst tables and per-pixel features alike) plus an image helper; ndXplorer calls tttrlib instead of umap-learn (numba, no Pyodide). Non-parametric embeddings like k-means/HDBSCAN, not a learned model (AGENTS.md "ML-free").
+  - Done when: `modules/math` has exact + Barnes-Hut t-SNE and UMAP (exact kNN, fuzzy simplicial set, a/b fit, spectral init, negative-sampling SGD), seeded PCG32; Python/R/JS bindings + registry entry; A/B vs scikit-learn (joint P, KL) and umap-learn (fuzzy graph, a/b) from recorded fixtures, trustworthiness vs both; image-pixel helper; docs; ndXplorer's UMAP runs through tttrlib.
+  - Touching: tttrlib `modules/math/{include/Embedding.h,src/Tsne.cpp,src/Umap.cpp,src/Embedding.cpp,README.md,CMakeLists.txt}`, `ext/python/{Embedding.i,Embedding.py,tttrlib.i,split/mod_kernels.i}`, `ext/{r,js}/tttrlib.i`, `tools/binding_parity_exceptions.txt`, `test/python/misc/test_embedding*.py`, `test/data/reference/embedding_reference.npz`, CHANGELOG, okf/log.md; chisurf `modules/ndxplorer/ndxplorer/ui/clustering_dialog.py` + its UMAP path.
+
 - **T-20260924-sep · [ndxplorer] Find informative projections ranks population separation (density valleys), not correlation**
   - Status: ✅ done
   - Owner: opus-5.5/62a3ae40-sep
