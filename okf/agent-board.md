@@ -125,26 +125,43 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
-- **T-20260924-01 · [imp.bff] TODO: greedy Olga (FRET network selection) chooses pairs that also resolve the dynamics — the transitions, not only the static states**
+- **T-20260924-01 · [imp.bff] TODO: greedy Olga (FRET network selection) picks the pairs that resolve the *path* — structure, kinetics and route — not only the static states**
   - Status: 🆕 open
   - Owner: —
   - Opened: 2026-09-24 · Picked: — · Done: —
-  - Why: owner request (2026-09-24). Greedy Olga (`ProbePairSelection`,
-    `select_informative_pairs` / `select_informative_sites`) scores a pair set
-    by how well it separates the *structures* in an ensemble. It does not
-    reward pairs that tell different *transitions* apart. Two pairs can both
-    separate A from B while seeing the same exchange, and the network then
-    reports one kinetic observable twice. Examples of what gets missed: which
-    step of A→B→C a pair reports on, whether an exchange falls into the
-    sub-ms window (dynamic shift, fluctuations inside a burst), and pairs whose
-    FRET changes along *different* transition coordinates.
-  - Done when: the selector can take a transition model (states plus a
-    rate/connectivity matrix, or the per-transition distance changes) and
-    adds a dynamics term to the greedy score. That term rewards pairs whose
-    ΔE (or Δ⟨R⟩) vectors over transitions are large and not collinear with the
-    pairs already picked. It is off by default, and with it off the selection
-    is unchanged. A test on a three-state synthetic system picks a pair set that
-    resolves both transitions where the static-only score resolves just one.
+  - Why: owner request (2026-09-24). What a FRET network has to resolve is the
+    **path**, the trajectory x(t) through structure space: *where* it goes
+    (structure), *when* (kinetics), *which way* (order, route). Greedy Olga
+    (`ProbePairSelection`, `select_informative_pairs` /
+    `select_informative_sites`) scores only the static levels, the points the
+    path visits. A pair doesn't see a structure. It sees the path projected
+    onto its own FRET coordinate, E_pair(t), and a burst time-averages that
+    projection. Two pairs can both separate A from B while projecting the same
+    exchange, so the network sees one segment of the path twice and another
+    not at all. It also misses which step of A→B→C a pair reports on, whether
+    a segment falls in the burst time window, and routes with the same
+    endpoints (A→B via I₁ vs. I₂).
+  - Criterion (owner-agreed direction): score a pair set P by the mutual
+    information between the hidden path and the photons, I_P(X; D) =
+    H(X) − H(X | D). For discrete states, H(X | D) is the entropy of the
+    posterior path of the photon-by-photon HMM `FRETNetworkModel` already
+    evaluates (Gopich–Szabo / H2MM), exact by one forward–backward pass,
+    expected over simulated bursts. Fast inner-loop proxy: D-optimal Fisher
+    information over θ = (structure s, rates k), log det F = log det F_ss +
+    log det (F_kk − F_ks F_ss⁻¹ F_sk). The Schur term credits a pair toward the
+    kinetics only once the states it separates are structurally pinned down.
+    Average over the prior (Olga's ensemble, broad rate prior) rather than
+    designing for one guess. The continuous landscape (Onsager–Machlup path
+    action) comes after the discrete case works. Full note (local, since
+    `prototypes/` is gitignored):
+    `imp.bff/prototypes/kinetic_networks/investigations/pair_selection_path_ensembles.md`.
+  - Done when: the selector takes a hidden process (states + rate matrix, via
+    `FRETHiddenProcess`) and selects by the path criterion. Without one, the
+    selection is unchanged. Test: a three-state system with two routes
+    (A⇌B⇌C plus A⇌C), known structures and rates, equal-size selections by
+    static-only, rates-only and path score; bursts simulated for each set and
+    fitted with `FRETNetworkModel`. The path set recovers the structures (RMSD),
+    every rate, and the route fluxes; neither other set matches it on all three.
   - Touching: `imp.bff/include/ProbePairSelection.h`,
     `imp.bff/src/ProbePairSelection.cpp`,
     `imp.bff/pyext/include/IMP_bff.probepairselection.i`,
