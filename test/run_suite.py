@@ -67,17 +67,24 @@ def split_jobs(argv):
 
 def run_group(name, targets, argv):
     """One pytest session, output captured so it can be printed in one piece."""
+    # UTF-8 both ways: on Windows a piped child writes cp1252, and the first
+    # non-cp1252 character in the FAILURES section (an em dash in a docstring)
+    # ended the output right after "[100%]" -- every traceback lost.
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", *argv, *targets],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        encoding="utf-8",
         errors="replace",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
     )
     return name, proc.returncode, proc.stdout
 
 
 def main(argv):
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")   # never lose a log to one glyph
     argv, jobs = split_jobs(argv)
     work = list(groups())
     failed = []
