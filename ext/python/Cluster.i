@@ -121,6 +121,8 @@ def hdbscan(x, min_cluster_size=5, min_samples=None, alpha=1.0,
     x
         Row per sample. Scale the columns first — the distance is Euclidean, so
         an unstandardised feature with a wide range decides the clustering.
+        A row holding a NaN or an infinity has no distance to anything; it is
+        left out of the fit and labelled noise (``-1``, probability ``0``).
     min_cluster_size
         Fewer points than this is not a cluster but a fragment falling out of
         one.
@@ -183,6 +185,23 @@ def hdbscan(x, min_cluster_size=5, min_samples=None, alpha=1.0,
         raise ValueError("hdbscan: at least two points are required")
     if min_samples is None:
         min_samples = min_cluster_size
+
+    # A non-finite coordinate poisons every distance it enters, and the k-d
+    # tree then silently merges the whole table into one cluster. Such a row
+    # has no density to be clustered by, so it is noise, and the rest is
+    # clustered without it.
+    finite = _np.isfinite(x).all(axis=1)
+    if not finite.all():
+        labels = _np.full(n_points, -1, dtype=_np.int64)
+        strength = _np.zeros(n_points)
+        if int(finite.sum()) < 2:
+            return HdbscanResult(labels, strength, _np.ones(0))
+        inner = hdbscan(x[finite], min_cluster_size, min_samples, alpha,
+                        cluster_selection_method, allow_single_cluster,
+                        cluster_selection_epsilon, max_cluster_size)
+        labels[finite] = inner.labels
+        strength[finite] = inner.probabilities
+        return HdbscanResult(labels, strength, inner.persistence)
 
     mst = _np.asarray(mutual_reachability_mst(x, int(min_samples), float(alpha)))
     parent, child, lam, size = hdbscan_condensed_tree(

@@ -418,5 +418,32 @@ class TestWhatPersistenceDoesAndDoesNotSay(unittest.TestCase):
                                 "a pure population that splits further")
 
 
+class TestNonFiniteRows(unittest.TestCase):
+    """A row with a NaN or an infinity has no density: it is noise, not a merge."""
+
+    def _blobs(self):
+        rng = np.random.default_rng(7)
+        return np.vstack([rng.normal(i * 3.0, 0.4, (n, 2))
+                          for i, n in enumerate((200, 180, 120))])
+
+    def test_non_finite_rows_are_noise_and_the_rest_is_unchanged(self):
+        x = self._blobs()
+        clean = tttrlib.hdbscan(x, min_cluster_size=10)
+        dirty = np.vstack([x, [[np.nan, 0.0], [np.inf, 1.0], [0.0, -np.inf]]])
+        result = tttrlib.hdbscan(dirty, min_cluster_size=10)
+        np.testing.assert_array_equal(result.labels[-3:], [-1, -1, -1])
+        np.testing.assert_array_equal(result.probabilities[-3:], [0.0, 0.0, 0.0])
+        np.testing.assert_array_equal(result.labels[:-3], clean.labels)
+        np.testing.assert_array_equal(result.probabilities[:-3], clean.probabilities)
+        np.testing.assert_array_equal(result.persistence, clean.persistence)
+        self.assertEqual(int(result.labels.max()) + 1, 3)
+
+    def test_fewer_than_two_finite_rows_is_all_noise(self):
+        x = np.array([[np.nan, 0.0], [1.0, 1.0], [np.inf, 2.0]])
+        result = tttrlib.hdbscan(x, min_cluster_size=2)
+        np.testing.assert_array_equal(result.labels, [-1, -1, -1])
+        self.assertEqual(result.persistence.size, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
