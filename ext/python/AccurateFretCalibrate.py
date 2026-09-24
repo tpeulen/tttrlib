@@ -12,8 +12,17 @@ _AFRET_OPTION_KEYS = (
     "gamma_source", "n_iterations", "tolerance", "n_bootstrap", "seed", "use_priors",
     "assume_one_to_one", "min_population", "max_fret_populations", "donor_only_above",
     "acceptor_only_below", "donor_lifetime", "min_probability", "max_components_nd",
-    "species_factors", "sigma_model",
+    "species_factors", "sigma_model", "population_method", "hdbscan_min_cluster_fraction",
+    "hdbscan_min_cluster_size", "hdbscan_min_samples", "hdbscan_max_points",
+    "hdbscan_selection", "hdbscan_epsilon", "remove_outliers", "outlier_es_lo", "outlier_es_hi",
+    "outlier_tau_max", "outlier_r_lo", "outlier_r_hi", "outlier_fence", "outlier_quantile", "e_min_significance",
 )
+
+#: The population finders of the multidimensional gating (``population_method``).
+AFRET_POPULATION_METHODS = {
+    "hdbscan": "HDBSCAN (density-based; clusters of any shape, sparse bursts are noise)",
+    "gmm": "Gaussian mixture (BIC-selected, diagonal covariances)",
+}
 
 #: The declared per-burst dimensions the multidimensional gating understands:
 #: name -> (column keys accepted in ``columns``, meaning). "S" and "E" are
@@ -87,6 +96,7 @@ def _afret_calibration_dict(st):
         "estimated": {"alpha": bool(st.estimated_alpha), "delta": bool(st.estimated_delta),
                       "gamma": bool(st.estimated_gamma)},
         "split": _afret_split_dict(st.split) if st.has_split else None,
+        "outliers": _afret_outliers_dict(st.split) if st.has_split else None,
         "tau_d0": float(st.tau_d0),
         "tau_a": float(st.tau_a),
         "dimensions": list(st.split.dimensions) if st.has_split else [],
@@ -97,6 +107,18 @@ def _afret_calibration_dict(st):
         "cancelled": bool(st.cancelled),
         "messages": list(st.messages),
     }
+
+
+def _afret_outliers_dict(r):
+    """The pre-cleaning of the gating dimensions: ``None`` when it did not run."""
+    np = _afret_np()
+    if not len(r.outlier):
+        return None
+    mask = np.asarray(r.outlier, dtype=bool)
+    by = {str(name): {"range": int(a), "fence": int(b), "lo": float(lo), "hi": float(hi)}
+          for name, a, b, lo, hi in zip(r.outlier_dimensions, r.outlier_range, r.outlier_fence,
+                                        r.outlier_lo, r.outlier_hi)}
+    return {"n": int(mask.sum()), "mask": mask, "by_dimension": by}
 
 
 def auto_calibrate(columns, constants=None, options=None, progress=None):
@@ -125,6 +147,15 @@ def auto_calibrate(columns, constants=None, options=None, progress=None):
         ``n_iterations``, ``tolerance``, ``n_bootstrap``, ``seed``,
         ``use_priors``, ``assume_one_to_one``, ``min_population``,
         ``max_fret_populations``, ``donor_only_above``, ``acceptor_only_below``,
+        ``dimensions`` (gating dimensions, see ``AFRET_DIMENSIONS``),
+        ``population_method`` ("hdbscan" or "gmm": the finder of the
+        multidimensional gating), ``hdbscan_min_cluster_fraction``,
+        ``hdbscan_min_cluster_size``, ``hdbscan_min_samples`` (0: automatic),
+        ``hdbscan_max_points``, ``hdbscan_selection`` ("leaf" or "eom"),
+        ``remove_outliers`` and its limits ``outlier_es_lo``/``outlier_es_hi``,
+        ``outlier_tau_max``, ``outlier_r_lo``/``outlier_r_hi``,
+        ``outlier_fence`` and ``outlier_quantile`` (fence beyond the quantile range),
+        ``e_min_significance``,
         ``line`` (static FRET line, ``(tau_f, E)`` or an object with those
         attributes), ``bounds`` (``{"gamma": (lo, hi), ...}``) and
         ``bootstrap_indices``: a callable ``draw(size) -> positions`` used for
@@ -140,7 +171,9 @@ def auto_calibrate(columns, constants=None, options=None, progress=None):
         ``factors``, ``uncertainties`` (NaN when not estimated),
         ``gamma_estimates`` (``es``, ``lifetime``, ``prior``, ``data``,
         ``posterior``), ``estimated`` (which factors the data identified),
-        ``split`` (masks, FRET labels, cuts), ``populations``, ``iterations``,
+        ``split`` (masks, FRET labels, cuts; ``noise`` for HDBSCAN),
+        ``outliers`` (``{"n", "mask", "by_dimension": {dim: {"range", "fence",
+        "lo", "hi"}}}``, ``None`` without dimensions), ``populations``, ``iterations``,
         ``converged``, ``cancelled`` and ``messages``.
     """
     constants = dict(constants or {})

@@ -136,6 +136,76 @@ population: gamma, beta, sigma, `pooled` flags), `model_selection` (`bic_shared`
 known lifetimes (recovered within uncertainty); a shared-gamma dataset (no
 species factors invented, BIC keeps the shared model); the cal1 .pto.
 
+## Extension (tpeulen, 2026-09-24): density-based populations, outlier pre-cleaning
+
+"For population identification, do sth like hdbscan"; "outlier must be
+removed prior to dim scaling." Applies to the multidimensional gating
+(`dimensions` declared); the stoichiometry-only path is the A/B-pinned port and
+is unchanged.
+
+**Order.** (1) Per-dimension outliers, before any scale is computed
+(`flag_dimension_outliers`): the physical range (S, E in [-0.2, 1.2];
+lifetimes in (0, 20] ns; anisotropies in [-0.5, 1] -- the range of the
+estimator; +-inf everywhere), then for every dimension except S and E a
+fence one 95%-range beyond the 2.5%/97.5% quantiles of what passed. Not a
+Tukey (quartile) fence: the columns are multimodal, and on the synthetic MFD
+set a 3-IQR fence around the dominant FRET lifetime flagged all 500
+donor-only bursts; any population above 2.5% of the bursts is inside the
+quantile range. S and E get no fence: they are bounded. NaN is *missing*, not an outlier (a
+donor-only burst has no acceptor lifetime). E is also missing when the
+donor-excitation signal gamma F_dd + F_da is not 2 sigma above its Poisson
+error: acceptor-only E is noise over noise, and cutting on its value would
+select acceptor-only bursts by i_da, which is what delta is estimated from.
+Flagged bursts are in no class and out of every estimator, still get corrected
+E/S with the global factors, and are reported (`result["outliers"]`: count,
+mask, per dimension `range`/`fence` counts and the fence) separately from
+HDBSCAN noise. Both finders see the same cleaned table. (2) Scales from the
+inliers only. (3) The finder, `population_method`:
+
+- **"hdbscan"** (default): tttrlib's HDBSCAN (modules/math, Cluster.h, the
+  A/B-verified kernels) over the columns centred on their median and scaled by
+  IQR/1.349. A missing value sits on a sentinel three widths below the column,
+  so "has no acceptor lifetime" is a coordinate, not a hole. Cluster selection
+  is **leaf**: FRET species joined by bleaching/blinking/dynamics bridges nest
+  inside each other in the density tree and excess of mass keeps only the
+  parent (on cal1 S+E, EOM returned 2 clusters -- acceptor-only and
+  "everything else" -- at every setting; leaf returned the five species).
+  min_cluster_size = max(10, 2% of the clustered bursts), min_samples = the
+  same (options override both). At most 10 000 bursts are clustered (an even
+  stride); the others join the cluster of the sampled burst they reach first in
+  mutual-reachability distance among their 10 nearest, if within that
+  cluster's birth distance, else noise. HDBSCAN claims the density *core*;
+  the tails of a shot-noise-broadened population, which population means need,
+  are reclaimed: an unclaimed burst joins its most likely cluster inside that
+  cluster's 99.9% ellipsoid (three rounds). Leaf selection also cuts one
+  population in two where its top is flat; cluster widths are floored at the
+  members' shot-noise width (sqrt(E(1-E)/N_Dex), sqrt(S(1-S)/N)), so clusters
+  closer than two shot-noise widths merge -- no measurement resolves them.
+  (A relative-depth rule, lambda_birth vs lambda_peak, and
+  cluster_selection_epsilon in median core distances were tried: cal1's real
+  species, joined by dense bridges, looked like fragments under both; epsilon
+  stays an option, default off.) What is left (-1) is noise: in no class, out
+  of alpha/delta/gamma/beta and species factors, corrected with the global
+  ones.
+- **"gmm"**: the BIC-selected diagonal Gaussian mixture of Extension E1.
+
+**Classes.** One rule set for both finders: donor-only = cluster(s) centred at
+S >= 0.75 (with tau_d: centre >= 90% of the longest donor-only one, i.e.
+tau_D ~ tau_D(0); a shorter high-S cluster is in no class), acceptor-only =
+S <= 0.25, FRET = the rest, each a separate FRET population for the 1/S vs E
+fit and species gamma (clusters closer than two pooled widths merged, as for
+the mixture). Reference-class purity (>= 0.9) is the probability summed over
+the class's clusters.
+
+**Soft assignment.** Per-cluster diagonal Gaussians (members' mean and width;
+a missing value has the members' missing fraction as its likelihood) give the
+probabilities for `species.assignment` and the `P(FRET n)` columns. Not the
+HDBSCAN membership strength: it is lambda_point / lambda_death *within* a
+cluster (Cluster.h), reaches 1 in every cluster however diffuse and does not
+sum to 1 across clusters, while the species fit needs P(species | burst). The
+hard label stays the density label; the strength is returned as
+`split["membership"]`.
+
 ## Criteria
 
 1. Kernels above in C++, SWIG-exposed, tests green on the arm64 build.
@@ -231,6 +301,40 @@ species factors invented, BIC keeps the shared model); the cal1 .pto.
   plumbing in `test_registry_completeness.py`. Two failures in the registry
   suites predate this branch (`can_compress`/`can_decompress` from ptolib,
   `Correlator` missing from the API index of the split build).
+
+- **Extension E3, HDBSCAN populations + outlier pre-cleaning (2026-09-24):**
+  `classify_populations_hdbscan`, `flag_dimension_outliers`,
+  `auto_calibrate(options={"population_method": "hdbscan"|"gmm", "hdbscan_*",
+  "remove_outliers", "outlier_*", "e_min_significance"})`, `result["outliers"]`,
+  `split["noise"|"outlier"|"cluster_labels"|"membership"]`. Default
+  `population_method = "hdbscan"` (multidimensional gating only). Synthetic
+  (D-only 500, A-only 400, FRET E = 0.2/0.5/0.8 x 1500, 300 background
+  bursts; S+E; 3 seeds): HDBSCAN 3 species every time, species confusion
+  < 5% (label purity 0.94-0.99 vs 0.83-0.99 for the mixture), gamma within
+  1.7% (mixture 1.2%), beta 0.896-0.903 (truth 0.9; mixture 0.872-0.878),
+  alpha/delta within 0.001, 43-52% of the background bursts in a class (the
+  mixture: 100%), 0.15 s vs 0.8-1.1 s. Donor-only purity 0.988-0.996 (the
+  mixture 1.0: a few background bursts at high S). With lifetimes: equal-E
+  species split by tau_d, tau_D(0)/tau_A within 0.05 ns, species gamma
+  (0.6, 1.2) within 8%, the P(FRET n) rows sum to 1 on FRET bursts and are 0
+  elsewhere. Outliers: 60-150 bursts with tau_d = 1e3-1e5 ns: all flagged
+  (fence), in no class, not noise; without the pre-cleaning the mixture
+  puts them in the acceptor-only class and merges the two equal-E species;
+  HDBSCAN's IQR scale is not stretched by them either (they end as noise).
+  The E-missing rule: without it 15 of 400 acceptor-only bursts were
+  flagged as E outliers. cal1 (44 270 bursts, ndX defaults, background
+  "fit", 10 resamples; no lifetime columns in the file): S-only path
+  unchanged, gamma 0.7502 alpha 0.1570 beta 1.0599 delta 0.0674, 2 FRET
+  populations (E 0.335, 0.937: the 33 bp and 18 bp species merged), 4.2 s.
+  S+E HDBSCAN: 3 FRET populations at E 0.074 / 0.497 / 0.925 (33/18/8 bp),
+  all at S 0.49-0.52, gamma 0.7386 alpha 0.1542 beta 1.1641 delta 0.0580,
+  210 noise + 344 outliers, 3.0 s whole ndX run (one gating call 0.42 s;
+  without subsampling 2.95 s per call, 19.4 s per run, gamma 0.7232).
+  S+E mixture: 3 populations at S 0.58/0.47/0.50 (S depends on E: gamma is
+  off), donor-only class empty, gamma 0.3548 beta 1.2449, 45.1 s. EOM
+  selection on cal1: one FRET cluster (gamma not identifiable).
+  `test_accurate_fret_hdbscan.py`, 11 cases; the multidimensional and
+  species tests run both finders.
 
 - **Stage 6, wheels (2026-09-23):** arm64 wheel built with the given `pip
   wheel` command and installed with `pip install --force-reinstall` (no dylib

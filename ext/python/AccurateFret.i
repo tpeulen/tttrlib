@@ -38,6 +38,9 @@
 %rename(_afret_gaussian_mixture_nd) tttrlib::gaussian_mixture_nd;
 %rename(_afret_best_gaussian_mixture_nd) tttrlib::best_gaussian_mixture_nd;
 %rename(_afret_classify_populations_nd) tttrlib::classify_populations_nd;
+%rename(_afret_classify_populations_hdbscan) tttrlib::classify_populations_hdbscan;
+%rename(_afret_flag_dimension_outliers) tttrlib::flag_dimension_outliers;
+%rename(FretDimensionOutliers) tttrlib::DimensionOutliers;
 %rename(_afret_auto_calibrate_set_dimensions) tttrlib::auto_calibrate_set_dimensions;
 %rename(_afret_species_factors) tttrlib::species_factors;
 %rename(_afret_rcm_from_dye_solutions) tttrlib::rcm_from_dye_solutions;

@@ -86,3 +86,75 @@ def classify_populations_nd(columns, names=None, *, donor_only_above=0.75,
                                        int(max_components), int(min_population),
                                        float(min_probability))
     return _afret_split_dict(r)
+
+
+def _afret_named_matrix(columns, names):
+    np = _afret_np()
+    if hasattr(columns, "keys"):
+        names = list(names or columns.keys())
+        m = np.stack([np.asarray(columns[k], dtype=float).ravel() for k in names], axis=1)
+    else:
+        m, _, _ = _afret_matrix(columns)
+        names = list(names)
+    return m, names
+
+
+def classify_populations_hdbscan(columns, names=None, *, donor_only_above=0.75,
+                                 acceptor_only_below=0.25, min_population=20,
+                                 min_probability=0.9, min_cluster_fraction=0.02,
+                                 min_cluster_size=0, min_samples=0, max_points=10000,
+                                 selection="leaf", epsilon=0.0, width_floor=None):
+    """Donor-only, acceptor-only and FRET bursts by density-based clustering (HDBSCAN).
+
+    Columns as in :func:`classify_populations_nd`. Each column is centred on
+    its median and scaled by its robust width (IQR / 1.349); missing values
+    sit on a sentinel below the column. At most ``max_points`` bursts are
+    clustered (an even stride), the rest join a cluster through their nearest
+    clustered neighbours. ``min_cluster_size``/``min_samples`` of 0 mean
+    ``max(10, min_cluster_fraction * clustered bursts)``. Assignment
+    probabilities come from per-cluster Gaussians; ``width_floor`` (the
+    shape of the columns, NaN where unknown) is each burst's shot-noise width,
+    the least width of a species in the same-species merge. Assignment
+    probabilities come from per-cluster Gaussians (HDBSCAN's membership strength
+    is a rank within one cluster, returned as ``"membership"``).
+
+    Returns
+    -------
+    dict
+        As :func:`classify_populations_nd`, plus ``"noise"`` (bursts HDBSCAN
+        left unclaimed: in no class), ``"cluster_labels"`` and ``"membership"``.
+    """
+    m, names = _afret_named_matrix(columns, names)
+    r = _afret_classify_populations_hdbscan(
+        _afret_vec(m), int(m.shape[0]), VectorString(names), float(donor_only_above),
+        float(acceptor_only_below), int(min_population), float(min_probability),
+        float(min_cluster_fraction), int(min_cluster_size), int(min_samples), int(max_points),
+        str(selection), float(epsilon),
+        [] if width_floor is None else _afret_vec(_afret_np().asarray(width_floor, dtype=float).reshape(m.shape)))
+    return _afret_split_dict(r)
+
+
+def flag_dimension_outliers(columns, names=None, *, es_lo=-0.2, es_hi=1.2, tau_max=20.0,
+                            r_lo=-0.5, r_hi=1.0, fence=1.0, quantile=0.025):
+    """Per-dimension outliers of the gating columns, before any scaling.
+
+    Physical range first (S/E in ``[es_lo, es_hi]``, lifetimes in ``(0, tau_max]``,
+    anisotropies in ``[r_lo, r_hi]``, +-inf always), then, except for S and E,
+    the fence ``[q_lo - fence w, q_hi + fence w]`` (``q_lo``/``q_hi`` the
+    ``quantile``/``1 - quantile`` quantiles of what passed, ``w = q_hi - q_lo``).
+    NaN is a missing value, not an outlier.
+
+    Returns
+    -------
+    dict
+        ``{"n", "mask", "by_dimension": {dim: {"range", "fence", "lo", "hi"}}}``.
+    """
+    np = _afret_np()
+    m, names = _afret_named_matrix(columns, names)
+    r = _afret_flag_dimension_outliers(_afret_vec(m), int(m.shape[0]), VectorString(names),
+                                       float(es_lo), float(es_hi), float(tau_max), float(r_lo),
+                                       float(r_hi), float(fence), float(quantile))
+    mask = np.asarray(r.outlier, dtype=bool)
+    by = {str(nm): {"range": int(a), "fence": int(b), "lo": float(lo), "hi": float(hi)}
+          for nm, a, b, lo, hi in zip(r.dimensions, r.n_range, r.n_fence, r.lo, r.hi)}
+    return {"n": int(mask.sum()), "mask": mask, "by_dimension": by}

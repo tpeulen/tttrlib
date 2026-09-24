@@ -266,7 +266,7 @@ def _afret_split_dict(r):
     fret_labels = np.asarray(r.fret_labels, dtype=int)
     fret = np.asarray(r.fret, dtype=bool)
     n_fret = int(r.n_fret_populations)
-    if len(r.component_means) and str(r.method) == "mixture_nd":
+    if len(r.component_means) and str(r.method) in ("mixture_nd", "hdbscan"):
         d = len(r.dimensions)
         components = {
             "dimensions": list(r.dimensions),
@@ -287,7 +287,13 @@ def _afret_split_dict(r):
         "components": components,
         "fret_probabilities": (np.asarray(r.fret_probabilities, dtype=float).reshape(-1, n_fret)
                                if n_fret else None),
+        "noise": np.asarray(r.noise, dtype=bool) if len(r.noise) else None,
+        "outlier": np.asarray(r.outlier, dtype=bool) if len(r.outlier) else None,
+        "cluster_labels": np.asarray(r.cluster_labels, dtype=int) if len(r.cluster_labels) else None,
+        "membership": np.asarray(r.membership, dtype=float) if len(r.membership) else None,
         "counts": {
+            "noise": int(np.count_nonzero(r.noise)) if len(r.noise) else 0,
+            "outlier": int(np.count_nonzero(r.outlier)) if len(r.outlier) else 0,
             "donor_only": int(donor_only.sum()),
             "acceptor_only": int(acceptor_only.sum()),
             "fret": int(fret.sum()),

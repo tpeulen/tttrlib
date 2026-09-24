@@ -30,7 +30,23 @@ const char* const kAccurateFretEntry = R"JSON({
       "min_probability": {"type": "number", "title": "reference-class purity", "minimum": 0, "maximum": 1, "default": 0.9},
       "max_components_nd": {"type": "integer", "title": "most mixture components (multidimensional)", "minimum": 1, "default": 6},
       "species_factors": {"type": "boolean", "title": "test species-specific gamma", "default": true},
-      "sigma_model": {"type": "number", "title": "model error floor", "minimum": 0, "default": 0.01}
+      "sigma_model": {"type": "number", "title": "model error floor", "minimum": 0, "default": 0.01},
+      "population_method": {"type": "string", "title": "population finder (multidimensional gating)", "enum": ["hdbscan", "gmm"], "enumTitles": ["HDBSCAN", "Gaussian mixture"], "default": "hdbscan"},
+      "hdbscan_min_cluster_fraction": {"type": "number", "title": "HDBSCAN smallest cluster, fraction of clustered bursts", "exclusiveMinimum": 0, "maximum": 0.5, "default": 0.02},
+      "hdbscan_min_cluster_size": {"type": "integer", "title": "HDBSCAN smallest cluster (bursts), 0 from the fraction", "minimum": 0, "default": 0},
+      "hdbscan_min_samples": {"type": "integer", "title": "HDBSCAN density neighbours, 0 = smallest cluster", "minimum": 0, "default": 0},
+      "hdbscan_max_points": {"type": "integer", "title": "HDBSCAN most bursts clustered (rest assigned)", "minimum": 0, "default": 10000},
+      "hdbscan_selection": {"type": "string", "title": "HDBSCAN cluster selection", "enum": ["leaf", "eom"], "default": "leaf"},
+      "hdbscan_epsilon": {"type": "number", "title": "HDBSCAN: no split closer than this many median core distances, 0 off", "minimum": 0, "default": 0.0},
+      "remove_outliers": {"type": "boolean", "title": "remove outliers before scaling the gating dimensions", "default": true},
+      "outlier_es_lo": {"type": "number", "title": "S and E below this are outliers", "default": -0.2},
+      "outlier_es_hi": {"type": "number", "title": "S and E above this are outliers", "default": 1.2},
+      "outlier_tau_max": {"type": "number", "title": "lifetimes above this (ns) are outliers", "exclusiveMinimum": 0, "default": 20.0},
+      "outlier_r_lo": {"type": "number", "title": "anisotropies below this are outliers", "default": -0.5},
+      "outlier_r_hi": {"type": "number", "title": "anisotropies above this are outliers", "default": 1.0},
+      "outlier_fence": {"type": "number", "title": "outlier fence beyond the quantile range (range multiples) for lifetimes and anisotropies, 0 off", "minimum": 0, "default": 1.0},
+      "outlier_quantile": {"type": "number", "title": "quantile range of the outlier fence (q, 1 - q)", "minimum": 0, "maximum": 0.5, "default": 0.025},
+      "e_min_significance": {"type": "number", "title": "E missing below this donor-signal significance (sigma), 0 off", "minimum": 0, "default": 2.0}
     }
   },
   "inputs": {
@@ -46,13 +62,15 @@ const char* const kAccurateFretEntry = R"JSON({
     {"type": "journal", "authors": "Hellenkamp, B. et al.", "title": "Precision and accuracy of single-molecule FRET measurements -- a multi-laboratory benchmark study", "journal": "Nat Methods", "year": 2018, "volume": "15", "pages": "669-676"},
     {"type": "journal", "authors": "Lee, N. K., Kapanidis, A. N., Wang, Y., Michalet, X., Mukhopadhyay, J., Ebright, R. H., Weiss, S.", "title": "Accurate FRET measurements within single diffusing biomolecules using alternating-laser excitation", "journal": "Biophys J", "year": 2005, "volume": "88", "pages": "2939-2953"},
     {"type": "journal", "authors": "Kalinin, S., Valeri, A., Antonik, M., Felekyan, S., Seidel, C. A. M.", "title": "Detection of structural dynamics by FRET: a photon distribution and fluorescence lifetime analysis of systems with multiple states", "journal": "J Phys Chem B", "year": 2010, "volume": "114", "pages": "7983-7995"},
+    {"type": "conference", "authors": "Campello, R. J. G. B., Moulavi, D., Sander, J.", "title": "Density-based clustering based on hierarchical density estimates", "journal": "PAKDD 2013, LNCS", "year": 2013, "volume": "7819", "pages": "160-172"},
     {"type": "journal", "authors": "Sisamakis, E., Valeri, A., Kalinin, S., Rothwell, P. J., Seidel, C. A. M.", "title": "Accurate single-molecule FRET studies using multiparameter fluorescence detection", "journal": "Methods Enzymol", "year": 2010, "volume": "475", "pages": "455-514"}
   ],
   "api": [
     "auto_calibrate", "accurate_fret", "corrected_es", "apparent_es", "corrected_es_matrix",
     "corrected_es_general", "classify_es_populations", "classify_populations_nd",
     "gaussian_mixture_1d", "gaussian_mixture_nd", "best_gaussian_mixture_1d",
-    "best_gaussian_mixture_nd", "split_fret_subpopulations", "global_es_correction",
+    "best_gaussian_mixture_nd", "classify_populations_hdbscan", "flag_dimension_outliers",
+    "split_fret_subpopulations", "global_es_correction",
     "gamma_from_lifetime", "beta_from_stoichiometry", "leakage_from_donor_only",
     "direct_excitation_from_acceptor_only", "efficiency_uncertainty",
     "distance_from_efficiency", "refine_gamma", "species_factors",

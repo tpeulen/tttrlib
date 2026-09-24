@@ -134,7 +134,8 @@ std::vector<int> es_fit_groups(const std::vector<int>& labels, const std::vector
 
 // the (n, d) matrix of the declared dimensions for this pass
 std::vector<double> dimension_matrix(const AutoCalibration& s, const EsResult& es,
-                                     const std::vector<std::string>& names) {
+                                     const std::vector<std::string>& names,
+                                     const AutoCalibrateOptions& o) {
     const size_t n = s.data_dd.size(), d = names.size(), m = s.extra_names.size();
     std::vector<double> x(n * d);
     for (size_t j = 0; j < d; ++j) {
@@ -146,10 +147,17 @@ std::vector<double> dimension_matrix(const AutoCalibration& s, const EsResult& e
             throw std::invalid_argument("auto_calibrate: no column for dimension '" + name + "'");
         for (size_t b = 0; b < n; ++b) {
             double v = name == "S" ? es.S[b] : name == "E" ? es.E[b] : s.data_extra[b * m + e];
-            // a ratio of near-empty channels (E of an acceptor-only burst after the
-            // delta correction) is noise over noise; its outliers would widen one
-            // component over the whole axis
-            if ((name == "S" || name == "E") && !(v >= -0.5 && v <= 1.5)) v = kNaN;
+            // E of a burst without donor-excitation signal (acceptor-only, after
+            // the delta correction) is noise over noise: missing, not an outlier
+            if (name == "E" && o.e_min_significance > 0) {
+                const double signal = s.factors.gamma * (s.data_dd[b] - s.factors.bg_dd) + es.fc[b];
+                const double var = s.factors.gamma * s.factors.gamma * std::max(s.data_dd[b], 0.0) +
+                                   std::max(s.data_da[b], 0.0) + 1.0;
+                if (!(signal > o.e_min_significance * std::sqrt(var))) v = kNaN;
+            }
+            // without the pre-cleaning, far-out ratios of near-empty channels are
+            // missing values (they would widen one component over the whole axis)
+            if (!o.remove_outliers && (name == "S" || name == "E") && !(v >= -0.5 && v <= 1.5)) v = kNaN;
             x[b * d + j] = v;
         }
     }
@@ -191,6 +199,66 @@ void update_lifetimes(AutoCalibration& s, const AutoCalibrateOptions& o) {
     s.line_efficiency = {1.0, 0.0};
 }
 
+// per-burst shot-noise width of S and E (binomial over the photons they are
+// made of; NaN for the other dimensions): no species is narrower
+std::vector<double> shot_noise_widths(const AutoCalibration& s, const EsResult& es,
+                                      const std::vector<std::string>& names) {
+    const size_t n = s.data_dd.size(), d = names.size();
+    std::vector<double> w(n * d, kNaN);
+    for (size_t j = 0; j < d; ++j) {
+        if (names[j] != "S" && names[j] != "E") continue;
+        for (size_t b = 0; b < n; ++b) {
+            const double dex = std::max(s.data_dd[b], 0.0) + std::max(s.data_da[b], 0.0);
+            const double tot = dex + (s.data_aa.empty() ? 0.0 : std::max(s.data_aa[b], 0.0));
+            const double v = names[j] == "S" ? es.S[b] : es.E[b];
+            const double p = std::min(std::max(v, 0.02), 0.98);
+            w[b * d + j] = std::sqrt(p * (1.0 - p) / std::max(names[j] == "S" ? tot : dex, 1.0));
+        }
+    }
+    return w;
+}
+
+// pre-clean the declared columns (outlier rows become all-missing, so no finder
+// sees them and no scale is taken from them), then the chosen finder
+PopulationSplit gate_dimensions(std::vector<double> x, int n, const AutoCalibrateOptions& o,
+                                const std::vector<double>& floor) {
+    const std::vector<std::string>& names = o.dimensions;
+    const size_t d = names.size();
+    DimensionOutliers out;
+    if (o.remove_outliers) {
+        out = flag_dimension_outliers(x, n, names, o.outlier_es_lo, o.outlier_es_hi, o.outlier_tau_max,
+                                      o.outlier_r_lo, o.outlier_r_hi, o.outlier_fence,
+                                      o.outlier_quantile);
+        for (int b = 0; b < n; ++b)
+            if (out.outlier[b])
+                for (size_t j = 0; j < d; ++j) x[b * d + j] = kNaN;
+    }
+    PopulationSplit sp;
+    if (o.population_method == "hdbscan") {
+        sp = classify_populations_hdbscan(x, n, names, o.donor_only_above, o.acceptor_only_below,
+                                          o.min_population, o.min_probability,
+                                          o.hdbscan_min_cluster_fraction, o.hdbscan_min_cluster_size,
+                                          o.hdbscan_min_samples, o.hdbscan_max_points, o.hdbscan_selection,
+                                          o.hdbscan_epsilon, floor);
+    } else if (o.population_method == "gmm") {
+        sp = classify_populations_nd(x, n, names, o.donor_only_above, o.acceptor_only_below,
+                                     o.max_components_nd, o.min_population, o.min_probability);
+    } else {
+        throw std::invalid_argument("auto_calibrate: population_method must be 'hdbscan' or 'gmm'");
+    }
+    if (o.remove_outliers) {
+        sp.outlier = out.outlier;
+        sp.outlier_dimensions = out.dimensions;
+        sp.outlier_range = out.n_range;
+        sp.outlier_fence = out.n_fence;
+        sp.outlier_lo = out.lo;
+        sp.outlier_hi = out.hi;
+        for (size_t b = 0; b < sp.noise.size(); ++b)
+            if (sp.outlier[b]) sp.noise[b] = 0;
+    }
+    return sp;
+}
+
 } // namespace
 
 bool auto_calibrate_iterate(AutoCalibration& s, const AutoCalibrateOptions& o) {
@@ -218,9 +286,8 @@ bool auto_calibrate_iterate(AutoCalibration& s, const AutoCalibrateOptions& o) {
         s.split = p;
     }
     if (!o.dimensions.empty()) {
-        s.split = classify_populations_nd(dimension_matrix(s, es, o.dimensions), static_cast<int>(dd.size()),
-                                          o.dimensions, o.donor_only_above, o.acceptor_only_below,
-                                          o.max_components_nd, o.min_population, o.min_probability);
+        s.split = gate_dimensions(dimension_matrix(s, es, o.dimensions, o), static_cast<int>(dd.size()), o,
+                                  shot_noise_widths(s, es, o.dimensions));
     } else if (alex) {
         s.split = classify_es_populations(es.S, es.E, o.donor_only_above, o.acceptor_only_below, 4,
                                           o.max_fret_populations, o.min_population);
@@ -254,7 +321,7 @@ bool auto_calibrate_iterate(AutoCalibration& s, const AutoCalibrateOptions& o) {
     for (size_t b = 0; b < dd.size(); ++b) fret_only[b] = sp.fret[b] && sp.fret_labels[b] >= 0;
     for (size_t b = 0; b < dd.size(); ++b)
         if (fret_only[b]) fl.push_back(sp.fret_labels[b]);
-    if (sp.method == "mixture_nd") fl = es_fit_groups(fl, pick(es.E, fret_only));
+    if (sp.method == "mixture_nd" || sp.method == "hdbscan") fl = es_fit_groups(fl, pick(es.E, fret_only));
     if (alex && fl.size() >= 2 && std::set<int>(fl.begin(), fl.end()).size() >= 2) {
         std::vector<double> est = global_es_correction(pick(dd, fret_only), pick(da, fret_only),
                                                        pick(aa, fret_only), fl, s.factors.alpha,

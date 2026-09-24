@@ -17,6 +17,8 @@ tttrlib_add_module(
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretBootstrap.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretMixtureNd.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretClassifyNd.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretOutliers.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretHdbscan.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretSpecies.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretRegistry.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretRcm.cpp"
@@ -40,5 +42,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretAuto.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretUncertainty.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretBootstrap.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretOutliers.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AccurateFretHdbscan.cpp"
         PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 endif()

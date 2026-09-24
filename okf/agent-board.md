@@ -1849,6 +1849,7 @@ retired so nobody works the same thing twice.)*
   - Done when: `spectroscopy/corrections` has the kernels + registry entry + A/B tests (synthetic and cal1 .pto); arm64 + pyodide wheels rebuilt; chisurf callers call tttrlib and the moved Python is deleted.
   - Touching: branch `accurate-fret` in `~/dev/worktrees/tttrlib-accurate-fret`: `modules/spectroscopy/corrections/**`, `ext/python/AccurateFret*`, `test/python/corrections/test_accurate_fret*.py` + `afret_reference/`, `okf/prds/PRD-042-accurate-fret.md`, `tools/pyodide/` smoke. chisurf: `core/fluorescence/{burst/es.py,fret/accurate.py,fret/calibration.py}`, their callers and tests, accurate-FRET docs, `okf/log.md`. No IMP rebuild.
   - Progress: stages 0-7 landed on branch `accurate-fret` (dev merged in) plus the extension (multidimensional gating, species-specific gamma); arm64 + pyodide wheels built from it and installed in arm64. chisurf `burst/es.py` deleted, `fret/accurate.py` reduced to plumbing, callers on tttrlib. `accurate-fret` merged into `dev` (2026-09-24), so a wheel built from `dev` keeps `tttrlib.auto_calibrate`.
+  - 2026-09-24 (branch `afret-hdbscan`, `~/dev/worktrees/tttrlib-afret-hdbscan`): HDBSCAN population finder (`population_method` "hdbscan" default | "gmm") and per-dimension outlier pre-cleaning for the multidimensional gating; PRD-042 E3. cal1 S+E: 3 FRET populations, 3.0 s (mixture 45 s); S-only numbers unchanged.
 
 - **T-20260923-02 · [tttrlib] Pyodide wasm wheel so ndXplorer runs in the browser**
   - Status: ✅ done (local branch `pyodide-build`, not merged or pushed)

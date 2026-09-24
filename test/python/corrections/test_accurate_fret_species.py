@@ -17,14 +17,16 @@ SHARED = ((0.3, 1.0, 2000), (0.7, 1.0, 2000))
 
 
 def _run(fret, dims, seed=5, **opts):
+    opts.setdefault("population_method", "hdbscan")
     c = mfd_bursts(seed, fret=fret)
     return c, tttrlib.auto_calibrate(c, None, dict(opts, dimensions=dims))
 
 
 @pytest.mark.parametrize("dims", [None, ["S", "E", "tau_d"]])
 @pytest.mark.parametrize("seed", [5, 6])
-def test_species_gamma_is_recovered(dims, seed):
-    c, r = _run(SPECIES, dims, seed)
+@pytest.mark.parametrize("method", ["hdbscan", "gmm"])
+def test_species_gamma_is_recovered(dims, seed, method):
+    c, r = _run(SPECIES, dims, seed, population_method=method)
     sp = r["species"]
     ms = sp["model_selection"]
     assert ms["identifiable"] and ms["selected"] == "species"

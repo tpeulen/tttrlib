@@ -146,8 +146,19 @@ std::vector<double> rcm_from_dye_solutions(
  * (`classify_populations_nd`) over the named columns: "S" and "E" are the
  * corrected values of the current pass, every other name a column set with
  * `auto_calibrate_set_dimensions`. Empty keeps the stoichiometry gating.
- * Corrected S or E outside [-0.5, 1.5] (a ratio of nearly empty channels)
- * counts as missing for the gating.
+ * Without `remove_outliers`, corrected S or E outside [-0.5, 1.5] (a ratio
+ * of nearly empty channels) counts as missing for the gating instead.
+ *
+ * `population_method` picks the finder of the multidimensional gating:
+ * "hdbscan" (`classify_populations_hdbscan`, with the `hdbscan_*` options) or
+ * "gmm" (`classify_populations_nd`). Without `dimensions` the stoichiometry
+ * gating runs whatever the method. Before either finder, with
+ * `remove_outliers`, the declared columns are pre-cleaned by
+ * `flag_dimension_outliers` (`outlier_*` limits; `outlier_fence` and
+ * `outlier_quantile` are its fence_k and quantile): flagged bursts are in no class and are reported in the split.
+ * E counts as missing, not as an outlier, when the donor-excitation signal
+ * gamma F_dd + F_da is not above `e_min_significance` times its Poisson
+ * error (acceptor-only bursts: E is noise over noise); 0 disables that.
  *
  * `species_factors` runs `species_factors` on the final FRET populations
  * (with an acceptor-excitation channel), `sigma_model` being its model floor.
@@ -181,6 +192,20 @@ struct AutoCalibrateOptions {
     int max_components_nd = 6;
     bool species_factors = true;
     double sigma_model = 0.01;
+    std::string population_method = "hdbscan";
+    double hdbscan_min_cluster_fraction = 0.02;
+    int hdbscan_min_cluster_size = 0;
+    int hdbscan_min_samples = 0;
+    int hdbscan_max_points = 10000;
+    std::string hdbscan_selection = "leaf";
+    double hdbscan_epsilon = 0.0;
+    bool remove_outliers = true;
+    double outlier_es_lo = -0.2, outlier_es_hi = 1.2;
+    double outlier_tau_max = 20.0;
+    double outlier_r_lo = -0.5, outlier_r_hi = 1.0;
+    double outlier_fence = 1.0;
+    double outlier_quantile = 0.025;
+    double e_min_significance = 2.0;
 };
 
 /*!
