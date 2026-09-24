@@ -330,8 +330,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         w.write_line("--strict-workload: failing the run.", red=True)
 
 
-# tryfirst: test/python/conftest.py's sessionfinish calls os._exit() on Windows
-# and never comes back, so the exit code has to be set before it runs.
+# tryfirst: test/python/conftest.py's sessionfinish records the exit code that
+# its unconfigure hands to os._exit() on Windows, so it has to be set first.
 @pytest.hookimpl(tryfirst=True)
 def pytest_sessionfinish(session, exitstatus):
     if session.config.getoption("--strict-workload") and _audit():

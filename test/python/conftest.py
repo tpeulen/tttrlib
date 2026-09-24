@@ -15,6 +15,8 @@ import importlib.machinery
 import os
 import sys
 from pathlib import Path
+
+import pytest
 from test_settings import DATA_ROOT, DATA_AVAILABLE  # type: ignore
 
 # A stale or broken tttrlib install in site-packages (e.g. a namespace package
@@ -46,14 +48,26 @@ def pytest_configure(config):
         print("  Set TTTRLIB_DATA environment variable to specify location")
 
 
+_EXIT_STATUS = [0]
+
+
 def pytest_sessionfinish(session, exitstatus):
+    """Remember the final exit status for the Windows exit below."""
+    _EXIT_STATUS[0] = int(session.exitstatus)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_unconfigure(config):
     """On Windows, bypass interpreter shutdown to avoid heap corruption crash.
 
     tttrlib's C extension destructors trigger a heap corruption exception
     (0xC0000374 / -1073740940) during Python interpreter shutdown on Windows.
-    All tests have already completed at this point, so os._exit() is safe:
-    it exits with the correct pytest exit code without running any Python
-    shutdown machinery (atexit handlers, __del__, extension finalizers).
+    os._exit() skips that machinery (atexit handlers, __del__, extension
+    finalizers) and keeps pytest's exit code. It runs here, not in
+    sessionfinish: the terminal summary -- FAILURES and every traceback -- is
+    written at the end of sessionfinish, and exiting there lost all of it.
     """
     if sys.platform == "win32":
-        os._exit(int(exitstatus))
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(_EXIT_STATUS[0])

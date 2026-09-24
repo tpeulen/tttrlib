@@ -91,6 +91,7 @@ def test_a_tttr_object_is_a_store_and_is_released_with_it():
     if path is None:
         pytest.skip("no .ht3 file in the test data")
 
+    gc.collect()   # a baseline of reachable stores only; see the test above
     before = _ids()
     before_bytes = tttrlib.live_data_store_bytes()
     d = tttrlib.TTTR(path)
