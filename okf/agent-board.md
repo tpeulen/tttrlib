@@ -1842,11 +1842,12 @@ retired so nobody works the same thing twice.)*
 ## Active
 
 - **T-20260924-sep · [ndxplorer] Find informative projections ranks population separation (density valleys), not correlation**
-  - Status: 🔄 in-progress
+  - Status: ✅ done
   - Owner: opus-5.5/62a3ae40-sep
-  - Opened: 2026-09-24 · Picked: 2026-09-24
+  - Opened: 2026-09-24 · Picked: 2026-09-24 · Done: 2026-09-24
   - Why: tpeulen: "in FRET you do not want to find correlations, you want projections where populations split".
   - Touching: ndxplorer `analysis/{projection_scores.py, projection_rank_model.py, vizrank_model.py, vizrank.view.json}`, NEW `analysis/separation.py`, `ui/vizrank_help.md`, `ui/vizrank_guide.json`, ranking hunks of `app/features/playback_export.py`, tests `tests/test_projection_scores.py`, NEW `tests/test_separation.py`, `tests/test_ui/test_projection_rank.py`, `tests/test_app/test_playback_export.py`, `tools/parity/features.md` (find_projections); chisurf `okf/plugins/ndxplorer-emtk-port.md`, `okf/log.md`, `docs/guides/46_ndxplorer.md` (ranking section). No tttrlib code.
+  - Progress: done. ndxplorer 05e8f7c, dece907, f29fa83, 32fd366 (Rank by Separation | Correlation | Classes; analysis/separation.py; islands overlay; help/tour/parity); chisurf 333dad117 (docs + OKF). ndx suites 1419 passed. Touching released. Resume: okf/plugins/ndxplorer-emtk-port.md.
 
 - **T-20260924-ndxvec · [ndxplorer+chisurf] ndX vector parameters made real: per-population curves, curve fit, Gaussians; Qt Make vector**
   - Status: ✅ done
