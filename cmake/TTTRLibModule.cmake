@@ -409,11 +409,18 @@ endmacro()
 # Install every module. COMPONENT matters: pyproject.toml installs only the
 # "bindings" component, so a module installed without it yields a wheel that
 # builds, repairs and uploads cleanly and then ImportErrors on the user's machine.
+#
+# A STATIC build installs nothing: every module archive is already linked into
+# the extension, so shipping the .a files only bloats the wheel (the Pyodide
+# wheel is the case that builds this way).
 function(tttrlib_install_modules)
     set(one_value DESTINATION COMPONENT)
     cmake_parse_arguments(A "" "${one_value}" "" ${ARGN})
     if(NOT A_COMPONENT)
         message(FATAL_ERROR "tttrlib_install_modules: COMPONENT is required")
+    endif()
+    if(TTTRLIB_MODULE_TYPE STREQUAL "STATIC")
+        return()
     endif()
     get_property(modules GLOBAL PROPERTY TTTRLIB_MODULE_LIST)
     foreach(m IN LISTS modules)

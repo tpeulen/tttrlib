@@ -85,6 +85,27 @@ build-dir = "build/{wheel_tag}"
 install.strip = true
 install.components = ["bindings"]
 
+# Pyodide (wasm32-emscripten). pyodide-build exports PYODIDE=1 into the build
+# environment; tools/pyodide/build_wheel.sh drives it. Later -D flags win over
+# the ones above, so this only states what differs from a native wheel:
+#   - no HDF5: there is no wasm HDF5 to link, so Photon-HDF5 and the HDF5
+#     DataStore backend are compiled out (every entry point fails cleanly);
+#   - no OpenMP: Pyodide has no threads;
+#   - STATIC modules: one self-contained extension, no side modules to resolve
+#     at dlopen time;
+#   - no LTO and no strip: STATIC modules are -fno-lto anyway, and emscripten's
+#     strip would take the dylink section the loader needs.
+[[tool.scikit-build.overrides]]
+if.env.PYODIDE = true
+inherit.cmake.args = "append"
+cmake.args = [
+    "-DBUILD_PHOTON_HDF:BOOL=OFF",
+    "-DWITH_OPENMP:BOOL=OFF",
+    "-DTTTRLIB_MODULE_TYPE:STRING=STATIC",
+    "-DTTTRLIB_LTO:BOOL=OFF",
+]
+install.strip = false
+
 [tool.scikit-build.metadata]
 version.provider = "scikit_build_core.metadata.setuptools_scm"
 # No version.write-to: the package directory is produced by CMake's install

@@ -59,6 +59,8 @@ Product Requirements Documents for tttrlib. One `.md` per initiative,
 | [037](PRD-037-kernels-to-finish-chisurfs-numba-retirement.md) | Everything tttrlib needs so ChiSurf can drop numba entirely | 🔵 Proposed |
 | [038](PRD-038-general-pattern-fit-and-maxent-consolidation.md) | General N-pattern fit (NNLS/Tikhonov/MaxEnt) and one MaxEnt engine instead of two | 🟢 Done |
 | [039](PRD-039-historic-maxent-target-chisq.md) | Historic MaxEnt: opt-in joint chi²+nu optimization (auto-nu via target chi-square) | 🟢 Done |
+| [041](PRD-041-pyodide-wasm-wheel.md) | tttrlib as a Pyodide wheel (wasm32-emscripten) for ndXplorer in the browser | 🟡 In Progress |
+| [042](PRD-042-accurate-fret.md) | Accurate FRET in tttrlib: corrected E/S, auto-calibration, uncertainties, species-specific gamma | 🟡 In Progress |
 
 **019** is green: criterion 21 (the same assertions from Python, R, Java and
 JavaScript in the PRD-015 conformance suite) was the last one open, and it

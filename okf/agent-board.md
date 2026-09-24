@@ -1845,11 +1845,19 @@ retired so nobody works the same thing twice.)*
   - Status: 🔄 in-progress
   - Owner: opus-5.5/accurate-fret
   - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: —
-  - Why: tpeulen: one implementation of accurate FRET (corrected E/S, error propagation, distance, auto-calibration: S mixture, alpha/delta/gamma/beta, self-consistency) shared by chisurf and ndXplorer (Qt + emtk, desktop + browser).
-  - Done when: tttrlib `spectroscopy/corrections` has the algorithms + registry entry + tests (A/B vs chisurf on synthetic and cal1 .pto); arm64 + pyodide wheels rebuilt; chisurf callers call tttrlib, moved Python deleted; PRD-042.
-  - Touching: worktree ~/dev/worktrees/tttrlib-accurate-fret (branch accurate-fret, off pyodide-build) only: `modules/spectroscopy/corrections/**`, `ext/python/*AccurateFret*`, `test/python/corrections/test_accurate_fret*.py`, `okf/prds/PRD-042-*`, tools/pyodide smoke. chisurf: `chisurf/core/fluorescence/fret/{accurate,calibration}.py`, `burst/es.py`, their callers (ndxplorer calibration_bridge, alex_suite, PIE burst workflow) and tests, docs/concepts on accurate FRET, okf/log.md. No IMP rebuild (lock not taken).
-  - Progress: reading source; worktree created.
+  - Why: tpeulen: one implementation of accurate FRET (corrected E/S, S mixture, alpha/delta/gamma/beta, self-consistent auto-calibration, uncertainties, distance) shared by chisurf and ndXplorer (Qt + emtk, desktop + browser). PRD-042.
+  - Done when: `spectroscopy/corrections` has the kernels + registry entry + A/B tests (synthetic and cal1 .pto); arm64 + pyodide wheels rebuilt; chisurf callers call tttrlib and the moved Python is deleted.
+  - Touching: branch `accurate-fret` in `~/dev/worktrees/tttrlib-accurate-fret`: `modules/spectroscopy/corrections/**`, `ext/python/AccurateFret*`, `test/python/corrections/test_accurate_fret*.py` + `afret_reference/`, `okf/prds/PRD-042-accurate-fret.md`, `tools/pyodide/` smoke. chisurf: `core/fluorescence/{burst/es.py,fret/accurate.py,fret/calibration.py}`, their callers and tests, accurate-FRET docs, `okf/log.md`. No IMP rebuild.
+  - Progress: stages 0-7 landed on branch `accurate-fret` (dev merged in) plus the extension (multidimensional gating, species-specific gamma); arm64 + pyodide wheels built from it and installed in arm64. chisurf `burst/es.py` deleted, `fret/accurate.py` reduced to plumbing, callers on tttrlib. `accurate-fret` merged into `dev` (2026-09-24), so a wheel built from `dev` keeps `tttrlib.auto_calibrate`.
 
+- **T-20260923-02 · [tttrlib] Pyodide wasm wheel so ndXplorer runs in the browser**
+  - Status: ✅ done (local branch `pyodide-build`, not merged or pushed)
+  - Owner: opus-5.5/62a3ae40
+  - Opened: 2026-09-23 · Picked: 2026-09-23 · Done: 2026-09-23
+  - Why: ndXplorer moves to emtk + Pyodide like chimol and needs `tttrlib.DataStore` in the page. See PRD-041.
+  - Done when: `tools/pyodide/build_wheel.sh` produces a `pyodide_*_wasm32` wheel and `tools/pyodide/smoke_test.mjs` reads a `.bur` DataStore and a `.pto` photon stream under Pyodide 0.28.0 in Node.
+  - Touching: `pyproject.toml` (a `[[tool.scikit-build.overrides]]` block), `cmake/TTTRLibModule.cmake` (`tttrlib_install_modules`), `ext/CMakeLists.txt` (extension suffix), `modules/spectroscopy/fcs/src/Correlator.cpp` (size_t -> 64-bit macro-time offsets), `tools/pyodide/`, `okf/prds/PRD-041-pyodide-wasm-wheel.md`. Branch `pyodide-build` in `~/dev/worktrees/tttrlib-pyodide`.
+  - Progress: wheel builds (3.0 MB, emscripten 4.0.9, static modules, no HDF5/OpenMP); smoke test green (DataStore from .bur, TTTR from .pto, histogram, correlator equal to native). Open follow-up: a CI job for it (PRD-041).
 - **T-20260923-10 · [chisurf] Docs for undocumented visible tools: PSF calculator, TTTR decay/correlate, intensity trace + file tools, FCS toolbox**
   - Status: ✅ done
   - Owner: opus-5.5/b1a8cea6

@@ -179,8 +179,18 @@ IF(BUILD_PYTHON_INTERFACE)
             separate_arguments(_tttrlib_omp_cxx_flags NATIVE_COMMAND "${OpenMP_CXX_FLAGS}")
             target_compile_options(${TARGET} PRIVATE ${_tttrlib_omp_cxx_flags})
         endif()
-        # Force correct Python extension suffix for auditwheel compatibility
-        if(Python3_EXECUTABLE)
+        # Force correct Python extension suffix for auditwheel compatibility.
+        # Under scikit-build-core the target's SOABI comes from SKBUILD_SOABI:
+        # asking the interpreter answers for the build host, which is wrong when
+        # cross-compiling -- the Pyodide wheel got `_tttrlib.cpython-313-darwin.so`,
+        # a name the wasm interpreter never tries to import.
+        if(SKBUILD_SOABI)
+            if(WIN32)
+                set_target_properties(${TARGET} PROPERTIES SUFFIX ".${SKBUILD_SOABI}.pyd")
+            else()
+                set_target_properties(${TARGET} PROPERTIES SUFFIX ".${SKBUILD_SOABI}.so")
+            endif()
+        elseif(Python3_EXECUTABLE)
             execute_process(
                 COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX') or sysconfig.get_config_var('SO') or '.so')"
                 OUTPUT_VARIABLE PYTHON_EXT_SUFFIX
