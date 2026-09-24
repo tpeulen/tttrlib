@@ -1841,6 +1841,13 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
+- **T-20260924-ndxvec · [ndxplorer+chisurf] ndX vector parameters made real: per-population curves, curve fit, Gaussians; Qt Make vector**
+  - Status: 🔄 in-progress
+  - Owner: opus-5.5/ndx-vectors
+  - Opened: 2026-09-24 · Picked: 2026-09-24
+  - Why: tpeulen: a vector parameter must mean something (one curve / fit / Gaussian per population), not only be editable.
+  - Touching: ndxplorer `core/overlay_curves.py`, `app/features/overlays.py`, `plotting/curve_overlay.py`, `analysis/curve_fit_setup.py`, NEW `analysis/curve_fit_populations.py`, `core/gaussian_parameters.py`, `analysis/gaussian_mixture.py`, NEW `analysis/gaussian_populations.py`, hunks in `app/features/analysis.py` (GaussianPanel only) and `analysis/gaussian_fit.py`, `app/features/accurate_fret.py` (write_vector); chisurf `chisurf/gui/widgets/fitting/parameter_table*` (context menu), `test/gui/test_parameter_linking.py`, `okf/plugins/ndxplorer-emtk-port.md`, `okf/references/known-issues.md`, `okf/log.md`. Not touching structure.py / lazy_imports / chisurf core/ml/cluster (other agent).
+
 - **T-20260923-afret · [tttrlib+chisurf+ndxplorer] Accurate-FRET algorithms move from chisurf to tttrlib (C++/SWIG)**
   - Status: 🔄 in-progress
   - Owner: opus-5.5/accurate-fret
