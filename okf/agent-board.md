@@ -1841,10 +1841,18 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
-- **T-20260924-ndxvec · [ndxplorer+chisurf] ndX vector parameters made real: per-population curves, curve fit, Gaussians; Qt Make vector**
+- **T-20260924-sep · [ndxplorer] Find informative projections ranks population separation (density valleys), not correlation**
   - Status: 🔄 in-progress
-  - Owner: opus-5.5/ndx-vectors
+  - Owner: opus-5.5/62a3ae40-sep
   - Opened: 2026-09-24 · Picked: 2026-09-24
+  - Why: tpeulen: "in FRET you do not want to find correlations, you want projections where populations split".
+  - Touching: ndxplorer `analysis/{projection_scores.py, projection_rank_model.py, vizrank_model.py, vizrank.view.json}`, NEW `analysis/separation.py`, `ui/vizrank_help.md`, `ui/vizrank_guide.json`, ranking hunks of `app/features/playback_export.py`, tests `tests/test_projection_scores.py`, NEW `tests/test_separation.py`, `tests/test_ui/test_projection_rank.py`, `tests/test_app/test_playback_export.py`, `tools/parity/features.md` (find_projections); chisurf `okf/plugins/ndxplorer-emtk-port.md`, `okf/log.md`, `docs/guides/46_ndxplorer.md` (ranking section). No tttrlib code.
+
+- **T-20260924-ndxvec · [ndxplorer+chisurf] ndX vector parameters made real: per-population curves, curve fit, Gaussians; Qt Make vector**
+  - Status: ✅ done
+  - Owner: opus-5.5/ndx-vectors
+  - Opened: 2026-09-24 · Picked: 2026-09-24 · Done: 2026-09-24
+  - Progress: ndxplorer df280e9 8dd3ab2 a01da99 d321ada ca96c08 2ad1c02 173d041; chisurf 3a5b15b70 baf1d32ce b97adc44e ae5bef86a + OKF. Touching: released. Resume: chisurf okf/plugins/ndxplorer-emtk-port.md "Vector parameters mean something".
   - Why: tpeulen: a vector parameter must mean something (one curve / fit / Gaussian per population), not only be editable.
   - Touching: ndxplorer `core/overlay_curves.py`, `app/features/overlays.py`, `plotting/curve_overlay.py`, `analysis/curve_fit_setup.py`, NEW `analysis/curve_fit_populations.py`, `core/gaussian_parameters.py`, `analysis/gaussian_mixture.py`, NEW `analysis/gaussian_populations.py`, hunks in `app/features/analysis.py` (GaussianPanel only) and `analysis/gaussian_fit.py`, `app/features/accurate_fret.py` (write_vector); chisurf `chisurf/gui/widgets/fitting/parameter_table*` (context menu), `test/gui/test_parameter_linking.py`, `okf/plugins/ndxplorer-emtk-port.md`, `okf/references/known-issues.md`, `okf/log.md`. Not touching structure.py / lazy_imports / chisurf core/ml/cluster (other agent).
 
