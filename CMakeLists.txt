@@ -132,6 +132,14 @@ ENDIF()
 # directory is set at directory scope as well, because SWIG does not read target
 # usage requirements.
 IF(NOT TARGET ptolib::ptolib)
+  # Windows + SHARED modules: ptolib as its own DLL. Statically linked, every
+  # module DLL and extension that touches it carries a copy of ptolib.cpp and
+  # with it its own DataStoreRegistry, so a TTTR's photon store (registered in
+  # core) was missing from tttrlib.data_stores() (read through the extension).
+  # TTTRLIB_MODULE_TYPE is not cached yet here; unset means its default, SHARED.
+  IF(WIN32 AND (NOT DEFINED TTTRLIB_MODULE_TYPE OR TTTRLIB_MODULE_TYPE STREQUAL "SHARED"))
+    SET(PTOLIB_SHARED ON CACHE BOOL "Build ptolib as a shared library" FORCE)
+  ENDIF()
   IF(INSTALL AND BUILD_LIBRARY)
     ADD_SUBDIRECTORY(thirdparty/ptolib)
   ELSE()

@@ -430,4 +430,15 @@ function(tttrlib_install_modules)
                 ARCHIVE DESTINATION "${A_DESTINATION}"
                 RUNTIME DESTINATION "${A_DESTINATION}")
     endforeach()
+    # A shared ptolib (PTOLIB_SHARED, Windows) is a sibling DLL the modules
+    # load, so it ships next to them.
+    if(TARGET ptolib)
+        get_target_property(_ptolib_type ptolib TYPE)
+        if(_ptolib_type STREQUAL "SHARED_LIBRARY")
+            install(TARGETS ptolib
+                    COMPONENT ${A_COMPONENT}
+                    LIBRARY DESTINATION "${A_DESTINATION}"
+                    RUNTIME DESTINATION "${A_DESTINATION}")
+        endif()
+    endif()
 endfunction()

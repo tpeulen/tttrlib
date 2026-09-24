@@ -21,7 +21,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_library(ptolib STATIC src/ptolib.cpp)
+# One copy of ptolib per process. DataStoreRegistry::instance() is a function-
+# local static in ptolib.cpp; statically linked into several Windows DLLs (which
+# export nothing a static library brings in), each DLL gets its own registry and
+# a store made through one is invisible to a listing taken through another. A
+# consumer that links ptolib into more than one DLL builds it shared instead.
+option(PTOLIB_SHARED "Build ptolib as a shared library" OFF)
+if(PTOLIB_SHARED)
+    add_library(ptolib SHARED src/ptolib.cpp)
+    set_target_properties(ptolib PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+else()
+    add_library(ptolib STATIC src/ptolib.cpp)
+endif()
 add_library(ptolib_impl ALIAS ptolib)
 set_target_properties(ptolib PROPERTIES POSITION_INDEPENDENT_CODE ON CXX_STANDARD 14
     CXX_VISIBILITY_PRESET default VISIBILITY_INLINES_HIDDEN OFF)
