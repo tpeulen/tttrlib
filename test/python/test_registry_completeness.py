@@ -78,6 +78,10 @@ PLUMBING = {
         "PtoPhotonStream", "PtoTag", "pto_add_store", "pto_bundle", "pto_bundle_files",
         "pto_classify_path", "pto_events", "pto_mark_sidecar", "pto_read_events", "pto_read_store",
         "pto_store", "pto_store_columns", "pto_store_groups", "pto_store_region", "pto_update_store",
+        # the PTO.MFDB layer (ext/python/PtoMfdb.py): container tags, lineage, checksummed
+        # blobs and the one-writer lock -- container plumbing, not analyses
+        "PtoLockedError", "PtoWriteLock", "deinterleave_burst_rows", "pto_add_blob",
+        "pto_describe", "pto_parents", "pto_read_blob", "pto_settings_hash", "pto_tag",
         "is_floating", "is_false_value", "is_feature_enabled_by_env", "edge_less",
         # ptolib 0.4.0's own container internals (thirdparty/ptolib/ptolib.h), re-exported
         # by io_pto.h's `using pto::...` and PtoFileBase (`%rename(PtoFileBase) pto::File`
