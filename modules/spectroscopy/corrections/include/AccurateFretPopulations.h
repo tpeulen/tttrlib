@@ -96,6 +96,18 @@ MixtureResult best_gaussian_mixture_1d(
  * FRET burst's probability of belonging to each FRET sub-population (rows of
  * other bursts are 0). The multidimensional gating fills it from the
  * mixture's responsibilities; the stoichiometry gating with one-hot rows.
+ *
+ * Density-based gating (`method` "hdbscan") also fills `noise` (bursts HDBSCAN
+ * left unclaimed: in no class, excluded from the factors), `cluster_labels`
+ * (cluster per burst, -1 for noise, outliers and bursts without a declared
+ * value) and `membership` (HDBSCAN membership strength, a rank within the
+ * cluster, 0 for noise). The multidimensional gating of `auto_calibrate`
+ * pre-cleans its dimensions (`flag_dimension_outliers`): `outlier` marks the
+ * bursts it removed (also in no class, and not counted as noise), and
+ * `outlier_dimensions` / `outlier_range` / `outlier_fence` / `outlier_lo` /
+ * `outlier_hi` give, per dimension, the bursts outside the physical range, the
+ * bursts outside the robust fence and the fence itself. All of these are empty
+ * when the step did not run.
  */
 struct PopulationSplit {
     std::vector<int> donor_only;
@@ -113,6 +125,15 @@ struct PopulationSplit {
     std::vector<std::string> dimensions;
     int n_fret_populations = 0;
     std::vector<double> fret_probabilities;
+    std::vector<int> noise;
+    std::vector<int> cluster_labels;
+    std::vector<double> membership;
+    std::vector<int> outlier;
+    std::vector<std::string> outlier_dimensions;
+    std::vector<int> outlier_range;
+    std::vector<int> outlier_fence;
+    std::vector<double> outlier_lo;
+    std::vector<double> outlier_hi;
 };
 
 /*!

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 #include "AccurateFretMultiDim.h"
+#include "AccurateFretDetail.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,6 +27,15 @@ PopulationSplit classify_populations_nd(const std::vector<double>& x, int n_rows
     if (d == 0 || x.size() != static_cast<size_t>(n_rows) * d)
         throw std::invalid_argument("classify_populations_nd: x must be (n_rows, len(names))");
     const MixtureNdResult fit = best_gaussian_mixture_nd(x, n_rows, d, max_components);
+    return afret_detail::split_from_components(fit, n_rows, names, donor_only_above,
+                                               acceptor_only_below, min_population, min_probability);
+}
+
+PopulationSplit afret_detail::split_from_components(const MixtureNdResult& fit, int n_rows,
+                                                    const std::vector<std::string>& names,
+                                                    double donor_only_above, double acceptor_only_below,
+                                                    int min_population, double min_probability) {
+    const int d = static_cast<int>(names.size());
     const int k = fit.n_components;
     const int iS = index_of(names, "S"), iE = index_of(names, "E"), iT = index_of(names, "tau_d");
     auto centre = [&](int c, int j) { return fit.means[static_cast<size_t>(c) * d + j]; };
@@ -34,13 +44,23 @@ PopulationSplit classify_populations_nd(const std::vector<double>& x, int n_rows
     std::vector<int> klass(k, 0);
     double longest = -std::numeric_limits<double>::infinity();
     if (iT >= 0)
-        for (int c = 0; c < k; ++c) longest = std::max(longest, centre(c, iT));
+        for (int c = 0; c < k; ++c)
+            if (std::isfinite(centre(c, iT))) longest = std::max(longest, centre(c, iT));
     for (int c = 0; c < k; ++c) {
         if (iS >= 0) {
             klass[c] = centre(c, iS) >= donor_only_above ? 1 : (centre(c, iS) <= acceptor_only_below ? -1 : 0);
         } else if (iE >= 0 && centre(c, iE) < 0.1 && (iT < 0 || centre(c, iT) >= 0.9 * longest)) {
             klass[c] = 1;
         }
+    }
+    // with S and tau_d, donor-only means tau_D ~ tau_D(0): a high-S component with
+    // a clearly shorter donor lifetime (a quenched donor) is in no class (2)
+    if (iS >= 0 && iT >= 0) {
+        double tau0 = -std::numeric_limits<double>::infinity();
+        for (int c = 0; c < k; ++c)
+            if (klass[c] == 1 && std::isfinite(centre(c, iT))) tau0 = std::max(tau0, centre(c, iT));
+        for (int c = 0; c < k; ++c)
+            if (klass[c] == 1 && std::isfinite(centre(c, iT)) && centre(c, iT) < 0.9 * tau0) klass[c] = 2;
     }
 
     // FRET components: largest first; one closer to a kept one than two pooled
@@ -53,7 +73,8 @@ PopulationSplit classify_populations_nd(const std::vector<double>& x, int n_rows
         double q = 0.0;
         for (int j = 0; j < d; ++j) {
             const double s2 = sigma(a, j) * sigma(a, j) + sigma(b, j) * sigma(b, j);
-            q += (centre(a, j) - centre(b, j)) * (centre(a, j) - centre(b, j)) / s2;
+            const double t = (centre(a, j) - centre(b, j)) * (centre(a, j) - centre(b, j)) / s2;
+            if (std::isfinite(t)) q += t;  // a dimension a density cluster has no value in
         }
         return q;
     };
@@ -104,7 +125,10 @@ PopulationSplit classify_populations_nd(const std::vector<double>& x, int n_rows
     for (int i = 0; i < n_rows; ++i) {
         const int c = fit.labels[i];
         if (c < 0) continue;
-        const double p = fit.responsibilities[static_cast<size_t>(i) * k + c];
+        // purity is a property of the class: the probability summed over its components
+        double p = 0.0;
+        for (int c2 = 0; c2 < k; ++c2)
+            if (klass[c2] == klass[c]) p += fit.responsibilities[static_cast<size_t>(i) * k + c2];
         if (klass[c] == 1 && p >= min_probability) { out.donor_only[i] = 1; ++nd; }
         if (klass[c] == -1 && p >= min_probability) { out.acceptor_only[i] = 1; ++na; }
         if (klass[c] != 0) continue;
