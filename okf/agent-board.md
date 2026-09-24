@@ -126,13 +126,13 @@ are still claims and still binding.
 ## Open — advertised, unowned
 
 - **T-20260923-11 · [tttrlib] ALEX-2CDE sign: `TwoCDE.cpp:43` computes 100 − 50(BR_Dex − BR_Aex); Tomov 2012 eq. 12 is 100 − 50(BR_Dex + BR_Aex)**
-  - Status: 🔄 in-progress
+  - Status: ✅ done
   - Owner: opus-5.5/b1a8cea6
-  - Opened: 2026-09-23 · Picked: 2026-09-24 · Done: —
+  - Opened: 2026-09-23 · Picked: 2026-09-24 · Done: 2026-09-24
   - Why: found while citing chisurf docs/concepts/burst_2cde.md. On 200 static bursts the code's form has median 98.5, the paper's 7.3; the documented "keep ALEX-2CDE below 10–15" then rejects every good burst. `test_twocde.py` and the FRETBursts pin copy the notebook code, not the paper, so they agree with the bug. Also `BVA.cpp:134` credits BVA to Hoffmann (it is Torella 2011).
   - Done when: sign fixed against eq. 12 with a guard test on a static-burst simulation (median ALEX-2CDE < 15), chisurf burst_2cde.md drops its "both formulas" note.
   - Touching: tttrlib modules/spectroscopy/burst/src/TwoCDE.cpp, BVA.cpp, their tests.
-  - Progress: —
+  - Progress: fixed in tttrlib `04d83cd29` (eq. 12 verified against the paper; FRETBursts' notebook code is the source of the minus). Installed arm64 build NOT yet rebuilt -- chisurf keeps the old values until the next `pixi run build-tttrlib` / manual rebuild. Env note: envs/arm64/lib holds a stale libtttrlib_util.dylib linking the absent libhdf5.200; an rpath-first build picks it up.
 
 - **T-20260916-03 · [chisurf] `pixi install` blocked outright: 3 real bugs, all fixed, one real blocker left (imp-bff not on PyPI)**
   - Status: ✅ done (everything I can fix without a real PyPI publish) — CONFIRMED on real CI, run
