@@ -10,6 +10,9 @@
 
 // the raw kernels take flat vectors and return structs; the Python layer in
 // AccurateFret.py gives them numpy-in / dict-out signatures under the public names
+// Python only: the leading underscore is not a legal R identifier, and the
+// other bindings have no wrapper layer to hide the raw kernels behind
+#ifdef SWIGPYTHON
 %rename(_afret_apparent_es) tttrlib::apparent_es;
 %rename(_afret_corrected_es) tttrlib::corrected_es;
 %rename(_afret_corrected_es_matrix) tttrlib::corrected_es_matrix;
@@ -20,7 +23,6 @@
 %rename(_afret_split_fret_subpopulations) tttrlib::split_fret_subpopulations;
 %rename(_afret_leakage_from_donor_only) tttrlib::leakage_from_donor_only;
 %rename(_afret_direct_excitation_from_acceptor_only) tttrlib::direct_excitation_from_acceptor_only;
-%rename(FretPopulationSplit) tttrlib::PopulationSplit;
 %rename(_afret_global_es_correction) tttrlib::global_es_correction;
 %rename(_afret_beta_from_stoichiometry) tttrlib::beta_from_stoichiometry;
 %rename(_afret_gamma_from_lifetime) tttrlib::gamma_from_lifetime;
@@ -40,10 +42,12 @@
 %rename(_afret_classify_populations_nd) tttrlib::classify_populations_nd;
 %rename(_afret_classify_populations_hdbscan) tttrlib::classify_populations_hdbscan;
 %rename(_afret_flag_dimension_outliers) tttrlib::flag_dimension_outliers;
-%rename(FretDimensionOutliers) tttrlib::DimensionOutliers;
 %rename(_afret_auto_calibrate_set_dimensions) tttrlib::auto_calibrate_set_dimensions;
 %rename(_afret_species_factors) tttrlib::species_factors;
 %rename(_afret_rcm_from_dye_solutions) tttrlib::rcm_from_dye_solutions;
+#endif
+%rename(FretPopulationSplit) tttrlib::PopulationSplit;
+%rename(FretDimensionOutliers) tttrlib::DimensionOutliers;
 
 namespace tttrlib {};
 %include "AccurateFret.h"
