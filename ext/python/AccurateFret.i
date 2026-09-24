@@ -56,4 +56,5 @@ namespace tttrlib {};
 %pythoncode "./ext/python/AccurateFretCalibrate.py"
 %pythoncode "./ext/python/AccurateFretMultiDim.py"
 %pythoncode "./ext/python/AccurateFretSpecies.py"
+%pythoncode "./ext/python/AccurateFretColumns.py"
 #endif
