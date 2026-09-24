@@ -50,7 +50,12 @@ Correction utilities for single-molecule fluorescence.
     `AccurateFretClassifyNd.cpp` (`classify_populations_nd`: donor-only /
     acceptor-only / FRET from every declared dimension -- S, E, donor and
     acceptor lifetimes, anisotropies -- with per-burst FRET sub-population
-    probabilities). `auto_calibrate` uses it when `dimensions` is set, derives
+    probabilities), `AccurateFretHdbscan.cpp` (`classify_populations_hdbscan`:
+    density-based gating with the math module's HDBSCAN over the scaled
+    dimensions, clusters then described by diagonal Gaussians for the
+    assignment probabilities) and `AccurateFretOutliers.cpp`
+    (`flag_dimension_outliers`: impossible and far-out values removed before
+    any scale is taken from the data). `auto_calibrate` uses it when `dimensions` is set, derives
     tau_D(0) from the donor-only and tau_A from the acceptor-only class, and
     falls back to the no-linker line E = 1 - tau/tau_D(0) for the lifetime
     gamma when no static FRET line is given

@@ -1,4 +1,6 @@
 """The PTO.MFDB layer over PtoFile: tags, lineage, verified blobs, lock, interleave."""
+import importlib.util
+
 import numpy as np
 import pytest
 
@@ -54,6 +56,8 @@ def test_a_corrupted_blob_is_refused(tmp_path):
     assert tttrlib.pto_read_blob(f, uid, verify=False) == b"abd"
 
 
+@pytest.mark.skipif(importlib.util.find_spec("fcntl") is None,
+                    reason="no fcntl (Windows): PtoWriteLock is best effort and does not lock")
 def test_a_second_writer_is_told_who_holds_the_lock(tmp_path):
     path = str(tmp_path / "m.pto")
     with tttrlib.PtoWriteLock(path):

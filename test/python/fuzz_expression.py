@@ -177,6 +177,35 @@ def gate(store, query, n_rows):
     return out
 
 
+def near_tie_rows(node, columns, n_rows, rel=1e-12):
+    """Rows where some comparison in the tree has operands equal to rounding.
+
+    `x > exp(log(x))` is decided by the last bit, and the evaluator's libm and
+    numpy's need not round alike (it flipped on x86_64 Linux, not on arm64).
+    Such rows have no single right answer, so they are not checked; every
+    other row still must agree exactly.
+    """
+    tie = np.zeros(n_rows, dtype=bool)
+    stack = [node]
+    while stack:
+        n = stack.pop()
+        if not isinstance(n, tuple):
+            continue
+        if n[0] == "cmp":
+            try:
+                with np.errstate(all="ignore"):
+                    a = np.broadcast_to(np.asarray(
+                        eval(render_numpy(n[2]), dict(NUMPY_ENV), columns), dtype=float), (n_rows,))
+                    b = np.broadcast_to(np.asarray(
+                        eval(render_numpy(n[3]), dict(NUMPY_ENV), columns), dtype=float), (n_rows,))
+                    scale = np.maximum(1.0, np.maximum(np.abs(a), np.abs(b)))
+                    tie |= np.isfinite(a) & np.isfinite(b) & (np.abs(a - b) <= rel * scale)
+            except Exception:
+                pass
+        stack.extend(c for c in n[1:] if isinstance(c, tuple))
+    return tie
+
+
 def run(seed, cases, n_rows=1289, verbose=False):
     """One fuzz run. Returns a summary dict; `failures` empty means it passed."""
     rng = random.Random(seed + 1_000_003)
@@ -217,8 +246,10 @@ def run(seed, cases, n_rows=1289, verbose=False):
             else:
                 refused += 1
             continue
-        if not np.array_equal(got, expected):
-            bad = np.flatnonzero(got != expected)
+        got = np.asarray(got)
+        decided = ~near_tie_rows(tree, columns, n_rows)
+        if not np.array_equal(got[decided], expected[decided]):
+            bad = np.flatnonzero((got != expected) & decided)
             i = int(bad[0])
             failures.append((text, f"row {i} of {bad.size}: got {got[i]}, "
                                    f"expected {expected[i]}"))
