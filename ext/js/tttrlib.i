@@ -104,6 +104,7 @@
 %include "Watershed.i"
 /* image kernels: rank filters, resize, blur, gradients, warp, drift */
 %include "ImageOps.i"
+%include "Embedding.i"
 /* Richardson-Lucy and Wiener deconvolution over the vendored FFT */
 %include "Deconvolution.i"
 %include "Jitter.i"

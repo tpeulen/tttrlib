@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+- **Added: t-SNE and UMAP, for gating and segmentation.** `tttrlib.tsne`
+  (scikit-learn's `TSNE` step for step: perplexity search, exact or kNN joint
+  P, early exaggeration, delta-bar-delta gains, PCA init; exact or Barnes-Hut)
+  and `tttrlib.umap` (umap-learn's `UMAP` step for step: exact kNN, fuzzy
+  simplicial set, a/b fit, spectral initialisation, negative-sampling SGD;
+  seeded, reproducible), std-only C++ in `modules/math` (`Embedding.h`,
+  `Tsne.cpp`, `Umap.cpp`) with Python, R and JS bindings. Rows are anything
+  with a feature vector: bursts, or pixels via `image_features_to_points` and
+  `points_to_label_image`, which carry an image's per-pixel features
+  (intensity, lifetime, phasor g/s) into the embedding and cluster labels back
+  into a label image. Also `embedding_trustworthiness` (scikit-learn's
+  `trustworthiness`) and the building blocks `tsne_joint_probabilities[_nn]`,
+  `umap_fuzzy_graph`, `umap_find_ab_params`, `umap_spectral_layout`.
+  A/B-tested against scikit-learn 1.9 and umap-learn 0.5.12 from a recorded
+  fixture (neither is a test dependency): joint P to 1.3e-14, fuzzy graph to
+  1e-6, spectral layout column for column, trustworthiness to 1e-16;
+  embeddings as good by KL, trustworthiness and cluster recovery, and a FLIM
+  segmentation as good as umap-learn's over eight seeds
+  (`test/python/misc/test_embedding.py`). Euclidean only, exact neighbours:
+  a few tens of thousands of points in up to ~20 dimensions. Not a learned
+  model (nothing is trained or kept), so within `AGENTS.md`'s ML-free rule.
+
 - **Added: the PTO.MFDB profile layer in Python.** `pto_tag(file, uid, name)`
   (typed mmCIF tag value), `pto_parents` (lineage edges), `pto_read_blob`
   (payload checked against its recorded SHA-256), `pto_describe` /

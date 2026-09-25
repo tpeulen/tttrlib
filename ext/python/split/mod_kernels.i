@@ -38,6 +38,7 @@ from tttrlib.core import *
 %include "Kalman.i"
 %include "Watershed.i"
 %include "ImageOps.i"
+%include "Embedding.i"
 %include "Deconvolution.i"
 %include "Jitter.i"
 %include "HmmLattice.i"

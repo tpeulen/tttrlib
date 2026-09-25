@@ -27,6 +27,27 @@ The `math` module houses tttrlib's shared numerical infrastructure: dense linear
   agree with it bit for bit — which is why the translation unit compiles with
   `-ffp-contract=off` (a fused multiply-add changes a tied edge, then the
   dendrogram; see the CMakeLists comment).
+- **`Embedding.h`**: t-SNE and UMAP, non-linear 2-D/3-D embeddings of a point
+  cloud (burst parameters, per-pixel lifetime/intensity/phasor features) in
+  which clusters that overlap in every single projection come apart, for gating
+  and for HDBSCAN segmentation. Non-parametric, like k-means and HDBSCAN:
+  nothing is trained or kept. `Tsne.cpp`: scikit-learn's t-SNE step for step
+  (perplexity search on float32 squared distances, exact joint P or the kNN
+  form, early exaggeration, delta-bar-delta gains, PCA init), exact or
+  Barnes-Hut through a 2^c-ary space-partitioning tree. `Umap.cpp`:
+  umap-learn's UMAP step for step (exact kNN, `smooth_knn_dist`, fuzzy union,
+  the a/b fit, pruning, negative-sampling SGD), seeded PCG32, and the spectral
+  initialisation by thick-restart Lanczos (`umap_spectral_layout`; the
+  continuation is orthogonalised against the *full* basis before each restart,
+  without which the clustered eigenvalues near 1 of a path-like graph never
+  converge). `Embedding.cpp`: the shared exact kNN (KDTree), Jacobi
+  eigensolver and PCA (`EmbeddingDetail.h`), `embedding_trustworthiness`, and
+  the `tsne_embedding` / `umap_embedding` registry entries. Python adds
+  `tsne`, `umap`, `image_features_to_points` and `points_to_label_image`.
+  A/B-tested against scikit-learn and umap-learn from a recorded fixture:
+  joint P, a/b, fuzzy graph, spectral layout and trustworthiness to rounding;
+  embeddings as good by KL, trustworthiness and cluster recovery
+  (`test/python/misc/test_embedding.py`).
 - **`KMeans.h` / `KMeans.cpp`**: k-means. k-means++ seeding over **caller-supplied
   uniforms** (the consumer owns the RNG and the reproducibility contract) plus
   the Lloyd sweeps and a final assignment pass that re-measures the inertia of

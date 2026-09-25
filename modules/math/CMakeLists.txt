@@ -20,6 +20,9 @@ tttrlib_add_module(
     NAME     math
     SOURCES  "${CMAKE_CURRENT_SOURCE_DIR}/src/Cluster.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/Deconvolution.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/Embedding.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/Tsne.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/Umap.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageOps.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/Jitter.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/HmmLattice.cpp"
@@ -31,7 +34,7 @@ tttrlib_add_module(
     DEPENDS  util core   # core: the registry (Registry.h) the kernels declare themselves in
     EXTERNAL_DEPS tttrlib::pocketfft
     SWIG_INTERFACES Cluster.i Deconvolution.i Jitter.i Sampling.i
-                    HmmLattice.i Kalman.i Watershed.i ImageOps.i
+                    HmmLattice.i Kalman.i Watershed.i ImageOps.i Embedding.i
     TEST_DIR test/python/misc
 )
 

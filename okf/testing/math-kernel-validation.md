@@ -67,6 +67,14 @@ Verdicts: **PASS** = agrees with the reference to the stated metric.
 | `Cluster.h` | `hdbscan_select_clusters` (eom) | the excess-of-mass definition written out in Python in the test file, dicts and no cleverness | selection bit-identical, 21/21 | PASS | `…::test_the_kernel_matches_the_definition_written_out_in_python` |
 | `Cluster.h` | `hdbscan_cluster_stability` (as persistence) | the standalone `hdbscan` package's `cluster_persistence_`, **recorded** — sklearn reports no persistence, and that package's conda-forge build is x86_64 and will not import on Apple silicon | labels, `probabilities_` and persistence ≤ 1e-12 in 42/42 (7 sets × 3 settings × eom/leaf), incl. a genuinely infinite-λ set | PASS | `…::TestPersistenceAgainstTheReferenceImplementation` |
 | `Cluster.h` | full HDBSCAN pipeline | `sklearn.cluster.HDBSCAN` end to end | 8/18 exact, ARI ≥ 0.88, cluster count within 1 — the residue is sklearn's unstable `np.argsort` on tied MST edges, not a kernel difference (either side's tree through the other's downstream is exact) | PASS (bounded) | `…::test_full_pipeline_agrees_up_to_mst_ties` |
+| `Embedding.h` | `tsne_joint_probabilities` (exact) | scikit-learn 1.9 `_joint_probabilities`, recorded; 2 sets × perplexity 10/30 | max rel diff 1.3e-14 | PASS | `test_embedding.py::test_exact_joint_probabilities_match_sklearn` |
+| `Embedding.h` | `tsne_joint_probabilities_nn` | scikit-learn 1.9 `_joint_probabilities_nn` over `NearestNeighbors`, recorded | sparsity pattern identical, max rel diff 5.7e-15 | PASS | `…::test_neighbour_joint_probabilities_match_sklearn` |
+| `Embedding.h` | `tsne_embed` (exact, Barnes-Hut) | `sklearn.manifold.TSNE` from the same initialisation, recorded | final KL: moons 0.1418 vs 0.1418 (exact), 0.1451 vs 0.1447 (BH); blobs+background 0.454 vs 0.441 (exact: neighbouring local minimum), 0.450 vs 0.454 (BH); trustworthiness within 0.005; cluster recovery as good | PASS (bounded: KL ≤ 1.05× reference) | `…::test_tsne_is_as_good_as_sklearn` |
+| `Embedding.h` | `umap_find_ab_params` | umap-learn 0.5.12 `find_ab_params` (scipy `curve_fit`), 5 (spread, min_dist) cases | max rel diff 4e-7 (curve_fit's own tolerance) | PASS | `…::test_ab_match_umap_learn` |
+| `Embedding.h` | `umap_fuzzy_graph` | umap-learn `fuzzy_simplicial_set` over the same exact neighbours, recorded | pattern identical, max abs diff 1.0e-6 (umap-learn stores float32) | PASS | `…::test_fuzzy_simplicial_set_matches_umap_learn` |
+| `Embedding.h` | `umap_spectral_layout` | umap-learn `spectral_layout` (ARPACK) on the pruned graph, 3 graphs incl. one with eigenvalues ~1e-4 apart | column-wise \|cos\| > 0.9999 | PASS | `…::test_spectral_layout_matches_umap_learn` |
+| `Embedding.h` | `umap_embed` | `umap.UMAP` end to end, recorded | trustworthiness within 0.007 (moons: 0.9970 vs 0.9968); FLIM segmentation over 8 seeds: ARI > 0.9 on as many seeds and median ≥ umap-learn's (0.948 vs 0.913) | PASS (bounded: stochastic) | `…::test_umap_is_as_good_as_umap_learn`, `…::test_segmenting_an_image_is_as_good_as_umap_learn` |
+| `Embedding.h` | `embedding_trustworthiness` | `sklearn.manifold.trustworthiness`, recorded, 8 embeddings incl. a scrambled one | max abs diff 1.1e-16 | PASS | `…::test_trustworthiness_matches_sklearn` |
 | `KMeans.h` | `kmeans` | `sklearn.cluster.KMeans(algorithm='lloyd', n_init=1, tol=0)` from the same k-means++ seed | centres ≤ 1.1e-14, labels equal, inertia rel ≤ 8e-16; our final centres are a fixed point of sklearn | PASS | `…::TestKmeansAgainstSklearn` (2 tests) |
 | `Kalman.h` | `kalman_filter` | textbook NumPy filter (`np.linalg.inv`, plain `@`), dims 1/2/3 | x, P, D rel ≤ ~1e-14 | PASS | `test_math_ab_probabilistic.py::TestKalmanAgainstTheTextbook` |
 | `Kalman.h` | `kalman_filter` | filterpy `KalmanFilter` (Joseph-form update), recorded | ≤ 2.1e-14 | PASS | `…::TestKalmanAgainstFilterpy` |
@@ -110,6 +118,22 @@ Verdicts: **PASS** = agrees with the reference to the stated metric.
 | `LatticeDiffusion.h` | adjoint (`lattice_propagate_adjoint`): `dL/dd`, `dL/ddecay`, `dL/dcur` | dot-product identity vs central differences of the forward — both flux forms, checkpoint lengths dividing and not, domain on the shell; imp.bff: through the Python chain rule and vs the FD Jacobian on the PRD-111 θ | 1e-8–1e-12 rel. (1e-7 Python, 1e-4 θ) | PASS | `test/cpp/test_lattice_diffusion.cpp::test_adjoint`; imp.bff `test/quenching/test_diffusion_adjoint.py` |
 
 ## What the A/B found
+
+* **UMAP's spectral initialisation stalled, and only the end-to-end A/B showed
+  it (2026-09-24).** Every per-stage check passed (graph, a/b), yet UMAP +
+  HDBSCAN on a two-band FLIM image segmented worse than umap-learn; from
+  umap-learn's own spectral init tttrlib's SGD did *better* (ARI 0.95), which
+  put the fault in the eigensolver. On path-like graphs the eigenvalues next
+  to 1 sit ~1e-4 apart. The first solver restarted Lanczos from one vector and
+  never converged, silently falling back to a random start; the thick-restart
+  rewrite still stalled (residual 1e-3 after 300 cycles) because it
+  orthogonalised the Krylov continuation against the *kept* Ritz vectors
+  instead of the full basis. A numpy prototype showed the fix before the C++
+  change (1e-11 after 2 cycles). `umap_spectral_layout` is now exposed and
+  held to umap-learn's `spectral_layout` column for column. Lesson: a
+  stochastic pipeline's quality claim is a distribution — umap-learn itself
+  fails 3 seeds of 8 on that image — so the segmentation test compares eight
+  seeds, not one.
 
 * **`Random.h` PCG engine was not PCG.** `pcg_deterministic_u32` wrote the
   xorshift as `((state >> 18) ^ (state >> 27)) >> 27`; XSH-RR is

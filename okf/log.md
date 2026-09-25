@@ -1,5 +1,21 @@
 # Bundle update log
 
+## 2026-09-24 — t-SNE and UMAP in tttrlib (T-20260924-embed)
+
+`modules/math` gains `Embedding.h` (`Tsne.cpp`, `Umap.cpp`, `Embedding.cpp`):
+t-SNE (exact, Barnes-Hut) and UMAP, following scikit-learn and umap-learn
+step for step, plus `embedding_trustworthiness` and the Python helpers
+`image_features_to_points` / `points_to_label_image` for per-pixel
+segmentation. Registry entries `tsne_embedding`, `umap_embedding` (math).
+Bindings in Python, R and JS; Java declared out (ARGOUTVIEWM). Validation:
+`test/python/misc/test_embedding.py` against a fixture recorded by
+`gen_embedding_reference.py` (scikit-learn 1.9, umap-learn 0.5.12); register
+rows in [math-kernel-validation](testing/math-kernel-validation.md), which also
+records what the A/B found: the spectral initialisation's Lanczos restart lost
+the Krylov structure and stalled on clustered eigenvalues, visible only in the
+end-to-end segmentation comparison. ndXplorer's UMAP now calls `tttrlib.umap`
+(no umap-learn, so it can run under Pyodide).
+
 ## 2026-09-24 — accurate FRET: HDBSCAN population finder, outlier pre-cleaning
 
 The multidimensional gating of `auto_calibrate` finds populations with
