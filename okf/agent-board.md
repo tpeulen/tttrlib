@@ -1886,9 +1886,9 @@ retired so nobody works the same thing twice.)*
 ## Active
 
 - **T-20260924-embed · [tttrlib+ndxplorer] t-SNE and UMAP in tttrlib for segmentation; ndX drops umap-learn**
-  - Status: 🔄 in-progress
+  - Status: ✅ done — tttrlib 228a3fc22 (Embedding.h, Tsne.cpp, Umap.cpp, Embedding.cpp; Python/R/JS, Java declared out; registry tsne_embedding/umap_embedding); A/B test_embedding.py 36/36 vs recorded scikit-learn 1.9 + umap-learn 0.5.12 (P 1.3e-14, fuzzy graph 1e-6, a/b 4e-7, spectral layout column-wise, trustworthiness 1e-16; embeddings as good by KL/trust/ARI; FLIM segmentation over 8 seeds median ARI 0.948 vs 0.913); misc suite 344 passed (only failures: test_cli*, the old build/bin/tttr lost libomp in today's base-env upgrade). ndxplorer d71db76: get_umap() -> tttrlib.umap (umap-learn only for non-Euclidean metrics / old tttrlib), suite 183 passed. Found by the A/B: spectral init's Lanczos restart lost the Krylov structure (recorded in okf/testing/math-kernel-validation.md). Not pushed.
   - Owner: opus-5.5/embedding
-  - Opened: 2026-09-24 · Picked: 2026-09-24 · Done: —
+  - Opened: 2026-09-24 · Picked: 2026-09-24 · Done: 2026-09-25
   - Why: tpeulen: "implement t-SNE and UMAP in tttrlib for segmentation"; generic points API (burst tables and per-pixel features alike) plus an image helper; ndXplorer calls tttrlib instead of umap-learn (numba, no Pyodide). Non-parametric embeddings like k-means/HDBSCAN, not a learned model (AGENTS.md "ML-free").
   - Done when: `modules/math` has exact + Barnes-Hut t-SNE and UMAP (exact kNN, fuzzy simplicial set, a/b fit, spectral init, negative-sampling SGD), seeded PCG32; Python/R/JS bindings + registry entry; A/B vs scikit-learn (joint P, KL) and umap-learn (fuzzy graph, a/b) from recorded fixtures, trustworthiness vs both; image-pixel helper; docs; ndXplorer's UMAP runs through tttrlib.
   - Touching: tttrlib `modules/math/{include/Embedding.h,src/Tsne.cpp,src/Umap.cpp,src/Embedding.cpp,README.md,CMakeLists.txt}`, `ext/python/{Embedding.i,Embedding.py,tttrlib.i,split/mod_kernels.i}`, `ext/{r,js}/tttrlib.i`, `tools/binding_parity_exceptions.txt`, `test/python/misc/test_embedding*.py`, `test/data/reference/embedding_reference.npz`, CHANGELOG, okf/log.md; chisurf `modules/ndxplorer/ndxplorer/ui/clustering_dialog.py` + its UMAP path.
