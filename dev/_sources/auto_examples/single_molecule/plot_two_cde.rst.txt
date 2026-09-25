@@ -142,17 +142,18 @@ FRET-2CDE with both kernels
     fig.tight_layout()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 104-111
+.. GENERATED FROM PYTHON SOURCE LINES 104-112
 
 ALEX-2CDE: acceptor blinking under alternating excitation
 ----------------------------------------------------------
 With ALEX/PIE, donor-excitation photons (DexDem + DexAem) and
 acceptor-excitation photons (AexAem) are two more streams; a burst in which
-the acceptor blinks off for part of the transit gives ALEX-2CDE far from 100.
+the acceptor blinks off for part of the transit raises ALEX-2CDE well above
+the ~0 of a burst whose Dex/Aex brightness ratio stays constant.
 Simulate the streams as separate channels: 0/1 under donor excitation,
 2 = acceptor under acceptor excitation, with half the bursts blinking.
 
-.. GENERATED FROM PYTHON SOURCE LINES 111-145
+.. GENERATED FROM PYTHON SOURCE LINES 112-146
 
 .. code-block:: Python
 

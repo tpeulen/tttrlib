@@ -146,6 +146,23 @@ example list automatically from the scripts in this directory.
 
 .. raw:: html
 
+    <div class="sphx-glr-thumbcontainer" tooltip="A burst table is a point cloud — one row per burst, one column per feature (FRET efficiency E, stoichiometry S, donor lifetime, size, …). Two questions recur: how many populations are there and which burst belongs to which. tttrlib ships the two standard answers as compiled kernels, ported bit-for-bit from ChiSurf and validated against scikit-learn:">
+
+.. only:: html
+
+  .. image:: /auto_examples/single_molecule/images/thumb/sphx_glr_plot_burst_feature_clustering_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/single_molecule/plot_burst_feature_clustering`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Clustering burst features: k-means and HDBSCAN</div>
+    </div>
+
+
+.. raw:: html
+
     <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates how to implement microtime range selection for burst analysis. While the BurstFilter class doesn&#x27;t currently have built-in microtime selection, this example shows how to achieve the same functionality by pre-filtering the TTTR data.">
 
 .. only:: html
@@ -158,23 +175,6 @@ example list automatically from the scripts in this directory.
 .. raw:: html
 
       <div class="sphx-glr-thumbnail-title">Microtime Range Selection Example (Fixed Version)</div>
-    </div>
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="Photon-by-photon hidden Markov modelling (H2MM) normally recovers a model by iterating Baum-Welch EM on every dataset. A surrogate takes a different route: train a small neural network once on data simulated from the HMM generative model, then estimate the parameters of a real dataset in a single forward pass.">
-
-.. only:: html
-
-  .. image:: /auto_examples/single_molecule/images/thumb/sphx_glr_plot_hmm_surrogate_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/single_molecule/plot_hmm_surrogate`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Training an HMM surrogate (amortised neural estimator)</div>
     </div>
 
 
@@ -265,23 +265,6 @@ example list automatically from the scripts in this directory.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="A burst-averaged FRET efficiency cannot tell a molecule that sat at E = 0.5 from one that switched between 0.2 and 0.8 during the transit. The two-channel kernel density estimator (2CDE, Tomov et al., Biophys. J. 2012, doi:10.1016/j.bpj.2011.11.4025) is a per-burst feature that does: around every photon a kernel density of the donor and of the acceptor stream is evaluated (a Laplace or Gaussian kernel of width \tau, typically 50–100 µs), and">
-
-.. only:: html
-
-  .. image:: /auto_examples/single_molecule/images/thumb/sphx_glr_plot_two_cde_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/single_molecule/plot_two_cde`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">2CDE: within-burst dynamics without a kinetic model</div>
-    </div>
-
-
-.. raw:: html
-
     <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates burst analysis using the BurstFilter class with JSON parameter serialization support. Parameters can be saved to and loaded from JSON files.">
 
 .. only:: html
@@ -294,6 +277,23 @@ example list automatically from the scripts in this directory.
 .. raw:: html
 
       <div class="sphx-glr-thumbnail-title">Burst Analysis with JSON Parameter Support</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="A burst-averaged FRET efficiency cannot tell a molecule that sat at E = 0.5 from one that switched between 0.2 and 0.8 during the transit. The two-channel kernel density estimator (2CDE, Tomov et al., Biophys. J. 2012, doi:10.1016/j.bpj.2011.11.4025) is a per-burst feature that does: around every photon a kernel density of the donor and of the acceptor stream is evaluated (a Laplace or Gaussian kernel of width \tau, typically 50–100 µs), and">
+
+.. only:: html
+
+  .. image:: /auto_examples/single_molecule/images/thumb/sphx_glr_plot_two_cde_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/single_molecule/plot_two_cde`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">2CDE: within-burst dynamics without a kinetic model</div>
     </div>
 
 
@@ -345,23 +345,6 @@ example list automatically from the scripts in this directory.
 .. raw:: html
 
       <div class="sphx-glr-thumbnail-title">A full burst pipeline: simulate, search, select, resolve</div>
-    </div>
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="A burst table is a point cloud — one row per burst, one column per feature (FRET efficiency E, stoichiometry S, donor lifetime, size, …). Two questions recur: how many populations are there and which burst belongs to which. tttrlib ships the two standard answers as compiled kernels, ported bit-for-bit from ChiSurf and validated against scikit-learn:">
-
-.. only:: html
-
-  .. image:: /auto_examples/single_molecule/images/thumb/sphx_glr_plot_burst_feature_clustering_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/single_molecule/plot_burst_feature_clustering`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Clustering burst features: k-means and HDBSCAN</div>
     </div>
 
 
@@ -705,19 +688,18 @@ example list automatically from the scripts in this directory.
    /auto_examples/single_molecule/plot_microtime_selection_minimal
    /auto_examples/single_molecule/plot_background_rate
    /auto_examples/single_molecule/plot_burstfilter_with_selection
+   /auto_examples/single_molecule/plot_burst_feature_clustering
    /auto_examples/single_molecule/plot_microtime_selection_example_fixed
-   /auto_examples/single_molecule/plot_hmm_surrogate
    /auto_examples/single_molecule/plot_hmm_variational_bayes
    /auto_examples/single_molecule/plot_clsm_superres_esrrf
    /auto_examples/single_molecule/plot_kalman_burst_detection
    /auto_examples/single_molecule/plot_single_molecule_pda_1
    /auto_examples/single_molecule/plot_clsm_superres_limitations
-   /auto_examples/single_molecule/plot_two_cde
    /auto_examples/single_molecule/plot_burst_analysis_json
+   /auto_examples/single_molecule/plot_two_cde
    /auto_examples/single_molecule/plot_burstml_two_state
    /auto_examples/single_molecule/plot_clsm_superres_resolution_curve
    /auto_examples/single_molecule/plot_hmm_burst_pipeline
-   /auto_examples/single_molecule/plot_burst_feature_clustering
    /auto_examples/single_molecule/plot_fret_burst_analysis
    /auto_examples/single_molecule/plot_hmm_lifetime_posterior
    /auto_examples/single_molecule/plot_burstfilter_dynamic_enhanced

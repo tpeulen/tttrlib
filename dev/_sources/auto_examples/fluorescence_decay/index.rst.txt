@@ -227,23 +227,6 @@ routines, and demonstrations of different fit configurations and benchmarks.
     </div>
 
 
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="Recover a FRET distance distribution p(R_DA) from a simulated TCSPC decay with solve_tcspc_mem_fret, and compare three ways of choosing the entropy weight nu: deliberately under-regularised, deliberately over-regularised, and the opt-in &quot;historic MaxEnt&quot; mode that finds nu automatically by targeting a reduced chi-square of 1.">
-
-.. only:: html
-
-  .. image:: /auto_examples/fluorescence_decay/images/thumb/sphx_glr_plot_maxent_fret_recovery_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/fluorescence_decay/plot_maxent_fret_recovery`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Maximum-entropy FRET distance recovery, and picking nu</div>
-    </div>
-
-
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -266,5 +249,4 @@ routines, and demonstrations of different fit configurations and benchmarks.
    /auto_examples/fluorescence_decay/plot_convolution_methods
    /auto_examples/fluorescence_decay/plot_fit23_benchmark_1
    /auto_examples/fluorescence_decay/plot_decay_fit_interface
-   /auto_examples/fluorescence_decay/plot_maxent_fret_recovery
 

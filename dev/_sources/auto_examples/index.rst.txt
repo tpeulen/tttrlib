@@ -1077,23 +1077,6 @@ routines, and demonstrations of different fit configurations and benchmarks.
     </div>
 
 
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="Recover a FRET distance distribution p(R_DA) from a simulated TCSPC decay with solve_tcspc_mem_fret, and compare three ways of choosing the entropy weight nu: deliberately under-regularised, deliberately over-regularised, and the opt-in &quot;historic MaxEnt&quot; mode that finds nu automatically by targeting a reduced chi-square of 1.">
-
-.. only:: html
-
-  .. image:: /auto_examples/fluorescence_decay/images/thumb/sphx_glr_plot_maxent_fret_recovery_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/fluorescence_decay/plot_maxent_fret_recovery`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Maximum-entropy FRET distance recovery, and picking nu</div>
-    </div>
-
-
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -1312,6 +1295,23 @@ that support broader analysis workflows and development.
 
 .. raw:: html
 
+    <div class="sphx-glr-thumbcontainer" tooltip="tttrlib carries a family of 2-D image kernels -- median / min / max / midpoint filters, fast gaussian blur, Sobel and Laplace-8 derivatives, area / bilinear / bicubic resampling, affine warping, summed-area tables, value histograms, intensity moments, and frame-drift estimation. They are plain header-only C++ under the hood (concepts re-expressed from the MIT-licensed Simd library), exposed here as NumPy in / NumPy out calls.">
+
+.. only:: html
+
+  .. image:: /auto_examples/miscellaneous/images/thumb/sphx_glr_plot_image_kernels_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/miscellaneous/plot_image_kernels`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Image kernels: filter, find, and measure</div>
+    </div>
+
+
+.. raw:: html
+
     <div class="sphx-glr-thumbcontainer" tooltip="A microscope records the sample convolved with its point spread function (PSF), plus photon noise. Deconvolution tries to invert that. Two estimators are in tttrlib:">
 
 .. only:: html
@@ -1346,40 +1346,6 @@ that support broader analysis workflows and development.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="A physics-informed neural network (PINN; Raissi, Perdikaris &amp; Karniadakis 2019) represents the solution of a differential equation by a network u(x, t) and trains it on the equation itself: the loss is the squared PDE residual at collocation points plus the initial and boundary conditions. Nothing is solved on a grid; the network&#x27;s derivatives with respect to its inputs are the ingredients, and the gradient of the residual loss with respect to the weights is what the optimiser needs.">
-
-.. only:: html
-
-  .. image:: /auto_examples/miscellaneous/images/thumb/sphx_glr_plot_pinn_heat_equation_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/miscellaneous/plot_pinn_heat_equation`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Physics-informed fit: the heat equation</div>
-    </div>
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="tttrlib.NeuralNet is a small dense network -- the kind that replaces an expensive fit with a learned map (the HMM surrogate is built on it) or that parametrises an unknown function inside a physical model. This example shows the second use, which is what its derivative API exists for:">
-
-.. only:: html
-
-  .. image:: /auto_examples/miscellaneous/images/thumb/sphx_glr_plot_neural_net_differentiable_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/miscellaneous/plot_neural_net_differentiable`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">A neural network as a differentiable building block</div>
-    </div>
-
-
-.. raw:: html
-
     <div class="sphx-glr-thumbcontainer" tooltip="Everything tttrlib can do is in one registry (``tttrlib.registry()``): every algorithm, fit model, objective, prior, correlation method and pipeline operation registers itself there -- next to its own code -- when the library loads, and so does every capability a drop-in plugin brings. Nothing is listed by hand, so nothing can drift from what the code actually offers.">
 
 .. only:: html
@@ -1392,23 +1358,6 @@ that support broader analysis workflows and development.
 .. raw:: html
 
       <div class="sphx-glr-thumbnail-title">The registry: discover algorithms and compose a pipeline</div>
-    </div>
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="The canonical PINN benchmark (Raissi, Perdikaris &amp; Karniadakis 2019, Fig. 1): viscous Burgers&#x27; equation">
-
-.. only:: html
-
-  .. image:: /auto_examples/miscellaneous/images/thumb/sphx_glr_plot_pinn_burgers_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/miscellaneous/plot_pinn_burgers`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Physics-informed fit: Burgers' equation</div>
     </div>
 
 
@@ -1620,6 +1569,23 @@ example list automatically from the scripts in this directory.
 
 .. raw:: html
 
+    <div class="sphx-glr-thumbcontainer" tooltip="A burst table is a point cloud — one row per burst, one column per feature (FRET efficiency E, stoichiometry S, donor lifetime, size, …). Two questions recur: how many populations are there and which burst belongs to which. tttrlib ships the two standard answers as compiled kernels, ported bit-for-bit from ChiSurf and validated against scikit-learn:">
+
+.. only:: html
+
+  .. image:: /auto_examples/single_molecule/images/thumb/sphx_glr_plot_burst_feature_clustering_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/single_molecule/plot_burst_feature_clustering`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Clustering burst features: k-means and HDBSCAN</div>
+    </div>
+
+
+.. raw:: html
+
     <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates how to implement microtime range selection for burst analysis. While the BurstFilter class doesn&#x27;t currently have built-in microtime selection, this example shows how to achieve the same functionality by pre-filtering the TTTR data.">
 
 .. only:: html
@@ -1632,23 +1598,6 @@ example list automatically from the scripts in this directory.
 .. raw:: html
 
       <div class="sphx-glr-thumbnail-title">Microtime Range Selection Example (Fixed Version)</div>
-    </div>
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="Photon-by-photon hidden Markov modelling (H2MM) normally recovers a model by iterating Baum-Welch EM on every dataset. A surrogate takes a different route: train a small neural network once on data simulated from the HMM generative model, then estimate the parameters of a real dataset in a single forward pass.">
-
-.. only:: html
-
-  .. image:: /auto_examples/single_molecule/images/thumb/sphx_glr_plot_hmm_surrogate_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/single_molecule/plot_hmm_surrogate`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Training an HMM surrogate (amortised neural estimator)</div>
     </div>
 
 
@@ -1739,23 +1688,6 @@ example list automatically from the scripts in this directory.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="A burst-averaged FRET efficiency cannot tell a molecule that sat at E = 0.5 from one that switched between 0.2 and 0.8 during the transit. The two-channel kernel density estimator (2CDE, Tomov et al., Biophys. J. 2012, doi:10.1016/j.bpj.2011.11.4025) is a per-burst feature that does: around every photon a kernel density of the donor and of the acceptor stream is evaluated (a Laplace or Gaussian kernel of width \tau, typically 50–100 µs), and">
-
-.. only:: html
-
-  .. image:: /auto_examples/single_molecule/images/thumb/sphx_glr_plot_two_cde_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/single_molecule/plot_two_cde`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">2CDE: within-burst dynamics without a kinetic model</div>
-    </div>
-
-
-.. raw:: html
-
     <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates burst analysis using the BurstFilter class with JSON parameter serialization support. Parameters can be saved to and loaded from JSON files.">
 
 .. only:: html
@@ -1768,6 +1700,23 @@ example list automatically from the scripts in this directory.
 .. raw:: html
 
       <div class="sphx-glr-thumbnail-title">Burst Analysis with JSON Parameter Support</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="A burst-averaged FRET efficiency cannot tell a molecule that sat at E = 0.5 from one that switched between 0.2 and 0.8 during the transit. The two-channel kernel density estimator (2CDE, Tomov et al., Biophys. J. 2012, doi:10.1016/j.bpj.2011.11.4025) is a per-burst feature that does: around every photon a kernel density of the donor and of the acceptor stream is evaluated (a Laplace or Gaussian kernel of width \tau, typically 50–100 µs), and">
+
+.. only:: html
+
+  .. image:: /auto_examples/single_molecule/images/thumb/sphx_glr_plot_two_cde_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/single_molecule/plot_two_cde`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">2CDE: within-burst dynamics without a kinetic model</div>
     </div>
 
 
@@ -1819,23 +1768,6 @@ example list automatically from the scripts in this directory.
 .. raw:: html
 
       <div class="sphx-glr-thumbnail-title">A full burst pipeline: simulate, search, select, resolve</div>
-    </div>
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="A burst table is a point cloud — one row per burst, one column per feature (FRET efficiency E, stoichiometry S, donor lifetime, size, …). Two questions recur: how many populations are there and which burst belongs to which. tttrlib ships the two standard answers as compiled kernels, ported bit-for-bit from ChiSurf and validated against scikit-learn:">
-
-.. only:: html
-
-  .. image:: /auto_examples/single_molecule/images/thumb/sphx_glr_plot_burst_feature_clustering_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/single_molecule/plot_burst_feature_clustering`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Clustering burst features: k-means and HDBSCAN</div>
     </div>
 
 

@@ -44,7 +44,7 @@
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/plot_directive.css" />
-    <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css?v=fd6457a4" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css?v=c83e6b79" />
     <link rel="stylesheet" type="text/css" href="_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="_static/sg_gallery-rendered-html.css?v=1277b6f3" />
@@ -2071,8 +2071,8 @@ carries float32 round-off (~1e-2), the convergence threshold is floored at 1e-3.
 The benefit grows with the cache size (more states, more distinct gaps), so it is
 intended for exploratory fits on very large datasets, not for final numbers.
 (ChiSurf’s other approximate estimator — a neural <em>surrogate</em> that predicts a
-model in one forward pass — is not ported: it needs a trained network and so
-falls outside tttrlib’s dependency-free C++ core.)</p>
+model in one forward pass — is not part of tttrlib, which carries no learned
+models. It lives in IMP.bff as <code class="docutils literal notranslate"><span class="pre">IMP.bff.HmmSurrogate</span></code>.)</p>
 </section>
 <section id="reproducing-the-benchmark">
 <h2>Reproducing the benchmark<a class="headerlink" href="#reproducing-the-benchmark" title="Link to this heading">#</a></h2>

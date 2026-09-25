@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.000** total execution time for 124 files **from all galleries**:
+**00:00.000** total execution time for 120 files **from all galleries**:
 
 .. container::
 
@@ -179,9 +179,6 @@ Computation times
    * - :ref:`sphx_glr_auto_examples_fluorescence_decay_plot_fit26.py` (``../examples/fluorescence_decay/plot_fit26.py``)
      - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_fluorescence_decay_plot_maxent_fret_recovery.py` (``../examples/fluorescence_decay/plot_maxent_fret_recovery.py``)
-     - 00:00.000
-     - 0.0
    * - :ref:`sphx_glr_auto_examples_fluorescence_decay_plot_pile_up.py` (``../examples/fluorescence_decay/plot_pile_up.py``)
      - 00:00.000
      - 0.0
@@ -212,13 +209,7 @@ Computation times
    * - :ref:`sphx_glr_auto_examples_miscellaneous_plot_histogram_benchmark.py` (``../examples/miscellaneous/plot_histogram_benchmark.py``)
      - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_miscellaneous_plot_neural_net_differentiable.py` (``../examples/miscellaneous/plot_neural_net_differentiable.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_miscellaneous_plot_pinn_burgers.py` (``../examples/miscellaneous/plot_pinn_burgers.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_miscellaneous_plot_pinn_heat_equation.py` (``../examples/miscellaneous/plot_pinn_heat_equation.py``)
+   * - :ref:`sphx_glr_auto_examples_miscellaneous_plot_image_kernels.py` (``../examples/miscellaneous/plot_image_kernels.py``)
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_auto_examples_miscellaneous_plot_registry_composition.py` (``../examples/miscellaneous/plot_registry_composition.py``)
@@ -312,9 +303,6 @@ Computation times
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_auto_examples_single_molecule_plot_hmm_state_channels.py` (``../examples/single_molecule/plot_hmm_state_channels.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_single_molecule_plot_hmm_surrogate.py` (``../examples/single_molecule/plot_hmm_surrogate.py``)
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_auto_examples_single_molecule_plot_hmm_variational_bayes.py` (``../examples/single_molecule/plot_hmm_variational_bayes.py``)
