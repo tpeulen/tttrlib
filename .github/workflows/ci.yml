@@ -2115,11 +2115,6 @@ jobs:
     name: Build Documentation
     needs: [setup, test_pip_lnx, test_pip_osx, test_pip_win, test_conda_lnx, test_conda_osx,
             test_conda_win, build_and_test]
-    # The deploy steps push to gh-pages with GITHUB_TOKEN, and the repository's
-    # default workflow token is read-only: without this the push is refused with
-    # 403 after the documentation has built.
-    permissions:
-      contents: write
     # Two gates, because the two branches prove the code different ways: main
     # runs the packaging tests, dev runs the source build. Each waits for the one
     # it actually has -- a skipped job's result is 'skipped', never 'success', so
