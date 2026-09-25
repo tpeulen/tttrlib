@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- **Fixed: array outputs of the image kernels, Kalman filter, k-means and
+  watershed/marching squares were allocated with `new[]` and released with
+  `free()`.** The Python and R wrappers free ARGOUTVIEWM buffers with `free()`
+  (numpy.i `free_cap`, rarrays.i), which is undefined behaviour on a `new[]`
+  allocation; it happened to work with the system allocators in use. They now
+  use `malloc`, the convention the other ~25 producers already follow. Also:
+  an invalid rank-filter `shape` or a negative `gaussian_blur` sigma now raises
+  before the output is allocated, where it used to leak it.
+
 - **Added: t-SNE and UMAP, for gating and segmentation.** `tttrlib.tsne`
   (scikit-learn's `TSNE` step for step: perplexity search, exact or kNN joint
   P, early exaggeration, delta-bar-delta gains, PCA init; exact or Barnes-Hut)

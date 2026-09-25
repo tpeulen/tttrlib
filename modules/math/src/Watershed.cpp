@@ -8,6 +8,8 @@
 // rounds once instead of twice and moves a contour endpoint by a ulp, which
 // breaks the exactness pin.
 #pragma STDC FP_CONTRACT OFF
+#include <new>
+#include <cstdlib>
 #include "Watershed.h"
 #include "Registry.h"
 
@@ -21,6 +23,15 @@
 #include <vector>
 
 namespace tttrlib {
+
+// ARGOUTVIEWM outputs: malloc, not new[] -- the wrappers (numpy.i free_cap,
+// rarrays.i, jsarrays.i) release them with free().
+template <typename T>
+T* argout_alloc(size_t n) {
+    void* p = std::malloc(sizeof(T) * (n ? n : 1));
+    if (!p) throw std::bad_alloc();
+    return static_cast<T*>(p);
+}
 namespace {
 
 void require(bool ok, const char* kernel, const char* what) {
@@ -186,7 +197,7 @@ void watershed(
     *out_rows = n_rows;
     *out_cols = n_cols;
     if (n_rows == 0 || n_cols == 0) {
-        *out_labels = new long long[0];
+        *out_labels = argout_alloc<long long>(0);
         return;
     }
 
@@ -227,7 +238,7 @@ void watershed(
     if (!marker_locations.empty())
         flood(padded_image.data(), marker_locations, offsets, padded_mask.data(), labels);
 
-    *out_labels = new long long[static_cast<size_t>(n_rows) * n_cols];
+    *out_labels = argout_alloc<long long>(static_cast<size_t>(n_rows) * n_cols);
     for (int r = 0; r < n_rows; ++r)
         for (int c = 0; c < n_cols; ++c)
             (*out_labels)[static_cast<size_t>(r) * n_cols + c] =
@@ -246,7 +257,7 @@ void marching_squares(
     // upper bound: every block can emit at most two segments
     const size_t capacity =
         2 * static_cast<size_t>(n_rows - 1) * (n_cols - 1);
-    double* segments = new double[4 * capacity];
+    double* segments = argout_alloc<double>(4 * capacity);
     size_t count = 0;
 
     const bool vch = vertex_connect_high != 0;

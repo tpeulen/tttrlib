@@ -29,6 +29,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <cstdint>
 #include <new>
 #include <stdexcept>
@@ -48,24 +49,35 @@ inline tttrlib::rank_filters::Shape shape_from_int(int shape) {
 inline void check_dims(int rows, int cols) {
     if (rows <= 0 || cols <= 0) throw std::invalid_argument("image is empty");
 }
+/// A buffer for an ARGOUTVIEWM output. malloc, not new[]: the wrappers
+/// (numpy.i free_cap, rarrays.i, jsarrays.i) release it with free(), and
+/// free() on a new[] allocation is undefined behaviour.
+template <typename T>
+T* alloc(size_t n) {
+    void* p = std::malloc(sizeof(T) * (n ? n : 1));
+    if (!p) throw std::bad_alloc();
+    return static_cast<T*>(p);
+}
 }  // namespace detail
 
-/// Rank filters, float64 and uint16 pixels. `*dst` is a new `rows*cols`
+/// Rank filters, float64 and uint16 pixels. `*dst` is a malloc'd `rows*cols`
 /// buffer; `*dst_n` its length.
 #define TTTRLIB_IMAGEOPS_RANK(NAME)                                                        \
 inline void NAME##_f64(const double* src, int rows, int cols, int shape,                   \
                        double** dst, int* dst_n) {                                         \
     detail::check_dims(rows, cols);                                                        \
-    *dst = new double[static_cast<size_t>(rows) * cols];                                   \
+    const auto sh = detail::shape_from_int(shape);  /* throws before the alloc */ \
+    *dst = detail::alloc<double>(static_cast<size_t>(rows) * cols);                                   \
     *dst_n = rows * cols;                                                                  \
-    tttrlib::rank_filters::NAME(src, *dst, rows, cols, detail::shape_from_int(shape));              \
+    tttrlib::rank_filters::NAME(src, *dst, rows, cols, sh);              \
 }                                                                                          \
 inline void NAME##_u16(const std::uint16_t* src, int rows, int cols, int shape,            \
                        std::uint16_t** dst, int* dst_n) {                                  \
     detail::check_dims(rows, cols);                                                        \
-    *dst = new std::uint16_t[static_cast<size_t>(rows) * cols];                            \
+    const auto sh = detail::shape_from_int(shape);  /* throws before the alloc */ \
+    *dst = detail::alloc<std::uint16_t>(static_cast<size_t>(rows) * cols);                            \
     *dst_n = rows * cols;                                                                  \
-    tttrlib::rank_filters::NAME(src, *dst, rows, cols, detail::shape_from_int(shape));              \
+    tttrlib::rank_filters::NAME(src, *dst, rows, cols, sh);              \
 }
 TTTRLIB_IMAGEOPS_RANK(median_filter)
 TTTRLIB_IMAGEOPS_RANK(min_filter)
@@ -83,7 +95,7 @@ TTTRLIB_IMAGEOPS_RANK(midpoint_filter)
 inline void integral_image_u16(const std::uint16_t* src, int rows, int cols,
                                unsigned long long** sum, int* sum_n) {
     detail::check_dims(rows, cols);
-    *sum = new unsigned long long[static_cast<size_t>(rows + 1) * (cols + 1)];
+    *sum = detail::alloc<unsigned long long>(static_cast<size_t>(rows + 1) * (cols + 1));
     *sum_n = (rows + 1) * (cols + 1);
     tttrlib::integral_image::integral_sum(
         src, rows, cols, reinterpret_cast<std::uint64_t*>(*sum)
@@ -101,13 +113,13 @@ inline double rect_sum_u64(const unsigned long long* integral, int table_n, int 
         ));
 }
 
-/// Resamplers: `*dst` is a new `drows*dcols` buffer.
+/// Resamplers: `*dst` is a malloc'd `drows*dcols` buffer.
 #define TTTRLIB_IMAGEOPS_RESIZE(NAME)                                                      \
 inline void NAME##_f64(const double* src, int rows, int cols,                             \
                        int drows, int dcols, double** dst, int* dst_n) {                   \
     detail::check_dims(rows, cols);                                                        \
     if (drows <= 0 || dcols <= 0) throw std::invalid_argument("output is empty");          \
-    *dst = new double[static_cast<size_t>(drows) * dcols];                                 \
+    *dst = detail::alloc<double>(static_cast<size_t>(drows) * dcols);                                 \
     *dst_n = drows * dcols;                                                                \
     tttrlib::resize_image::NAME(src, rows, cols, *dst, drows, dcols);                               \
 }                                                                                          \
@@ -115,7 +127,7 @@ inline void NAME##_u16(const std::uint16_t* src, int rows, int cols,            
                        int drows, int dcols, std::uint16_t** dst, int* dst_n) {            \
     detail::check_dims(rows, cols);                                                        \
     if (drows <= 0 || dcols <= 0) throw std::invalid_argument("output is empty");          \
-    *dst = new std::uint16_t[static_cast<size_t>(drows) * dcols];                          \
+    *dst = detail::alloc<std::uint16_t>(static_cast<size_t>(drows) * dcols);                          \
     *dst_n = drows * dcols;                                                                \
     tttrlib::resize_image::NAME(src, rows, cols, *dst, drows, dcols);                               \
 }
@@ -128,7 +140,8 @@ TTTRLIB_IMAGEOPS_RESIZE(resize_bicubic)
 inline void gaussian_blur_f64(const double* src, int rows, int cols, double sigma,
                               double** dst, int* dst_n) {
     detail::check_dims(rows, cols);
-    *dst = new double[static_cast<size_t>(rows) * cols];
+    if (!(sigma >= 0.0)) throw std::invalid_argument("sigma must be >= 0");   // before the alloc
+    *dst = detail::alloc<double>(static_cast<size_t>(rows) * cols);
     *dst_n = rows * cols;
     tttrlib::fast_gaussian::gaussian_blur_fast(src, *dst, rows, cols, sigma);
 }
@@ -149,21 +162,21 @@ inline double estimate_drift_f64(const double* ref, int ref_rows, int ref_cols,
 inline void sobel_dx_f64(const double* src, int rows, int cols,
                          double** dst, int* dst_n) {
     detail::check_dims(rows, cols);
-    *dst = new double[static_cast<size_t>(rows) * cols];
+    *dst = detail::alloc<double>(static_cast<size_t>(rows) * cols);
     *dst_n = rows * cols;
     tttrlib::gradients::sobel_dx(src, *dst, rows, cols);
 }
 inline void sobel_dy_f64(const double* src, int rows, int cols,
                          double** dst, int* dst_n) {
     detail::check_dims(rows, cols);
-    *dst = new double[static_cast<size_t>(rows) * cols];
+    *dst = detail::alloc<double>(static_cast<size_t>(rows) * cols);
     *dst_n = rows * cols;
     tttrlib::gradients::sobel_dy(src, *dst, rows, cols);
 }
 inline void laplace8_f64(const double* src, int rows, int cols,
                          double** dst, int* dst_n) {
     detail::check_dims(rows, cols);
-    *dst = new double[static_cast<size_t>(rows) * cols];
+    *dst = detail::alloc<double>(static_cast<size_t>(rows) * cols);
     *dst_n = rows * cols;
     tttrlib::gradients::laplace8(src, *dst, rows, cols);
 }
@@ -175,7 +188,7 @@ inline void warp_affine_f64(const double* src, int rows, int cols,
                             double** dst, int* dst_n) {
     detail::check_dims(rows, cols);
     if (matrix_n != 6) throw std::invalid_argument("matrix must have 6 entries (2x3 row-major)");
-    *dst = new double[static_cast<size_t>(rows) * cols];
+    *dst = detail::alloc<double>(static_cast<size_t>(rows) * cols);
     *dst_n = rows * cols;
     tttrlib::warp_affine::warp_affine(src, *dst, rows, cols, matrix);
 }
@@ -190,7 +203,7 @@ inline void value_histogram_f64(const double* src, int rows, int cols,
     if (mask && (mask_rows != rows || mask_cols != cols))
         throw std::invalid_argument("mask shape does not match the image");
     const size_t n = static_cast<size_t>(std::floor(hi - lo)) + 1;
-    *hist = new double[n];
+    *hist = detail::alloc<double>(n);
     *n_bins = static_cast<int>(n);
     for (size_t i = 0; i < n; ++i) (*hist)[i] = 0.0;
     const size_t total = static_cast<size_t>(rows) * cols;
@@ -211,7 +224,7 @@ inline void value_histogram_u16(const std::uint16_t* src, int rows, int cols,
     if (mask && (mask_rows != rows || mask_cols != cols))
         throw std::invalid_argument("mask shape does not match the image");
     const size_t n = static_cast<size_t>(hi - lo) + 1;
-    *hist = new double[n];
+    *hist = detail::alloc<double>(n);
     *n_bins = static_cast<int>(n);
     for (size_t i = 0; i < n; ++i) (*hist)[i] = 0.0;
     const size_t total = static_cast<size_t>(rows) * cols;
@@ -231,7 +244,7 @@ inline void image_moments_f64(const double* src, int rows, int cols,
     detail::check_dims(rows, cols);
     if (mask && (mask_rows != rows || mask_cols != cols))
         throw std::invalid_argument("mask shape does not match the image");
-    *out = new double[6];
+    *out = detail::alloc<double>(6);
     *n = 6;
     const tttrlib::image_stat::Moments m = tttrlib::image_stat::image_moments(src, rows, cols, mask);
     (*out)[0] = m.m00; (*out)[1] = m.m10; (*out)[2] = m.m01;

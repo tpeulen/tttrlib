@@ -9,6 +9,8 @@
 // support. FMA contraction is worth nothing here anyway: the per-bin work is
 // a handful of tiny products, memory bound.
 #pragma STDC FP_CONTRACT OFF
+#include <new>
+#include <cstdlib>
 #include "Kalman.h"
 #include "Registry.h"
 
@@ -21,6 +23,15 @@
 #include "Mat.h"
 
 namespace tttrlib {
+
+// ARGOUTVIEWM outputs: malloc, not new[] -- the wrappers (numpy.i free_cap,
+// rarrays.i, jsarrays.i) release them with free().
+template <typename T>
+T* argout_alloc(size_t n) {
+    void* p = std::malloc(sizeof(T) * (n ? n : 1));
+    if (!p) throw std::bad_alloc();
+    return static_cast<T*>(p);
+}
 namespace {
 
 void require(bool ok, const char* what) {
@@ -88,9 +99,9 @@ void kalman_filter(
     *out_x_filt = nullptr; *out_P_filt = nullptr; *out_D = nullptr;
 
     if (T == 0) {
-        *out_x_filt = new double[0];
-        *out_P_filt = new double[0];
-        *out_D = new double[0];
+        *out_x_filt = argout_alloc<double>(0);
+        *out_P_filt = argout_alloc<double>(0);
+        *out_D = argout_alloc<double>(0);
         return;
     }
 
@@ -106,9 +117,9 @@ void kalman_filter(
 
     const bool use_analytic = (dim == 2);
 
-    double* x_filt = new double[static_cast<size_t>(T) * dim];
-    double* P_filt = new double[static_cast<size_t>(T) * dim2];
-    double* D = new double[static_cast<size_t>(T)];
+    double* x_filt = argout_alloc<double>(static_cast<size_t>(T) * dim);
+    double* P_filt = argout_alloc<double>(static_cast<size_t>(T) * dim2);
+    double* D = argout_alloc<double>(static_cast<size_t>(T));
 
     for (int t = 0; t < T; ++t) {
         // predict: P_pred = P + Q

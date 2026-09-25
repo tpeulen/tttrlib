@@ -9,6 +9,8 @@
 // for this today) drifting by one ulp. FMA contraction is worth nothing here
 // anyway: the distance loop is memory bound.
 #pragma STDC FP_CONTRACT OFF
+#include <new>
+#include <cstdlib>
 #include "KMeans.h"
 
 #include <cmath>
@@ -19,6 +21,15 @@
 #include <vector>
 
 namespace tttrlib {
+
+// ARGOUTVIEWM outputs: malloc, not new[] -- the wrappers (numpy.i free_cap,
+// rarrays.i, jsarrays.i) release them with free().
+template <typename T>
+T* argout_alloc(size_t n) {
+    void* p = std::malloc(sizeof(T) * (n ? n : 1));
+    if (!p) throw std::bad_alloc();
+    return static_cast<T*>(p);
+}
 namespace {
 
 void require(bool ok, const char* what) {
@@ -255,12 +266,13 @@ void kmeans(
 
     *out_n1 = 0; *out_n2 = n_features; *out_n_labels = 0; *out_n_stats = 2;
     *out_centers = nullptr; *out_labels = nullptr;
-    *out_stats = new double[2]{0.0, 0.0};
+    *out_stats = argout_alloc<double>(2);
+    (*out_stats)[0] = 0.0; (*out_stats)[1] = 0.0;
 
     // Degenerate-but-defined, as in the reference: fewer samples than
     // centres -> the data itself padded by repeats of the mean.
     if (n_samples <= n_clusters) {
-        double* centers = new double[static_cast<size_t>(n_clusters) * n_features];
+        double* centers = argout_alloc<double>(static_cast<size_t>(n_clusters) * n_features);
         std::vector<double> mean(n_features, 0.0);
         if (n_samples > 0) {
             for (int t = 0; t < n_samples; ++t)
@@ -277,7 +289,7 @@ void kmeans(
                         sizeof(double) * n_features);
         *out_centers = centers;
         *out_n1 = n_clusters;
-        long long* labels = new long long[n_samples > 0 ? n_samples : 1];
+        long long* labels = argout_alloc<long long>(n_samples > 0 ? n_samples : 1);
         for (int t = 0; t < n_samples; ++t) labels[t] = t % n_clusters;
         *out_labels = labels;
         *out_n_labels = n_samples;
@@ -309,10 +321,10 @@ void kmeans(
         }
     }
 
-    *out_centers = new double[centers.size()];
+    *out_centers = argout_alloc<double>(centers.size());
     std::memcpy(*out_centers, best_centers.data(), sizeof(double) * centers.size());
     *out_n1 = n_clusters;
-    *out_labels = new long long[n_samples];
+    *out_labels = argout_alloc<long long>(n_samples);
     std::memcpy(*out_labels, best_labels.data(), sizeof(long long) * n_samples);
     *out_n_labels = n_samples;
     (*out_stats)[0] = best_inertia;
