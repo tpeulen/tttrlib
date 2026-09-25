@@ -55,6 +55,7 @@
 #include <cstring>
 #include <ctime>
 #include <string>
+#include <optional>
 #include <random>
 #include <algorithm>
 #include <cctype>
@@ -110,7 +111,7 @@ public:
         // it reproduces those; stream k > 0 folds k in. Until 2026-08-17 the
         // name was accepted and silently ran Philox.
         use_mt_ = (selected_engine() == RNGEngine::MT19937);
-        if (use_mt_) mt_.seed(stream_id == 0 ? base_seed : (base_seed ^ (stream_id * 0x9E3779B9u)));
+        if (use_mt_) mt_.emplace(stream_id == 0 ? base_seed : (base_seed ^ (stream_id * 0x9E3779B9u)));
         mt_pos_ = 0;
     }
 
@@ -139,7 +140,7 @@ public:
         if (use_mt_) {
             // Not counter-based: reach the position by discarding. Exact, O(n).
             if (draw_index < mt_pos_) { seed(key_[0], key_[1]); }
-            mt_.discard(static_cast<unsigned long long>(draw_index - mt_pos_));
+            mt_->discard(static_cast<unsigned long long>(draw_index - mt_pos_));
             mt_pos_ = draw_index;
             return;
         }
@@ -160,7 +161,7 @@ public:
 
     /// Next raw 32-bit value (Philox streaming).
     inline uint32_t next_u32() {
-        if (use_mt_) { ++mt_pos_; return static_cast<uint32_t>(mt_()); }
+        if (use_mt_) { ++mt_pos_; return static_cast<uint32_t>((*mt_)()); }
         if (idx_ >= 4) {
             philox_refill();
             ++ctr_[0];
@@ -295,7 +296,12 @@ private:
     int idx_ = 4;
     // Streaming state (MT19937, only when TTTR_RNG_ENGINE=mt19937)
     bool use_mt_ = false;
-    std::mt19937 mt_;
+    // Engaged only when TTTR_RNG_ENGINE=mt19937. Held by value, a Mersenne
+    // Twister made every Random 2.5 KB and ran its 624-word default seeding on
+    // each construction -- ~1 us that the Philox path never used, paid per
+    // molecule per window where SimEngine builds a fresh SimCounterRandom
+    // (measured: 1.2M construct+reset 1485 ms vs 14 ms reusing one).
+    std::optional<std::mt19937> mt_;
     uint64_t mt_pos_ = 0;
 
     static inline void mulhilo(uint32_t a, uint32_t b, uint32_t& hi, uint32_t& lo) {

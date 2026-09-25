@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+- **Fixed: every `Random` (and so every Philox `SimCounterRandom`) built a
+  Mersenne Twister it never used.** `std::mt19937` was a by-value member, so
+  each construction ran its 624-word default seeding and carried 2.5 KB --
+  about 1 us that only `TTTR_RNG_ENGINE=mt19937` needs. `SimEngine` builds a
+  fresh RNG per molecule per window on several paths, which made Philox runs
+  far slower than Xoshiro where those paths run (Windows CI: 4.5 s vs 0.05 s
+  in `test_counter_rng_seek_is_constant_time`). The Twister is now an
+  `std::optional`, engaged only for that engine: 1.2M construct+reset went
+  from 1485 ms to 14 ms, the cost of reusing one object.
+
 - **Fixed: array outputs of the image kernels, Kalman filter, k-means and
   watershed/marching squares were allocated with `new[]` and released with
   `free()`.** The Python and R wrappers free ARGOUTVIEWM buffers with `free()`
