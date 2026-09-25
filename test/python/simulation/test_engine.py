@@ -144,9 +144,13 @@ def test_counter_rng_seek_is_constant_time():
         t0 = time.perf_counter(); eng.run()
         return time.perf_counter() - t0
 
+    # Best of three for each: a single timing flapped once on a Windows runner
+    # (Philox 4.5 s against Xoshiro 0.05 s, run 36115724627, same code that
+    # passed the run before) -- a stall hits one sample, not all three. The
+    # burn regression is slow on every sample, so the minimum still shows it.
     windows = 3000
-    t_ref = max(run("Xoshiro", windows), 1e-4)
-    t_ctr = run("Philox", windows)
+    t_ref = max(min(run("Xoshiro", windows) for _ in range(3)), 1e-4)
+    t_ctr = min(run("Philox", windows) for _ in range(3))
     assert t_ctr < 20.0 * t_ref, (
         f"Philox reseed looks superlinear in the counter: {t_ctr:.3f}s vs "
         f"Xoshiro {t_ref:.3f}s -- SimCounterRandom::reset should seek, not burn")
