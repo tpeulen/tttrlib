@@ -125,49 +125,52 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
-- **T-20260924-01 · [imp.bff] TODO: greedy Olga (FRET network selection) picks the pairs that resolve the *path* — structure, kinetics and route — not only the static states**
-  - Status: 🆕 open
-  - Owner: —
-  - Opened: 2026-09-24 · Picked: — · Done: —
-  - Why: owner request (2026-09-24). What a FRET network has to resolve is the
-    **path**, the trajectory x(t) through structure space: *where* it goes
-    (structure), *when* (kinetics), *which way* (order, route). Greedy Olga
-    (`ProbePairSelection`, `select_informative_pairs` /
-    `select_informative_sites`) scores only the static levels, the points the
-    path visits. A pair doesn't see a structure. It sees the path projected
-    onto its own FRET coordinate, E_pair(t), and a burst time-averages that
-    projection. Two pairs can both separate A from B while projecting the same
-    exchange, so the network sees one segment of the path twice and another
-    not at all. It also misses which step of A→B→C a pair reports on, whether
-    a segment falls in the burst time window, and routes with the same
-    endpoints (A→B via I₁ vs. I₂).
-  - Criterion (owner-agreed direction): score a pair set P by the mutual
-    information between the hidden path and the photons, I_P(X; D) =
-    H(X) − H(X | D). For discrete states, H(X | D) is the entropy of the
-    posterior path of the photon-by-photon HMM `FRETNetworkModel` already
-    evaluates (Gopich–Szabo / H2MM), exact by one forward–backward pass,
-    expected over simulated bursts. Fast inner-loop proxy: D-optimal Fisher
-    information over θ = (structure s, rates k), log det F = log det F_ss +
-    log det (F_kk − F_ks F_ss⁻¹ F_sk). The Schur term credits a pair toward the
-    kinetics only once the states it separates are structurally pinned down.
-    Average over the prior (Olga's ensemble, broad rate prior) rather than
-    designing for one guess. The continuous landscape (Onsager–Machlup path
-    action) comes after the discrete case works. Full note (local, since
-    `prototypes/` is gitignored):
-    `imp.bff/prototypes/kinetic_networks/investigations/pair_selection_path_ensembles.md`.
-  - Done when: the selector takes a hidden process (states + rate matrix, via
-    `FRETHiddenProcess`) and selects by the path criterion. Without one, the
-    selection is unchanged. Test: a three-state system with two routes
-    (A⇌B⇌C plus A⇌C), known structures and rates, equal-size selections by
-    static-only, rates-only and path score; bursts simulated for each set and
-    fitted with `FRETNetworkModel`. The path set recovers the structures (RMSD),
-    every rate, and the route fluxes; neither other set matches it on all three.
-  - Touching: `imp.bff/include/ProbePairSelection.h`,
-    `imp.bff/src/ProbePairSelection.cpp`,
-    `imp.bff/pyext/include/IMP_bff.probepairselection.i`,
-    `imp.bff/test/restraints/test_greedy_*.py`, one example in
-    `imp.bff/ipynb/example/`.
-  - Progress: —
+- **T-20260924-01 · [imp.bff] Probe network selection mixes structural resolution, dynamics and labelling (`ProbeNetworkSelection`)**
+  - Status: ✅ done (imp.bff `71804be5`, local)
+  - Owner: opus-5.5/16a6a771
+  - Opened: 2026-09-24 · Picked: 2026-09-25 · Done: 2026-09-26
+  - Why: owner request (2026-09-24/25). Greedy Olga (`select_probe_pairs` /
+    `select_probe_positions`, `ProbePairSelection.h`) scores only structural
+    resolution, the expected RMSD over an ensemble. Two pairs that separate A
+    from B while seeing the same exchange look complementary to it, so the
+    network can pin the states and still leave the rates undetermined.
+    FRETNet-Designer (SMB-Lab) adds practical site terms but mixes unitless,
+    hand-weighted features. Wanted: one general selector whose scores can be
+    chosen and mixed, the best of both.
+  - Criterion: a weighted sum of term losses, each dimensionless in [0, 1]
+    relative to nothing selected:
+    - resolution: Olga's expected RMSD relative to the prior RMSD (alone it
+      reproduces the free selectors exactly);
+    - dynamics: each pair is its own double mutant on its own molecules, so
+      pairs share the rates, not a trajectory. Per pair, the per-burst Fisher
+      information of `FRETNetworkModel` over (log-rates, its state means),
+      from simulated bursts, reduced to the rates by a Schur complement
+      G_p = F_kk − F_kd F_dd⁻¹ F_dk. Additive over pairs; loss
+      [det F0 / det(F0 + Σ G_p)]^(1/n_k), the geometric-mean posterior variance
+      of the log-rates relative to the prior;
+    - labelling: Labelizer combined score per site (failure 1/(1+LS)) plus a
+      cost per mutation, so a reused site is free; unscored sites ineligible.
+  - Done when: `ProbeNetworkSelection` + `ProbeResolutionTerm`,
+    `ProbeKineticsTerm`, `ProbeLabellingTerm` in C++ with SWIG; resolution-only
+    equals the free selectors; the kinetics information equals the Schur
+    complement of `segment_scores`; a three-state example (A⇌B⇌C plus A⇌C)
+    shows the mixed selection determining the rates better than
+    resolution-only at a small resolution cost.
+  - Touching: released (imp.bff build lock released 2026-09-26). Was: imp.bff `include/ProbeNetworkSelection.h`,
+    `src/ProbeNetworkSelection.cpp`, `include/internal/ProbePairKernels.h`
+    (kernels moved out of `src/ProbePairSelection.cpp`),
+    `pyext/include/IMP_bff.probenetworkselection.i` (+ one include in
+    `IMP_bff.core.i`), `src/Files.cmake` (one entry),
+    `test/restraints/test_probe_network_selection.py`,
+    `test/test_public_api_names.py`, `examples/labels/plot_network_selection.py`.
+  - Progress: done. `test/restraints/test_probe_network_selection.py` 14
+    passed; regressions (greedy olga/sites, pair-selection contract, public/
+    docs API names, taxonomy, test/landscape) 536 passed on the rebuilt module.
+    Resolution-only matches the free selectors (order exact, decay 1e-13); the
+    kinetics information matches the numpy Schur complement of
+    `segment_scores`. Example: 3 states, 30 random candidates, 3 pairs: RMSD
+    loss ~0 for every selection, rate loss 0.0076 (resolution only) vs 0.0029
+    (mixed). Steady dyes only for the kinetics term so far.
 
 - **T-20260923-11 · [tttrlib] ALEX-2CDE sign: `TwoCDE.cpp:43` computes 100 − 50(BR_Dex − BR_Aex); Tomov 2012 eq. 12 is 100 − 50(BR_Dex + BR_Aex)**
   - Status: ✅ done
@@ -2074,8 +2077,9 @@ retired so nobody works the same thing twice.)*
   - Done when: a row whose distance came from the attachment points carries
     `PROBE_MODEL_CBETA`, so a caller can filter, and the module builds and its
     label/FRET tests pass.
-  - Touching: **holds the imp.bff build lock** (`../imp/cmake-build-arm64`);
-    `src/LabelizerFRET.cpp`, `test/label/`.
+  - Touching: `src/LabelizerFRET.cpp`, `test/label/`. (Build lock claim
+    stale since 2026-09-18, session gone; taken over by T-20260924-01 on
+    2026-09-25 with the owner's go.)
   - Progress: patched, building.
 
 - **T-20260917-10 · [imp.bff] Does it compile? IMP module build + the imp-bff pip wheel, no source changes**
