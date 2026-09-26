@@ -125,6 +125,15 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
+- **T-20260926-01 · [imp.bff] Oligomer switch for probe network selection: `ProbeOligomerPairs` (n protomers → site pairs, distance mixtures)**
+  - Status: ✅ done (imp.bff `212b8075`, local)
+  - Owner: opus-5.5/16a6a771
+  - Opened: 2026-09-26 · Picked: 2026-09-26 · Done: 2026-09-26
+  - Why: owner request. `ProbeNetworkSelection` handles homo-oligomers only via a hand-built `pair_sites`; the kinetics term takes one distance per state, but in a trimer one site pair measures a mixture (A–B, A–C, B–C).
+  - Done when: `ProbeOligomerPairs` builds pair_sites, per-row distance mixtures and mean efficiencies from site positions `(frames, protomers, sites, 3)`; `ProbeKineticsTerm` takes mixtures; dimer/trimer tests pass.
+  - Touching: released (imp.bff build lock released 2026-09-26). Was: imp.bff `include/ProbeNetworkSelection.h`, `src/ProbeNetworkSelection.cpp`, `pyext/include/IMP_bff.probenetworkselection.i`, `test/restraints/test_probe_network_selection.py`, `examples/labels/plot_network_selection.py`, `test/test_public_api_names.py`.
+  - Progress: done. `test_probe_network_selection.py` 20 passed (dimer to tetramer rows and mixtures, a trimer selected by sites with resolution + kinetics); regression set 557 passed. Note: while this lock was held, another session ran `ninja IMP.bff-python` in the same tree twice without a board claim; I waited for it to finish each time.
+
 - **T-20260924-01 · [imp.bff] Probe network selection mixes structural resolution, dynamics and labelling (`ProbeNetworkSelection`)**
   - Status: ✅ done (imp.bff `71804be5`, local)
   - Owner: opus-5.5/16a6a771
