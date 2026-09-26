@@ -126,7 +126,7 @@ are still claims and still binding.
 ## Open — advertised, unowned
 
 - **T-20260926-01 · [imp.bff] Oligomer switch for probe network selection: `ProbeOligomerPairs` (n protomers → site pairs, distance mixtures)**
-  - Status: ✅ done (imp.bff `212b8075`, local)
+  - Status: ✅ done (imp.bff `e5e9a843`, pushed to fork)
   - Owner: opus-5.5/16a6a771
   - Opened: 2026-09-26 · Picked: 2026-09-26 · Done: 2026-09-26
   - Why: owner request. `ProbeNetworkSelection` handles homo-oligomers only via a hand-built `pair_sites`; the kinetics term takes one distance per state, but in a trimer one site pair measures a mixture (A–B, A–C, B–C).
@@ -135,7 +135,7 @@ are still claims and still binding.
   - Progress: done. `test_probe_network_selection.py` 20 passed (dimer to tetramer rows and mixtures, a trimer selected by sites with resolution + kinetics); regression set 557 passed. Note: while this lock was held, another session ran `ninja IMP.bff-python` in the same tree twice without a board claim; I waited for it to finish each time.
 
 - **T-20260924-01 · [imp.bff] Probe network selection mixes structural resolution, dynamics and labelling (`ProbeNetworkSelection`)**
-  - Status: ✅ done (imp.bff `71804be5`, local)
+  - Status: ✅ done (imp.bff `3de4d3ab`, pushed to fork)
   - Owner: opus-5.5/16a6a771
   - Opened: 2026-09-24 · Picked: 2026-09-25 · Done: 2026-09-26
   - Why: owner request (2026-09-24/25). Greedy Olga (`select_probe_pairs` /
