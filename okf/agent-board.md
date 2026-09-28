@@ -126,13 +126,13 @@ are still claims and still binding.
 ## Open — advertised, unowned
 
 - **T-20260928-03 · [ptolib] Streaming writer, ragged columns, mmap reader, block-compressed random access (for a UniRef90-scale sequence store)**
-  - Status: 🔄 in-progress
+  - Status: ✅ done (ptolib 7726aa3, local)
   - Owner: opus-5.5/16a6a771
-  - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: —
+  - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: 2026-09-28
   - Why: owner request: the native homology search stores binary FASTA and a k-mer index in .pto, in little memory. Today a column is written from memory in one piece, there is no variable-length type, no persistent/mapped reader (every read re-opens and re-parses the directory), reads are not thread-safe, and a compressed column decodes whole.
   - Done when: StoreWriter (begin/append/end, bounded memory), a ragged column type (u64 offsets + values), StoreReader (open once, mmap spans, positional reads, thread-safe, chunk iterator), block-compressed columns with a block index; Python reader parity; GB-scale ptobench; re-vendored into imp.bff and tttrlib.
-  - Touching: ptolib `include/ptolib/ptolib.h`, `src/ptolib.cpp`, `python/ptolib/dstore.py`, `tests/`, `bench/`, `docs/dstore.md`, `CHANGELOG.md`; later imp.bff `thirdparty/ptolib/`, tttrlib `thirdparty/ptolib/`.
-  - Progress: —
+  - Touching: released (imp.bff build lock released 2026-09-28).
+  - Progress: done. ptolib 7726aa3: format 5 (segmented blobs, ragged columns with a per-segment first-row table), StoreWriter (bounded memory), StoreReader (mmap, zero-copy, thread-safe, segment iteration); Python reads 5; ctest 13/13, pytest 78. Measured: 2 GB streamed write in ~100 MB memory at disk speed (SD1TB 55 MB/s, SSD 600 MB/s); streaming 6-9 GB/s over 8 threads; random raw row 0.4 us, zstd row = its segment's decode (40 us at 64 KiB). zstd shrinks residues only to 63 % (≈ 5-bit packing), so the sequence store keeps residues raw and compresses headers. Re-vendored: imp.bff 0f488098d, tttrlib 9fa8864d5.
 
 - **T-20260928-04 · [imp.bff] Native homology search (MMseqs2's method), streaming, sequence database in .pto, ConSurf pipeline end to end**
   - Status: 🙋 picked (after T-20260928-03)
