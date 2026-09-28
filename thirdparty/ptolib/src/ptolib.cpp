@@ -4123,6 +4123,7 @@ struct StoreWriter::Impl {
         BlobRef offsets;
         std::vector<std::uint64_t> row_starts; // ragged: first row of each values segment
         std::uint64_t buf_first_row = 0;       // ragged: first row in `buf`
+        std::size_t segment_bytes = 0;         // of its values
     };
 
     std::string filename, temp;
@@ -4219,7 +4220,7 @@ StoreWriter::~StoreWriter() {
 std::uint64_t StoreWriter::uid() const { return impl_->uid; }
 
 int StoreWriter::add_column(const std::string& name, ColumnType type, bool ragged,
-                            const std::string& codec) {
+                            const std::string& codec, std::size_t segment_bytes) {
     if (impl_->closed) throw std::runtime_error("StoreWriter: the store is already closed");
     if (type == ColumnType::Bool || type == ColumnType::String)
         throw std::runtime_error("StoreWriter: column '" + name +
@@ -4235,6 +4236,8 @@ int StoreWriter::add_column(const std::string& name, ColumnType type, bool ragge
             : (codec == "none" || codec == "raw") ? kCodecNone : codec_id(codec);
     if (!codec.empty() && codec != "none" && codec != "raw" && c.codec == kCodecNone)
         throw std::runtime_error("StoreWriter: unknown codec '" + codec + "'");
+    c.segment_bytes = segment_bytes == 0 ? impl_->segment_bytes
+                                         : std::max<std::size_t>(segment_bytes, 4096);
     if (ragged) c.obuf.push_back(0);
     impl_->cols.push_back(c);
     return static_cast<int>(impl_->cols.size()) - 1;
@@ -4250,7 +4253,7 @@ void StoreWriter::append(int column, const void* values, std::uint64_t n) {
     const unsigned char* p = static_cast<const unsigned char*>(values);
     std::uint64_t left = n * c.width;
     // Segments hold whole values: the limit rounded down to the width.
-    const std::size_t limit = impl_->segment_bytes / c.width * c.width;
+    const std::size_t limit = c.segment_bytes / c.width * c.width;
     while (left > 0) {
         const std::size_t room = limit - c.buf.size();
         const std::size_t take = static_cast<std::size_t>(std::min<std::uint64_t>(left, room));
@@ -4268,12 +4271,12 @@ void StoreWriter::append_row(int column, const void* values, std::uint64_t n) {
     if (!c.ragged) throw std::runtime_error("StoreWriter: '" + c.name + "' is not ragged; use append");
     const std::uint64_t bytes = n * c.width;
     // A segment never splits a row: flush first when this one would not fit.
-    if (!c.buf.empty() && c.buf.size() + bytes > impl_->segment_bytes) impl_->flush_values(c);
+    if (!c.buf.empty() && c.buf.size() + bytes > c.segment_bytes) impl_->flush_values(c);
     const unsigned char* p = static_cast<const unsigned char*>(values);
     c.buf.insert(c.buf.end(), p, p + bytes);
     c.n_values += n;
     c.n_rows += 1;
-    if (c.buf.size() >= impl_->segment_bytes) impl_->flush_values(c);
+    if (c.buf.size() >= c.segment_bytes) impl_->flush_values(c);
     c.obuf.push_back(c.n_values);
     if (c.obuf.size() * 8 >= impl_->segment_bytes) impl_->flush_offsets(c);
 }
@@ -6098,6 +6101,22 @@ bool read_element(FileHandle& f, std::uint64_t at, std::uint32_t* id,
     return true;
 }
 
+bool read_element_head(FileHandle& f, std::uint64_t at, std::uint32_t* id,
+                       std::uint64_t* payload_at, std::uint64_t* payload_bytes,
+                       std::uint64_t* size_at) {
+    std::uint64_t total = 0, sat = 0;
+    if (!read_element(f, at, id, nullptr, &total, &sat)) return false;
+    // the size's own width, from its first byte
+    unsigned char first = 0;
+    if (!f.seek(sat) || !f.read(&first, 1)) return false;
+    int slen = 1;
+    while (slen <= 8 && !(first & (0x80 >> (slen - 1)))) slen++;
+    *payload_at = sat + static_cast<std::uint64_t>(slen);
+    *payload_bytes = at + total - *payload_at;
+    if (size_at) *size_at = sat;
+    return true;
+}
+
 
 /*!
  * \brief Where the EBML header begins: 0, or the offset of an executable stub's
@@ -6313,15 +6332,11 @@ bool File::open(const std::string& filename, bool writable) {
         std::vector<unsigned char> body;
         std::uint64_t ctotal, size_at;
         if (c.id == kAttachments) {
-            if (!read_element(m.f, c.at, &cid, &body, &ctotal, &size_at)) continue;
-            // Where the Attachments PAYLOAD starts -- the element header is
-            // however many octets the id and the size took, which is not a
-            // constant for a file somebody else wrote.
-            const std::uint64_t atts_payload_at = c.at + c.total - body.size();
-            Cursor outer{body.data(), body.size(), 0};
-            std::uint32_t aid;
-            const unsigned char* ad;
-            std::uint64_t an;
+            // Walked element by element from the file: the small header fields
+            // are read, a payload is only located. Reading the element whole
+            // would read every object in the container just to open it.
+            std::uint64_t atts_payload_at = 0, atts_n = 0;
+            if (!read_element_head(m.f, c.at, &cid, &atts_payload_at, &atts_n, &size_at)) continue;
             // This writer puts one AttachedFile in each Attachments element, so
             // the element is the unit that is moved and freed. An append-only
             // writer puts every object in one Attachments; those read like any
@@ -6329,19 +6344,45 @@ bool File::open(const std::string& filename, bool writable) {
             // its neighbours, so they are marked `shared` and update() and
             // remove() refuse them.
             std::vector<Impl::Slot> found_here;
-            while (outer.element(&aid, &ad, &an)) {
-                if (aid != kAttachedFile) continue;   // Void padding, or something newer
+            bool damaged = false;
+            for (std::uint64_t at = atts_payload_at; at < atts_payload_at + atts_n && !damaged;) {
+                std::uint32_t aid;
+                std::uint64_t att_payload_at, an, att_size_at;
+                if (!read_element_head(m.f, at, &aid, &att_payload_at, &an, &att_size_at)) {
+                    damaged = true;
+                    break;
+                }
+                const std::uint64_t next = att_payload_at + an;
+                if (aid != kAttachedFile) { at = next; continue; }   // Void padding, or something newer
                 Impl::Slot s;
                 s.elem_at = c.at;
                 s.elem_bytes = c.total;
                 s.seg_size_at = size_at;
-                const std::uint64_t att_payload_at = atts_payload_at + (ad - body.data());
-                s.att_size_at = atts_payload_at + outer.hdr + id_octets(kAttachedFile);
-                Cursor in{ad, static_cast<std::size_t>(an), 0};
-                std::uint32_t fid;
-                const unsigned char* fd;
-                std::uint64_t fn;
-                while (in.element(&fid, &fd, &fn)) {
+                s.att_size_at = att_size_at;
+                std::vector<unsigned char> field;
+                for (std::uint64_t fat = att_payload_at; fat < next;) {
+                    std::uint32_t fid;
+                    std::uint64_t fpay, fn, fsize_at;
+                    if (!read_element_head(m.f, fat, &fid, &fpay, &fn, &fsize_at)) {
+                        damaged = true;
+                        break;
+                    }
+                    fat = fpay + fn;
+                    if (fid == kFileData) {
+                        s.meta.offset = fpay;
+                        s.meta.size = fn;
+                        s.data_size_at = fsize_at;
+                        continue;
+                    }
+                    // the fields this reader knows are small; anything large is
+                    // something newer, and skipped unread
+                    if (fn > (1u << 20)) continue;
+                    field.resize(static_cast<std::size_t>(fn));
+                    if (fn != 0 && (!m.f.seek(fpay) || !m.f.read(field.data(), field.size()))) {
+                        damaged = true;
+                        break;
+                    }
+                    const unsigned char* fd = field.data();
                     switch (fid) {
                         case kFileUID: s.meta.uid = get_uint(fd, fn); break;
                         case kPtoKind: s.meta.kind = get_text(fd, fn); break;
@@ -6353,20 +6394,17 @@ bool File::open(const std::string& filename, bool writable) {
                             s.meta.rows = get_uint(fd, fn);
                             // Patchable in place only at the full width this writer
                             // uses; a packed count from an older file stays as-is.
-                            if (fn == 8) s.rows_at = att_payload_at + (fd - ad);
+                            if (fn == 8) s.rows_at = fpay;
                             break;
                         case kPtoRawSize:
                             s.meta.raw_size = get_uint(fd, fn);
-                            if (fn == 8) s.raw_size_at = att_payload_at + (fd - ad);
-                            break;
-                        case kFileData:
-                            s.meta.offset = att_payload_at + (fd - ad);
-                            s.meta.size = fn;
-                            s.data_size_at = att_payload_at + in.hdr + id_octets(kFileData);
+                            if (fn == 8) s.raw_size_at = fpay;
                             break;
                         default: break;
                     }
                 }
+                at = next;
+                if (damaged) break;
                 const bool committed =
                         !have_live ||
                         std::find(live_uids.begin(), live_uids.end(), s.meta.uid) !=
@@ -6374,6 +6412,7 @@ bool File::open(const std::string& filename, bool writable) {
                 if (s.meta.uid == 0 || !committed) continue;
                 found_here.push_back(s);
             }
+            if (damaged) continue;
             if (found_here.empty()) {
                 // Nothing live in it: a half-finished write from a session that
                 // died, or an object that was removed. Space to reuse.

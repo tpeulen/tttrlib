@@ -3021,9 +3021,12 @@ public:
      * \brief A new column; returns its index.
      * \param codec "" for the file's \ref StoreOptions codec, "none" for raw,
      *        else a codec name
+     * \param segment_bytes this column's segment size; 0 for the writer's. A
+     *        compressed column read row by row at random wants small ones: a
+     *        row costs its segment's decode.
      */
     int add_column(const std::string& name, ColumnType type, bool ragged = false,
-                   const std::string& codec = "");
+                   const std::string& codec = "", std::size_t segment_bytes = 0);
     /// The column's description (JSON), as \ref Column::set_metadata takes it.
     void set_metadata(int column, const std::string& json);
     /// Append `n` values to a fixed-width column.
