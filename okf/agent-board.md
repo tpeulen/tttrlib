@@ -1913,6 +1913,15 @@ retired so nobody works the same thing twice.)*
   - Touching: ndxplorer `analysis/{projection_scores.py, projection_rank_model.py, vizrank_model.py, vizrank.view.json}`, NEW `analysis/separation.py`, `ui/vizrank_help.md`, `ui/vizrank_guide.json`, ranking hunks of `app/features/playback_export.py`, tests `tests/test_projection_scores.py`, NEW `tests/test_separation.py`, `tests/test_ui/test_projection_rank.py`, `tests/test_app/test_playback_export.py`, `tools/parity/features.md` (find_projections); chisurf `okf/plugins/ndxplorer-emtk-port.md`, `okf/log.md`, `docs/guides/46_ndxplorer.md` (ranking section). No tttrlib code.
   - Progress: done. ndxplorer 05e8f7c, dece907, f29fa83, 32fd366 (Rank by Separation | Correlation | Classes; analysis/separation.py; islands overlay; help/tour/parity); chisurf 333dad117 (docs + OKF). ndx suites 1419 passed. Touching released. Resume: okf/plugins/ndxplorer-emtk-port.md.
 
+- **T-20260928-03 · [tttrlib] Make the DataStore group-scan performance canary stable on Windows CI**
+  - Status: 🔄 in-progress
+  - Owner: Hermes/gpt-5.6-terra
+  - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: —
+  - Why: GitHub Actions run 36379157885 failed only on `Pip Test win py3.9`: `test_groups_do_not_slow_the_selection_path` measured 0.053026 s after groups versus a 0.050078 s bound. The existing single retry did not absorb normal runner noise.
+  - Done when: the canary still catches a real group-path regression but does not fail from one short baseline measurement on Windows; targeted and related DataStore tests pass locally and the fork CI run is green.
+  - Touching: `test/python/test_datastore_groups.py`, `okf/agent-board.md`.
+  - Progress: claimed; reproducing and tightening the timing methodology before changing the assertion.
+
 - **T-20260924-ndxvec · [ndxplorer+chisurf] ndX vector parameters made real: per-population curves, curve fit, Gaussians; Qt Make vector**
   - Status: ✅ done
   - Owner: opus-5.5/ndx-vectors

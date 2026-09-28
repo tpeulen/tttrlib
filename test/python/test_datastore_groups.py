@@ -416,41 +416,52 @@ def test_groups_do_not_slow_the_selection_path():
     """The canary for the whole design.
 
     A store that HAS groups must scan at the same speed as one that does not,
-    because nothing on the scan path looks at them. A ratio rather than a wall
-    clock, so it does not depend on the machine -- the honest answer is 1.0,
-    and anything past 2 means a branch or an indirection reached
-    find/apply/scan_column.
+    because nothing on the scan path looks at them. Compare paired stores in
+    alternating order: a single best-before/best-after ratio can otherwise
+    confuse a transient Windows runner slowdown with an added scan-path branch.
+    A real regression affects every pair; the median therefore stays above 2.
     """
+    import statistics
     import time
 
-    s = tttrlib.DataStore()
     n = 1_000_000
-    s.set_n_rows(n)
-    s.add("x", np.random.default_rng(0).random(n))
+    values = np.random.default_rng(0).random(n)
 
-    def timed():
-        best = float("inf")
-        for _ in range(5):
-            t = time.perf_counter()
-            for _ in range(4):
-                s.where("x", 0.2, 0.8)
-            best = min(best, time.perf_counter() - t)
-        return best
+    def make_store(with_groups):
+        s = tttrlib.DataStore()
+        s.set_n_rows(n)
+        s.add("x", values)
+        if with_groups:
+            for i in range(32):
+                s.add_group("g%d" % i)
+        return s
 
-    before = timed()
-    for i in range(32):
-        s.add_group("g%d" % i)
-    after = timed()
+    plain = make_store(False)
+    grouped = make_store(True)
 
-    if after >= before * 2.0 + 1e-3:
-        # One more round before failing. This is a ratio of two wall clocks on
-        # a shared runner: a scheduling hiccup inside the 20 scans of `before`
-        # makes it small and the comparison meaningless (Windows CI hit this).
-        # A real regression -- a branch on the scan path -- survives a re-measure;
-        # a hiccup does not.
-        before = min(before, timed())
-        after = min(after, timed())
-    assert after < before * 2.0 + 1e-3, "scanning got slower once groups existed"
+    def timed(s):
+        t = time.perf_counter()
+        for _ in range(4):
+            s.where("x", 0.2, 0.8)
+        return time.perf_counter() - t
+
+    # First calls pay setup costs. They are deliberately outside the samples.
+    timed(plain)
+    timed(grouped)
+
+    ratios = []
+    for i in range(7):
+        # Reverse the order every other pair so cache/thermal drift cannot
+        # consistently make the grouped store look slower.
+        first, second = (plain, grouped) if i % 2 == 0 else (grouped, plain)
+        first_time = timed(first)
+        second_time = timed(second)
+        plain_time, grouped_time = (
+            (first_time, second_time) if first is plain else (second_time, first_time)
+        )
+        ratios.append(grouped_time / plain_time)
+
+    assert statistics.median(ratios) < 2.0, "scanning got slower once groups existed"
 
 
 def test_dropping_the_root_frees_the_whole_tree():
