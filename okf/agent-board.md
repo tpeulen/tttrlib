@@ -1914,13 +1914,13 @@ retired so nobody works the same thing twice.)*
   - Progress: done. ndxplorer 05e8f7c, dece907, f29fa83, 32fd366 (Rank by Separation | Correlation | Classes; analysis/separation.py; islands overlay; help/tour/parity); chisurf 333dad117 (docs + OKF). ndx suites 1419 passed. Touching released. Resume: okf/plugins/ndxplorer-emtk-port.md.
 
 - **T-20260928-03 · [tttrlib] Make the DataStore group-scan performance canary stable on Windows CI**
-  - Status: 🔄 in-progress
+  - Status: ✅ done
   - Owner: Hermes/gpt-5.6-terra
-  - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: —
+  - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: 2026-09-28
   - Why: GitHub Actions run 36379157885 failed only on `Pip Test win py3.9`: `test_groups_do_not_slow_the_selection_path` measured 0.053026 s after groups versus a 0.050078 s bound. The existing single retry did not absorb normal runner noise.
   - Done when: the canary still catches a real group-path regression but does not fail from one short baseline measurement on Windows; targeted and related DataStore tests pass locally and the fork CI run is green.
-  - Touching: `test/python/test_datastore_groups.py`, `okf/agent-board.md`.
-  - Progress: claimed; reproducing and tightening the timing methodology before changing the assertion.
+  - Touching: released. Was: `test/python/test_datastore_groups.py`, `okf/agent-board.md`.
+  - Progress: `5f2aa0406` measures two identical stores (plain/grouped) in alternating order and checks the median of seven ratios. Targeted canary passed 12/12; datastore suite 278 passed/2 skipped; a synthetic 3× scan cost measured 2.75× and is rejected. Full fork CI run 36415798444 passed, including Windows 3.9 and 3.13.
 
 - **T-20260924-ndxvec · [ndxplorer+chisurf] ndX vector parameters made real: per-population curves, curve fit, Gaussians; Qt Make vector**
   - Status: ✅ done
