@@ -135,13 +135,13 @@ are still claims and still binding.
   - Progress: done. ptolib 7726aa3: format 5 (segmented blobs, ragged columns with a per-segment first-row table), StoreWriter (bounded memory), StoreReader (mmap, zero-copy, thread-safe, segment iteration); Python reads 5; ctest 13/13, pytest 78. Measured: 2 GB streamed write in ~100 MB memory at disk speed (SD1TB 55 MB/s, SSD 600 MB/s); streaming 6-9 GB/s over 8 threads; random raw row 0.4 us, zstd row = its segment's decode (40 us at 64 KiB). zstd shrinks residues only to 63 % (≈ 5-bit packing), so the sequence store keeps residues raw and compresses headers. Re-vendored: imp.bff 0f488098d, tttrlib 9fa8864d5.
 
 - **T-20260928-04 · [imp.bff] Native homology search (MMseqs2's method), streaming, sequence database in .pto, ConSurf pipeline end to end**
-  - Status: 🙋 picked (after T-20260928-03)
+  - Status: 🔄 in-progress
   - Owner: opus-5.5/16a6a771
   - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: —
   - Why: the consurfer worker's HMMER search of UniRef90 takes hours per chain. Owner: no external programs, all imp.bff C++ (libcurl/zlib optional libraries), settings instead of hard-coded servers/paths, streaming in little memory, data on /Volumes/SD1TB.
   - Done when: settings file; `sequence-db create` (FASTA/gz -> binary FASTA .pto) and `index`; search in stream and index modes (k-mer prefilter, diagonal double hits, affine SW, Karlin-Altschul E-values) A/B-checked against the mmseqs binary as a black box; ConSurf's homolog filter; colabfold-v1 server fallback from settings; `imp_bff consurf` writing .grades and a B-factor PDB; UniRef90 on SD1TB: time, peak memory, agreement with ConSurf's 1lk2 grades.
-  - Touching: imp.bff new `include/{BffSettings,SequenceDatabase,SequenceSearch,SequenceHomologs}.h` + src, `src/CommandLine{Sequence,Consurf}.cpp`; edits `SequenceMSA.*`, `SequenceAlignment.*`, `LabelizerScore.cpp`, `CommandLine.cpp`, CMake (optional curl/zlib), README.
-  - Progress: —
+  - Touching: imp.bff new `include/{BffSettings,SequenceDatabase,SequenceSearch,SequenceHomologs}.h` + src, `src/CommandLine{Sequence,Consurf}.cpp`; edits `SequenceMSA.*`, `SequenceAlignment.*`, `LabelizerScore.cpp`, `CommandLine.cpp`, CMake (optional curl/zlib), README. **imp.bff build lock held (claimed 2026-09-28).**
+  - Progress: ptolib gained what this needs (9abd1d8: stores streamed into / mapped from a .pto; 50863a3: per-column segments). Phase 2 (settings, `create_sequence_database`) written, building.
 
 - **T-20260928-01 · [imp.bff] `ProbePairCostTerm`: a per-pair cost in the probe network selection**
   - Status: ✅ done (imp.bff `5a4493aa6`, local)
