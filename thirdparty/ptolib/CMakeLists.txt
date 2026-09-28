@@ -120,7 +120,7 @@ if(PTOLIB_BUILD_TESTS)
             "-DPTOLIB_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
             "-DPTOLIB_JSON_INCLUDE_DIR=${_ptolib_json_inc}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/installed_consumer.cmake")
-    foreach(t test_container test_datastore test_store_file test_simd test_codec test_codec_stream test_codec_capabilities)
+    foreach(t test_container test_datastore test_store_file test_stream_store test_simd test_codec test_codec_stream test_codec_capabilities)
         add_executable(${t} tests/${t}.cpp)
         target_link_libraries(${t} PRIVATE ptolib_impl)
         target_compile_definitions(${t} PRIVATE

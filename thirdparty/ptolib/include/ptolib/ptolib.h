@@ -5,7 +5,7 @@
  *        encoding, with separately compiled codec implementations.
  * \author Thomas-Otavio Peulen
  * \copyright MIT License, Thomas-Otavio Peulen
- * \version 0.3.2
+ * \version 0.4.0
  *
  * PTO is a self-contained, packed data container: an EBML document (DocType
  * `"pto"`) that binds opaque payloads into one file, gives each a UID that
@@ -26,9 +26,9 @@
 #define PTOLIB_H
 
 #define PTOLIB_VERSION_MAJOR 0
-#define PTOLIB_VERSION_MINOR 3
-#define PTOLIB_VERSION_PATCH 2
-#define PTOLIB_VERSION_STRING "0.3.2"
+#define PTOLIB_VERSION_MINOR 4
+#define PTOLIB_VERSION_PATCH 0
+#define PTOLIB_VERSION_STRING "0.4.0"
 
 #ifndef PTOLIB_API
 #define PTOLIB_API
@@ -2941,11 +2941,142 @@ std::vector<std::string> store_groups(const std::string& filename,
  * the store reader does goes through one place, and this is what that place
  * counts. Test scaffolding, and cheap enough to leave in.
  *
- * Not synchronised, because nothing in this library reads a store from more
- * than one thread. Take a difference around a single call and compare it to a
- * difference around another; the absolute value means nothing.
+ * Atomic, so concurrent readers (\ref StoreReader) count correctly. Take a
+ * difference around a single call and compare it to a difference around
+ * another; the absolute value means nothing.
  */
 std::uint64_t store_bytes_read();
+
+// ---------------------------------------------------------------------------
+// Streaming stores: written column by column in bounded memory, read mapped.
+// ---------------------------------------------------------------------------
+
+/// What \ref StoreReader::info reports about one column.
+struct ColumnInfo {
+    std::string name;
+    ColumnType type = ColumnType::UInt8;   ///< of a value
+    std::uint64_t n_rows = 0;
+    bool ragged = false;                   ///< variable-length rows
+    std::uint64_t n_values = 0;            ///< values; equals n_rows unless ragged
+    std::size_t n_segments = 0;            ///< of the values blob
+    std::uint64_t stored_bytes = 0;        ///< of the values blob, as stored
+    std::uint64_t raw_bytes = 0;           ///< of the values blob, decoded
+};
+
+/// One segment of a column's values, as \ref StoreReader::segment reports it.
+struct SegmentInfo {
+    std::uint64_t first_value = 0;   ///< index of its first value
+    std::uint64_t n_values = 0;
+    std::uint64_t first_row = 0;     ///< ragged: first row that starts in it
+    std::uint64_t n_rows = 0;        ///< ragged: rows that start in it
+    bool raw = true;                 ///< mapped in place, no decode
+};
+
+/*!
+ * \brief Writes a store column by column, in memory bounded by one segment per
+ *        open column.
+ *
+ * The large-data counterpart of \ref write_store: the table never exists in
+ * memory. Each column buffers up to `segment_bytes` and then writes that as one
+ * **segment** -- raw, or transformed and compressed on its own -- so any
+ * number of columns can be filled interleaved (residues and their headers,
+ * say, one record at a time). The file is format version 5; the directory
+ * follows the last segment and the header is completed at \ref close, which
+ * renames a temporary into place, as \ref write_store does.
+ *
+ * A **ragged** column holds variable-length rows: \ref append_row adds one row
+ * of `n` values, and the file stores the values back to back plus `rows + 1`
+ * u64 offsets. A segment of a ragged column never splits a row (a row larger
+ * than a segment gets one of its own), so a reader can stream whole rows
+ * segment by segment.
+ *
+ * Columns are root-level; there are no groups, masks or text columns (a text
+ * column is a ragged UInt8 one). One thread appends; the file is ptolib's
+ * ordinary store, and the DataStore readers read its fixed-width columns.
+ */
+class StoreWriter {
+public:
+    explicit StoreWriter(const std::string& filename,
+                         const StoreOptions& options = StoreOptions(),
+                         std::size_t segment_bytes = std::size_t(16) << 20);
+    ~StoreWriter();   ///< an unclosed writer removes its temporary
+    StoreWriter(const StoreWriter&) = delete;
+    StoreWriter& operator=(const StoreWriter&) = delete;
+
+    /*!
+     * \brief A new column; returns its index.
+     * \param codec "" for the file's \ref StoreOptions codec, "none" for raw,
+     *        else a codec name
+     */
+    int add_column(const std::string& name, ColumnType type, bool ragged = false,
+                   const std::string& codec = "");
+    /// The column's description (JSON), as \ref Column::set_metadata takes it.
+    void set_metadata(int column, const std::string& json);
+    /// Append `n` values to a fixed-width column.
+    void append(int column, const void* values, std::uint64_t n);
+    /// Append one row of `n` values to a ragged column.
+    void append_row(int column, const void* values, std::uint64_t n);
+    std::uint64_t n_rows(int column) const;
+    /// Flush, write the directory, rename into place. False on an I/O error.
+    bool close();
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+/*!
+ * \brief Reads a store once and then serves columns from a memory map.
+ *
+ * Opens the file, checks and parses the directory once, and maps the file
+ * read-only. Every accessor is `const` and safe to call from many threads at
+ * once. Raw segments are served zero-copy (\ref view, \ref row_view,
+ * \ref segment_data); a compressed segment is decoded into the caller's
+ * buffer, and only that segment. Root-level columns of any store version.
+ */
+class StoreReader {
+public:
+    explicit StoreReader(const std::string& filename);
+    ~StoreReader();
+    StoreReader(const StoreReader&) = delete;
+    StoreReader& operator=(const StoreReader&) = delete;
+
+    std::uint32_t format_version() const;
+    std::vector<std::string> columns() const;
+    bool has_column(const std::string& name) const;
+    ColumnInfo info(const std::string& name) const;
+    /// The column's description as JSON text; "" when it has none.
+    std::string metadata(const std::string& name) const;
+
+    /// Values `[first, first + n)` of a column (of a ragged column's values),
+    /// decoded into `out`.
+    void read(const std::string& name, std::uint64_t first, std::uint64_t n, void* out) const;
+    /// The same in place, or null when the range is not inside one raw segment.
+    const void* view(const std::string& name, std::uint64_t first, std::uint64_t n) const;
+
+    /// Ragged: offsets `[first, first + n]` into the values (`n + 1` of them).
+    void offsets(const std::string& name, std::uint64_t first, std::uint64_t n,
+                 std::uint64_t* out) const;
+    /// Ragged: the number of values in row `row`.
+    std::uint64_t row_size(const std::string& name, std::uint64_t row) const;
+    /// Ragged: row `row`'s values, decoded into `out` (resized to fit, in bytes).
+    void row(const std::string& name, std::uint64_t row, std::vector<unsigned char>& out) const;
+    /// Ragged: row `row` in place, or null when it is not raw; `n` gets its length.
+    const void* row_view(const std::string& name, std::uint64_t row, std::uint64_t* n) const;
+
+    /// Segments of a column's values, for streaming.
+    std::size_t n_segments(const std::string& name) const;
+    SegmentInfo segment(const std::string& name, std::size_t k) const;
+    /// Segment `k`'s values: in place when raw, else decoded into `scratch`.
+    const void* segment_data(const std::string& name, std::size_t k,
+                             std::vector<unsigned char>& scratch) const;
+    /// Hint the operating system that a column is about to be read front to back.
+    void advise_sequential(const std::string& name) const;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
 
 // ===========================================================================
 // PTO -- Portable Tagged Objects, the container

@@ -978,6 +978,12 @@ std::size_t DataStore::count_expression(const std::string& expr) const {
 #include <utility>
 
 #include <atomic>
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 // Which SIMD tiers this build carries. SSE2 is the x86-64 baseline and NEON
 // the aarch64 one, so the base tier is one of those wherever the target has
@@ -2793,7 +2799,8 @@ namespace {
 /// Version 4 adds a codec, a transform and a raw size to every blob record.
 /// A file that uses no codec is still written as version 3, so a reader that
 /// predates 4 opens everything it could open before.
-const std::uint32_t kVersion = 4;
+const std::uint32_t kVersion = 5;        ///< the newest this reader reads
+const std::uint32_t kVersionCoded = 4;   ///< what write_store writes with a codec
 const std::uint32_t kVersionRaw = 3;
 const std::uint32_t kFlagLittleEndian = 1u << 0;
 
@@ -2943,12 +2950,59 @@ private:
 
 /// Where a run of bytes sits in the file. Eight-byte aligned, always, so a
 /// future reader can map the file and point a column straight at it.
+struct BlobSegment {
+    std::uint64_t offset = 0;
+    std::uint64_t bytes = 0;        ///< as stored
+    std::uint8_t codec = 0;         ///< kCodecNone, or a codec id
+    std::uint8_t transform = 0;     ///< 0, or a transform byte
+    std::uint64_t raw_bytes = 0;    ///< after decoding; equals `bytes` when raw
+};
+
+/*!
+ * A blob: one run of bytes, or -- version 5 -- a list of segments, each coded
+ * on its own. A segment is the unit of compression and of mapping: a raw one
+ * can be pointed at, a coded one decodes without touching its neighbours, and
+ * a writer streams a column as it goes, interleaved with other columns.
+ * The single-run fields describe the first segment (and the whole blob when
+ * there is one); `bytes` and `raw_bytes` are totals.
+ */
 struct BlobRef {
     std::uint64_t offset = 0;
     std::uint64_t bytes = 0;        ///< as stored
     std::uint8_t codec = 0;         ///< kCodecNone, or a codec id
     std::uint8_t transform = 0;     ///< 0, or a transform byte
     std::uint64_t raw_bytes = 0;    ///< after decoding; equals `bytes` when raw
+    std::vector<BlobSegment> parts; ///< version 5, when more than one; else empty
+    std::vector<std::uint64_t> starts;  ///< decoded byte offset of each part
+
+    std::size_t n_parts() const { return parts.empty() ? 1 : parts.size(); }
+    BlobSegment part(std::size_t k) const {
+        if (!parts.empty()) return parts[k];
+        BlobSegment s;
+        s.offset = offset; s.bytes = bytes; s.codec = codec;
+        s.transform = transform; s.raw_bytes = raw_bytes;
+        return s;
+    }
+    std::uint64_t part_start(std::size_t k) const { return parts.empty() ? 0 : starts[k]; }
+    /// The part holding decoded byte `at` (the last part for `at == raw_bytes`).
+    std::size_t part_of(std::uint64_t at) const {
+        if (parts.empty()) return 0;
+        std::size_t lo = 0, hi = parts.size();
+        while (hi - lo > 1) {
+            const std::size_t mid = (lo + hi) / 2;
+            if (starts[mid] <= at) lo = mid; else hi = mid;
+        }
+        return lo;
+    }
+    void add_part(const BlobSegment& s) {
+        if (parts.empty() && bytes == 0 && raw_bytes == 0 && offset == 0) {
+            offset = s.offset; codec = s.codec; transform = s.transform;
+        }
+        starts.push_back(raw_bytes);
+        parts.push_back(s);
+        bytes += s.bytes;
+        raw_bytes += s.raw_bytes;
+    }
 };
 
 // --- the directory, as bytes -------------------------------------------------
@@ -2968,7 +3022,17 @@ struct Writer {
         u32(static_cast<std::uint32_t>(s.size()));
         if (!s.empty()) raw(s.data(), s.size());
     }
+    void segment(const BlobSegment& s) {
+        u64(s.offset); u64(s.bytes); u8(s.codec); u8(s.transform); u64(s.raw_bytes);
+    }
     void blob(const BlobRef& r) {
+        if (version >= 5) {
+            // A count, then every segment in full. An empty blob is zero parts.
+            const std::size_t n = (r.parts.empty() && r.bytes == 0 && r.raw_bytes == 0) ? 0 : r.n_parts();
+            u32(static_cast<std::uint32_t>(n));
+            for (std::size_t k = 0; k < n; ++k) segment(r.part(k));
+            return;
+        }
         u64(r.offset); u64(r.bytes);
         if (version >= 4) { u8(r.codec); u8(r.transform); u64(r.raw_bytes); }
     }
@@ -3000,12 +3064,34 @@ struct Reader {
     }
     BlobRef blob() {
         BlobRef r;
+        if (version >= 5) {
+            const std::uint32_t n = u32();
+            // Each record is 26 bytes; a count the directory cannot hold is a
+            // corrupt file, not an allocation to attempt.
+            need(static_cast<std::size_t>(n) * 26);
+            for (std::uint32_t k = 0; k < n; ++k) {
+                BlobSegment s;
+                s.offset = u64(); s.bytes = u64(); s.codec = u8(); s.transform = u8();
+                s.raw_bytes = u64();
+                r.add_part(s);
+            }
+            if (n == 1) { r.parts.clear(); r.starts.clear(); }   // the single-run form
+            return r;
+        }
         r.offset = u64(); r.bytes = u64();
         if (version >= 4) { r.codec = u8(); r.transform = u8(); r.raw_bytes = u64(); }
         else r.raw_bytes = r.bytes;
         return r;
     }
 };
+
+std::vector<std::uint64_t> read_row_starts(Reader& dir) {
+    const std::uint32_t n = dir.u32();
+    dir.need(static_cast<std::size_t>(n) * 8);
+    std::vector<std::uint64_t> out(n);
+    for (std::uint32_t k = 0; k < n; ++k) out[k] = dir.u64();
+    return out;
+}
 
 // --- writing -----------------------------------------------------------------
 
@@ -3139,6 +3225,15 @@ std::size_t element_bytes(ColumnType t) {
 }
 
 const std::uint8_t kColumnHasMask = 1u << 0;
+/// Version 5: the column is variable-length -- `data` holds the values of
+/// every row back to back, and an extra blob holds `n + 1` u64 offsets into
+/// them, in values. Only StoreReader reads one; a DataStore steps over it.
+const std::uint8_t kColumnRagged = 1u << 1;
+
+/// A ragged column's directory record ends with the first row of each values
+/// segment (a count, then u64s), so a reader maps segments to rows without
+/// touching the offsets.
+std::vector<std::uint64_t> read_row_starts(struct Reader& dir);
 
 /*!
  * \brief Is this byte a column type this build knows?
@@ -3245,7 +3340,7 @@ void write_node(BlobStream& out, Writer& dir, const DataStore& store,
 // --- reading -----------------------------------------------------------------
 
 /// Every byte the store reader has moved. \see store_bytes_read.
-std::uint64_t g_bytes_read = 0;
+std::atomic<std::uint64_t> g_bytes_read{0};
 
 struct Blobs {
     std::FILE* f = nullptr;
@@ -3277,16 +3372,46 @@ struct Blobs {
      * whole, because a window of a compressed stream has no meaning of its
      * own, and the range is copied out of the result.
      */
+    /// Bytes `[off, off + n)` of a blob's decoded content, across its segments.
     void read_range(const BlobRef& r, std::uint64_t off, std::uint64_t n, void* into) const {
+        if (n == 0) return;
+        if (r.parts.empty()) { read_part(r, off, n, into); return; }
+        if (off > r.raw_bytes || n > r.raw_bytes - off)
+            throw std::runtime_error("store file: a column is shorter than its record says");
+        unsigned char* out = static_cast<unsigned char*>(into);
+        std::size_t k = r.part_of(off);
+        while (n > 0) {
+            const BlobSegment s = r.part(k);
+            BlobRef one;
+            one.offset = s.offset; one.bytes = s.bytes; one.codec = s.codec;
+            one.transform = s.transform; one.raw_bytes = s.raw_bytes;
+            const std::uint64_t in_part = off - r.part_start(k);
+            const std::uint64_t take = std::min<std::uint64_t>(n, s.raw_bytes - in_part);
+            read_part(one, in_part, take, out);
+            out += take; off += take; n -= take; ++k;
+        }
+    }
+    /// The same, for a blob of one segment.
+    void read_part(const BlobRef& r, std::uint64_t off, std::uint64_t n, void* into) const {
         if (n == 0) return;
         if (r.codec == kCodecNone && r.transform == 0) { read_stored(r, off, n, into); return; }
         if (off > r.raw_bytes || n > r.raw_bytes - off)
             throw std::runtime_error("store file: a column is shorter than its record says");
         if (r.offset > file_bytes || r.bytes > file_bytes - r.offset)
             throw std::runtime_error("store file: a column points past the end");
-        std::vector<unsigned char> stored(static_cast<std::size_t>(r.bytes));
-        read_stored(r, 0, r.bytes, stored.data());
-        std::vector<unsigned char> raw;
+        // A mapped store decodes from the map; the buffers are per thread and
+        // kept, so a run of small segment reads (random rows) allocates once.
+        thread_local std::vector<unsigned char> stored_buffer, raw_buffer;
+        const unsigned char* stored = nullptr;
+        if (mem != nullptr) {
+            stored = mem + r.offset;
+            g_bytes_read += r.bytes;
+        } else {
+            stored_buffer.resize(static_cast<std::size_t>(r.bytes));
+            read_stored(r, 0, r.bytes, stored_buffer.data());
+            stored = stored_buffer.data();
+        }
+        std::vector<unsigned char>& raw = raw_buffer;
         if (r.codec != kCodecNone) {
             if (r.codec >= kCodecCount)
                 throw std::runtime_error("store file: a column uses a codec this reader does not know");
@@ -3294,12 +3419,12 @@ struct Blobs {
             if (!can_decompress(name))
                 throw std::runtime_error("store file: a column is compressed with " + name +
                                          ", and no " + name + " decoder is available");
-            if (!decompress_bytes(name, stored.data(), stored.size(),
+            if (!decompress_bytes(name, stored, static_cast<std::size_t>(r.bytes),
                                   static_cast<std::size_t>(r.raw_bytes), raw) ||
                 raw.size() != r.raw_bytes)
                 throw std::runtime_error("store file: a " + name + " stream is corrupt");
         } else {
-            raw.swap(stored);
+            raw.assign(stored, stored + r.bytes);
         }
         if (raw.size() != r.raw_bytes)
             throw std::runtime_error("store file: a column is shorter than its record says");
@@ -3319,6 +3444,10 @@ struct Blobs {
             }
         }
         std::memcpy(into, raw.data() + off, static_cast<std::size_t>(n));
+        // Keep a segment's worth, not the largest legacy blob ever decoded.
+        const std::size_t keep = std::size_t(32) << 20;
+        if (raw_buffer.capacity() > keep) std::vector<unsigned char>().swap(raw_buffer);
+        if (stored_buffer.capacity() > keep) std::vector<unsigned char>().swap(stored_buffer);
     }
     /// A whole blob, decoded.
     std::vector<unsigned char> read(const BlobRef& r) const {
@@ -3424,6 +3553,8 @@ void read_node(Reader& dir, const Blobs& blobs, DataStore& store,
         const std::uint64_t n = dir.u64();
         const std::uint8_t flags = dir.u8();
         const BlobRef data_blob = dir.blob();
+        BlobRef offsets_blob;
+        if (flags & kColumnRagged) { offsets_blob = dir.blob(); read_row_starts(dir); }
         const std::uint64_t mask_bits = dir.u64();
         const BlobRef mask_blob = dir.blob();
         // Read even for a column about to be skipped: the directory is
@@ -3444,6 +3575,8 @@ void read_node(Reader& dir, const Blobs& blobs, DataStore& store,
         BlobRef dict_blob;
         if (type == ColumnType::String) dict_blob = dir.blob();
         if (!want(name)) continue;
+        // A variable-length column has no DataStore form: StoreReader reads it.
+        if (flags & kColumnRagged) continue;
 
         // A column's own length, not the node's: they agree in a file this
         // library wrote, and clamping to both costs nothing if they ever do not.
@@ -3596,7 +3729,11 @@ void walk_paths(Reader& dir, const std::string& prefix,
     for (std::uint32_t c = 0; c < n_columns; c++) {
         const std::string name = dir.str();
         const std::uint8_t type = dir.u8();
-        dir.u64(); dir.u8(); dir.blob(); dir.u64(); dir.blob();
+        dir.u64();
+        const std::uint8_t flags = dir.u8();
+        dir.blob();
+        if (flags & kColumnRagged) { dir.blob(); read_row_starts(dir); }
+        dir.u64(); dir.blob();
         // The description, in the same place the reader expects it, and never
         // decoded -- the slot is length-prefixed either way, so stepping over
         // it costs the same in v2 and v3. This walk touches no blob, but it
@@ -3638,7 +3775,11 @@ bool seek_to_group(Reader& dir, const std::string& prefix,
     for (std::uint32_t c = 0; c < n_columns; c++) {
         dir.str();                                   // name
         const std::uint8_t type = dir.u8();
-        dir.u64(); dir.u8(); dir.blob(); dir.u64(); dir.blob();
+        dir.u64();
+        const std::uint8_t flags = dir.u8();
+        dir.blob();
+        if (flags & kColumnRagged) { dir.blob(); read_row_starts(dir); }
+        dir.u64(); dir.blob();
         if (dir.version >= 2) dir.str();
         if (type == static_cast<std::uint8_t>(ColumnType::String)) dir.blob();
     }
@@ -3686,7 +3827,7 @@ bool emit_store(BlobStream& out, const DataStore& store, const CodecPlan& plan) 
     // A file with no codec is written exactly as version 3 was, byte for byte,
     // so every reader that opened those keeps opening these.
     Writer dir;
-    dir.version = plan.uses_codec(store) ? kVersion : kVersionRaw;
+    dir.version = plan.uses_codec(store) ? kVersionCoded : kVersionRaw;
     write_node(out, dir, store, plan);
 
     out.pad_to_8();
@@ -3961,6 +4102,475 @@ bool store_has(const std::string& filename, const std::string& group) {
 }
 
 std::uint64_t store_bytes_read() { return g_bytes_read; }
+
+// ===========================================================================
+// StoreWriter -- a store written column by column, in bounded memory
+// ===========================================================================
+
+struct StoreWriter::Impl {
+    struct Col {
+        std::string name;
+        ColumnType type = ColumnType::UInt8;
+        bool ragged = false;
+        std::uint8_t codec = kCodecNone;
+        std::string meta;
+        std::size_t width = 1;
+        std::vector<unsigned char> buf;        // values not yet written
+        BlobRef data;
+        std::uint64_t n_values = 0;
+        std::uint64_t n_rows = 0;
+        std::vector<std::uint64_t> obuf;       // ragged: offsets not yet written
+        BlobRef offsets;
+        std::vector<std::uint64_t> row_starts; // ragged: first row of each values segment
+        std::uint64_t buf_first_row = 0;       // ragged: first row in `buf`
+    };
+
+    std::string filename, temp;
+    std::unique_ptr<StoreHandle> file;
+    std::unique_ptr<BlobStream> out;
+    CodecPlan plan;
+    std::size_t segment_bytes = 0;
+    std::vector<Col> cols;
+    bool closed = false;
+
+    Col& col(int k) {
+        if (closed) throw std::runtime_error("StoreWriter: the store is already closed");
+        if (k < 0 || static_cast<std::size_t>(k) >= cols.size())
+            throw std::runtime_error("StoreWriter: no column " + std::to_string(k));
+        return cols[static_cast<std::size_t>(k)];
+    }
+    void write_part(BlobRef& blob, const unsigned char* bytes, std::size_t n,
+                    std::uint8_t codec, ColumnType type) {
+        if (n == 0) return;
+        std::size_t twidth = 0;
+        const std::uint8_t transform = plan.transform ? transform_for(type, &twidth) : 0;
+        const BlobRef r = out->coded_blob(bytes, n, codec, plan.level, transform, twidth,
+                                          plan.min_bytes);
+        BlobSegment seg;
+        seg.offset = r.offset; seg.bytes = r.bytes; seg.codec = r.codec;
+        seg.transform = r.transform; seg.raw_bytes = r.raw_bytes;
+        blob.add_part(seg);
+    }
+    void flush_values(Col& c) {
+        if (c.buf.empty()) return;
+        if (c.ragged) c.row_starts.push_back(c.buf_first_row);
+        write_part(c.data, c.buf.data(), c.buf.size(), c.codec, c.type);
+        c.buf.clear();
+        c.buf_first_row = c.n_rows;
+    }
+    void flush_offsets(Col& c) {
+        // Offsets stay raw whatever the codec: 8 bytes a row, and a row lookup
+        // is then two reads from the map rather than a segment decode.
+        write_part(c.offsets, reinterpret_cast<const unsigned char*>(c.obuf.data()),
+                   c.obuf.size() * 8, kCodecNone, ColumnType::UInt64);
+        c.obuf.clear();
+    }
+};
+
+StoreWriter::StoreWriter(const std::string& filename, const StoreOptions& options,
+                         std::size_t segment_bytes)
+        : impl_(new Impl) {
+    std::string why;
+    if (!plan_for(options, &impl_->plan, &why)) throw std::runtime_error("StoreWriter: " + why);
+    impl_->filename = filename;
+    impl_->temp = filename + ".ptolib-tmp";
+    impl_->segment_bytes = std::max<std::size_t>(segment_bytes, 4096);
+    impl_->file.reset(new StoreHandle(impl_->temp.c_str(), "wb"));
+    if (!impl_->file->ok()) throw std::runtime_error("StoreWriter: could not create " + impl_->temp);
+    impl_->out.reset(new BlobStream(impl_->file->get(), 0));
+    unsigned char head[kHeaderBytes];
+    std::memset(head, 0, kHeaderBytes);
+    impl_->out->bytes(head, kHeaderBytes);   // completed at close
+}
+
+StoreWriter::~StoreWriter() {
+    if (impl_ && !impl_->closed) {
+        if (impl_->file) impl_->file->close();
+        std::remove(impl_->temp.c_str());
+    }
+}
+
+int StoreWriter::add_column(const std::string& name, ColumnType type, bool ragged,
+                            const std::string& codec) {
+    if (impl_->closed) throw std::runtime_error("StoreWriter: the store is already closed");
+    if (type == ColumnType::Bool || type == ColumnType::String)
+        throw std::runtime_error("StoreWriter: column '" + name +
+                                 "': Bool and String are not streamed; text is a ragged UInt8 column");
+    for (const Impl::Col& c : impl_->cols)
+        if (c.name == name) throw std::runtime_error("StoreWriter: column '" + name + "' exists");
+    Impl::Col c;
+    c.name = name;
+    c.type = type;
+    c.ragged = ragged;
+    c.width = element_bytes(type);
+    c.codec = codec.empty() ? impl_->plan.codec
+            : (codec == "none" || codec == "raw") ? kCodecNone : codec_id(codec);
+    if (!codec.empty() && codec != "none" && codec != "raw" && c.codec == kCodecNone)
+        throw std::runtime_error("StoreWriter: unknown codec '" + codec + "'");
+    if (ragged) c.obuf.push_back(0);
+    impl_->cols.push_back(c);
+    return static_cast<int>(impl_->cols.size()) - 1;
+}
+
+void StoreWriter::set_metadata(int column, const std::string& json) {
+    impl_->col(column).meta = json;
+}
+
+void StoreWriter::append(int column, const void* values, std::uint64_t n) {
+    Impl::Col& c = impl_->col(column);
+    if (c.ragged) throw std::runtime_error("StoreWriter: '" + c.name + "' is ragged; use append_row");
+    const unsigned char* p = static_cast<const unsigned char*>(values);
+    std::uint64_t left = n * c.width;
+    // Segments hold whole values: the limit rounded down to the width.
+    const std::size_t limit = impl_->segment_bytes / c.width * c.width;
+    while (left > 0) {
+        const std::size_t room = limit - c.buf.size();
+        const std::size_t take = static_cast<std::size_t>(std::min<std::uint64_t>(left, room));
+        c.buf.insert(c.buf.end(), p, p + take);
+        p += take;
+        left -= take;
+        if (c.buf.size() >= limit) impl_->flush_values(c);
+    }
+    c.n_values += n;
+    c.n_rows += n;
+}
+
+void StoreWriter::append_row(int column, const void* values, std::uint64_t n) {
+    Impl::Col& c = impl_->col(column);
+    if (!c.ragged) throw std::runtime_error("StoreWriter: '" + c.name + "' is not ragged; use append");
+    const std::uint64_t bytes = n * c.width;
+    // A segment never splits a row: flush first when this one would not fit.
+    if (!c.buf.empty() && c.buf.size() + bytes > impl_->segment_bytes) impl_->flush_values(c);
+    const unsigned char* p = static_cast<const unsigned char*>(values);
+    c.buf.insert(c.buf.end(), p, p + bytes);
+    c.n_values += n;
+    c.n_rows += 1;
+    if (c.buf.size() >= impl_->segment_bytes) impl_->flush_values(c);
+    c.obuf.push_back(c.n_values);
+    if (c.obuf.size() * 8 >= impl_->segment_bytes) impl_->flush_offsets(c);
+}
+
+std::uint64_t StoreWriter::n_rows(int column) const {
+    return impl_->col(column).n_rows;
+}
+
+bool StoreWriter::close() {
+    if (impl_->closed) return true;
+    Impl& w = *impl_;
+    for (Impl::Col& c : w.cols) {
+        w.flush_values(c);
+        if (c.ragged) w.flush_offsets(c);
+    }
+    Writer dir;
+    dir.version = 5;
+    std::uint64_t rows = 0;
+    for (const Impl::Col& c : w.cols) rows = std::max(rows, c.n_rows);
+    dir.str(std::string());      // label
+    dir.u64(rows);
+    dir.u64(0);                  // no row mask
+    dir.blob(BlobRef());
+    dir.u32(static_cast<std::uint32_t>(w.cols.size()));
+    for (const Impl::Col& c : w.cols) {
+        dir.str(c.name);
+        dir.u8(static_cast<std::uint8_t>(c.type));
+        dir.u64(c.n_rows);
+        dir.u8(c.ragged ? kColumnRagged : 0);
+        dir.blob(c.data);
+        if (c.ragged) {
+            dir.blob(c.offsets);
+            dir.u32(static_cast<std::uint32_t>(c.row_starts.size()));
+            for (std::uint64_t v : c.row_starts) dir.u64(v);
+        }
+        dir.u64(0);              // no validity mask
+        dir.blob(BlobRef());
+        const std::vector<unsigned char> meta =
+                c.meta.empty() ? std::vector<unsigned char>() : metadata_to_msgpack(c.meta);
+        dir.u32(static_cast<std::uint32_t>(meta.size()));
+        if (!meta.empty()) dir.raw(meta.data(), meta.size());
+    }
+    dir.u32(0);                  // no groups
+
+    BlobStream& out = *w.out;
+    out.pad_to_8();
+    const std::uint64_t dir_offset = out.pos;
+    out.bytes(dir.b.data(), dir.b.size());
+    const std::uint64_t file_bytes = out.pos;
+    unsigned char head[kHeaderBytes];
+    std::memset(head, 0, kHeaderBytes);
+    const std::uint32_t version = 5;
+    const std::uint32_t flags = host_is_little_endian() ? kFlagLittleEndian : 0;
+    const std::uint64_t dir_bytes = dir.b.size();
+    const std::uint32_t checksum = fnv1a(dir.b.data(), dir.b.size());
+    std::memcpy(head, kStoreMagic, kMagicBytes);
+    std::memcpy(head + 8, &version, 4);
+    std::memcpy(head + 12, &flags, 4);
+    std::memcpy(head + 16, &dir_offset, 8);
+    std::memcpy(head + 24, &dir_bytes, 8);
+    std::memcpy(head + 32, &file_bytes, 8);
+    std::memcpy(head + 40, &checksum, 4);
+    bool ok = out.ok;
+    if (ok && (fseek64(out.h, 0, SEEK_SET) != 0 ||
+               std::fwrite(head, 1, kHeaderBytes, out.h) != kHeaderBytes))
+        ok = false;
+    if (!w.file->close()) ok = false;
+    w.closed = true;
+    if (ok && !detail::replace_file(w.temp, w.filename)) ok = false;
+    if (!ok) {
+        std::remove(w.temp.c_str());
+        std::cerr << "StoreWriter: could not write " << w.filename << std::endl;
+    }
+    return ok;
+}
+
+// ===========================================================================
+// StoreReader -- open once, parse once, serve from a map
+// ===========================================================================
+
+struct StoreReader::Impl {
+    struct Col {
+        ColumnInfo info;
+        BlobRef data, offsets;
+        std::size_t width = 1;
+        std::string meta;
+        std::vector<std::uint64_t> row_starts;
+    };
+    std::string filename;
+    std::uint32_t version = 0;
+    const unsigned char* map = nullptr;
+    std::uint64_t size = 0;
+#ifdef _WIN32
+    HANDLE file = INVALID_HANDLE_VALUE;
+    HANDLE mapping = nullptr;
+#else
+    int fd = -1;
+#endif
+    std::map<std::string, Col> cols;
+    std::vector<std::string> order;
+
+    Blobs blobs() const {
+        Blobs b;
+        b.f = nullptr;
+        b.file_bytes = size;
+        b.base = 0;
+        b.mem = map;
+        return b;
+    }
+    const Col& col(const std::string& name) const {
+        const auto it = cols.find(name);
+        if (it == cols.end()) throw std::runtime_error(filename + ": no column '" + name + "'");
+        return it->second;
+    }
+    static bool part_raw(const BlobSegment& s) { return s.codec == kCodecNone && s.transform == 0; }
+    /// Decoded bytes [off, off + n) in place, or null.
+    const void* in_place(const BlobRef& r, std::uint64_t off, std::uint64_t n) const {
+        if (n == 0 || r.raw_bytes == 0) return nullptr;
+        if (off > r.raw_bytes || n > r.raw_bytes - off) return nullptr;
+        const std::size_t k = r.part_of(off);
+        const BlobSegment s = r.part(k);
+        const std::uint64_t in_part = off - r.part_start(k);
+        if (!part_raw(s) || n > s.raw_bytes - in_part) return nullptr;
+        if (s.offset > size || s.bytes > size - s.offset) return nullptr;
+        return map + s.offset + in_part;
+    }
+    std::uint64_t offset_at(const Col& c, std::uint64_t row) const {
+        std::uint64_t v = 0;
+        blobs().read_range(c.offsets, row * 8, 8, &v);
+        return v;
+    }
+    void unmap() {
+#ifdef _WIN32
+        if (map) UnmapViewOfFile(map);
+        if (mapping) CloseHandle(mapping);
+        if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+        mapping = nullptr; file = INVALID_HANDLE_VALUE;
+#else
+        if (map) munmap(const_cast<unsigned char*>(map), static_cast<std::size_t>(size));
+        if (fd >= 0) ::close(fd);
+        fd = -1;
+#endif
+        map = nullptr;
+    }
+};
+
+StoreReader::StoreReader(const std::string& filename) : impl_(new Impl) {
+    Impl& r = *impl_;
+    r.filename = filename;
+    // The header and directory checks of every other reader, once.
+    OpenStore store(filename);
+    r.version = store.format_version;
+    r.size = store.file_bytes;
+#ifdef _WIN32
+    r.file = CreateFileW(detail::utf8_to_wide(filename).c_str(), GENERIC_READ, FILE_SHARE_READ,
+                         nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (r.file == INVALID_HANDLE_VALUE) throw std::runtime_error("cannot open " + filename);
+    r.mapping = CreateFileMappingW(r.file, nullptr, PAGE_READONLY, 0, 0, nullptr);
+    if (r.mapping == nullptr) { r.unmap(); throw std::runtime_error("cannot map " + filename); }
+    r.map = static_cast<const unsigned char*>(MapViewOfFile(r.mapping, FILE_MAP_READ, 0, 0, 0));
+    if (r.map == nullptr) { r.unmap(); throw std::runtime_error("cannot map " + filename); }
+#else
+    r.fd = ::open(filename.c_str(), O_RDONLY);
+    if (r.fd < 0) throw std::runtime_error("cannot open " + filename);
+    void* m = mmap(nullptr, static_cast<std::size_t>(r.size), PROT_READ, MAP_SHARED, r.fd, 0);
+    if (m == MAP_FAILED) { r.unmap(); throw std::runtime_error("cannot map " + filename); }
+    r.map = static_cast<const unsigned char*>(m);
+#endif
+    Reader dir{store.directory.data(), store.directory.size(), 0, store.format_version};
+    dir.str();                       // label
+    dir.u64();                       // rows
+    dir.u64(); dir.blob();           // row mask
+    const std::uint32_t n_columns = dir.u32();
+    for (std::uint32_t k = 0; k < n_columns; ++k) {
+        Impl::Col c;
+        c.info.name = dir.str();
+        const std::uint8_t raw_type = dir.u8();
+        c.info.n_rows = dir.u64();
+        const std::uint8_t flags = dir.u8();
+        c.data = dir.blob();
+        if (flags & kColumnRagged) {
+            c.offsets = dir.blob();
+            c.row_starts = read_row_starts(dir);
+        }
+        dir.u64(); dir.blob();       // mask
+        if (dir.version >= 2) {
+            const std::string stored = dir.str();
+            c.meta = dir.version >= 3
+                    ? metadata_from_msgpack(reinterpret_cast<const unsigned char*>(stored.data()), stored.size())
+                    : stored;
+        }
+        if (!known_column_type(raw_type))
+            throw std::runtime_error(filename + ": unknown column type for '" + c.info.name + "'");
+        c.info.type = static_cast<ColumnType>(raw_type);
+        if (c.info.type == ColumnType::String) dir.blob();
+        c.info.ragged = (flags & kColumnRagged) != 0;
+        c.width = std::max<std::size_t>(element_bytes(c.info.type), 1);
+        c.info.n_segments = c.data.raw_bytes == 0 ? 0 : c.data.n_parts();
+        c.info.stored_bytes = c.data.bytes;
+        c.info.raw_bytes = c.data.raw_bytes;
+        c.info.n_values = c.info.ragged ? c.data.raw_bytes / c.width : c.info.n_rows;
+        r.order.push_back(c.info.name);
+        r.cols[c.info.name] = c;
+    }
+}
+
+StoreReader::~StoreReader() { if (impl_) impl_->unmap(); }
+
+std::uint32_t StoreReader::format_version() const { return impl_->version; }
+std::vector<std::string> StoreReader::columns() const { return impl_->order; }
+bool StoreReader::has_column(const std::string& name) const { return impl_->cols.count(name) != 0; }
+ColumnInfo StoreReader::info(const std::string& name) const { return impl_->col(name).info; }
+std::string StoreReader::metadata(const std::string& name) const { return impl_->col(name).meta; }
+
+void StoreReader::read(const std::string& name, std::uint64_t first, std::uint64_t n,
+                       void* out) const {
+    const Impl::Col& c = impl_->col(name);
+    if (c.info.type == ColumnType::Bool || c.info.type == ColumnType::String)
+        throw std::runtime_error(impl_->filename + ": '" + name + "' is not a plain array");
+    if (first > c.info.n_values || n > c.info.n_values - first)
+        throw std::runtime_error(impl_->filename + ": '" + name + "' has no values " +
+                                 std::to_string(first) + "+" + std::to_string(n));
+    impl_->blobs().read_range(c.data, first * c.width, n * c.width, out);
+}
+
+const void* StoreReader::view(const std::string& name, std::uint64_t first, std::uint64_t n) const {
+    const Impl::Col& c = impl_->col(name);
+    if (first > c.info.n_values || n > c.info.n_values - first) return nullptr;
+    return impl_->in_place(c.data, first * c.width, n * c.width);
+}
+
+void StoreReader::offsets(const std::string& name, std::uint64_t first, std::uint64_t n,
+                          std::uint64_t* out) const {
+    const Impl::Col& c = impl_->col(name);
+    if (!c.info.ragged) throw std::runtime_error(impl_->filename + ": '" + name + "' is not ragged");
+    if (first > c.info.n_rows || n > c.info.n_rows - first)
+        throw std::runtime_error(impl_->filename + ": '" + name + "' has no rows there");
+    impl_->blobs().read_range(c.offsets, first * 8, (n + 1) * 8, out);
+}
+
+std::uint64_t StoreReader::row_size(const std::string& name, std::uint64_t row) const {
+    std::uint64_t o[2];
+    offsets(name, row, 1, o);
+    return o[1] - o[0];
+}
+
+void StoreReader::row(const std::string& name, std::uint64_t row,
+                      std::vector<unsigned char>& out) const {
+    std::uint64_t o[2];
+    offsets(name, row, 1, o);
+    const Impl::Col& c = impl_->col(name);
+    out.resize(static_cast<std::size_t>((o[1] - o[0]) * c.width));
+    if (o[1] > o[0]) impl_->blobs().read_range(c.data, o[0] * c.width, (o[1] - o[0]) * c.width, out.data());
+}
+
+const void* StoreReader::row_view(const std::string& name, std::uint64_t row,
+                                  std::uint64_t* n) const {
+    std::uint64_t o[2];
+    offsets(name, row, 1, o);
+    if (n) *n = o[1] - o[0];
+    const Impl::Col& c = impl_->col(name);
+    if (o[1] == o[0]) return impl_->map;   // an empty row: any valid pointer
+    return impl_->in_place(c.data, o[0] * c.width, (o[1] - o[0]) * c.width);
+}
+
+std::size_t StoreReader::n_segments(const std::string& name) const {
+    return impl_->col(name).info.n_segments;
+}
+
+SegmentInfo StoreReader::segment(const std::string& name, std::size_t k) const {
+    const Impl::Col& c = impl_->col(name);
+    if (k >= c.info.n_segments) throw std::runtime_error(impl_->filename + ": no segment there");
+    const BlobSegment s = c.data.part(k);
+    SegmentInfo out;
+    out.first_value = c.data.part_start(k) / c.width;
+    out.n_values = s.raw_bytes / c.width;
+    out.raw = Impl::part_raw(s);
+    if (!c.info.ragged) {
+        out.first_row = out.first_value;
+        out.n_rows = out.n_values;
+        return out;
+    }
+    // The directory holds each segment's first row; a segment never splits a row.
+    if (c.row_starts.size() != c.info.n_segments)
+        throw std::runtime_error(impl_->filename + ": '" + name + "' has no row index");
+    out.first_row = c.row_starts[k];
+    const std::uint64_t next = k + 1 < c.row_starts.size() ? c.row_starts[k + 1] : c.info.n_rows;
+    out.n_rows = next - out.first_row;
+    return out;
+}
+
+const void* StoreReader::segment_data(const std::string& name, std::size_t k,
+                                      std::vector<unsigned char>& scratch) const {
+    const Impl::Col& c = impl_->col(name);
+    if (k >= c.info.n_segments) throw std::runtime_error(impl_->filename + ": no segment there");
+    const BlobSegment s = c.data.part(k);
+    if (Impl::part_raw(s)) {
+        if (s.offset > impl_->size || s.bytes > impl_->size - s.offset)
+            throw std::runtime_error(impl_->filename + ": a segment points past the end");
+        return impl_->map + s.offset;
+    }
+    BlobRef one;
+    one.offset = s.offset; one.bytes = s.bytes; one.codec = s.codec;
+    one.transform = s.transform; one.raw_bytes = s.raw_bytes;
+    scratch.resize(static_cast<std::size_t>(s.raw_bytes));
+    impl_->blobs().read_part(one, 0, s.raw_bytes, scratch.data());
+    return scratch.data();
+}
+
+void StoreReader::advise_sequential(const std::string& name) const {
+#ifndef _WIN32
+    const Impl::Col& c = impl_->col(name);
+    const std::size_t page = static_cast<std::size_t>(sysconf(_SC_PAGESIZE));
+    for (std::size_t k = 0; k < c.info.n_segments; ++k) {
+        const BlobSegment s = c.data.part(k);
+        const std::uint64_t begin = s.offset / page * page;
+        const std::uint64_t end = std::min<std::uint64_t>(s.offset + s.bytes, impl_->size);
+        if (end > begin)
+            madvise(const_cast<unsigned char*>(impl_->map) + begin,
+                    static_cast<std::size_t>(end - begin), MADV_SEQUENTIAL);
+    }
+#else
+    (void)name;
+#endif
+}
 
 DataStore read_store(const std::string& filename) {
     DataStore out;

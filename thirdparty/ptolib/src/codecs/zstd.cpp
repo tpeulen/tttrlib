@@ -28,7 +28,16 @@ bool zstd_decompress(const unsigned char* in, std::size_t n, std::size_t raw_siz
     }
     if (raw_size != 0) {
         out.resize(raw_size);
-        const std::size_t got = ZSTD_decompress(out.data(), out.size(), in, n);
+        // One context per thread: a fresh one per call is an allocation of
+        // ~100 kB, which dominates when a reader decodes many small segments.
+        struct Context {
+            ZSTD_DCtx* dctx = ZSTD_createDCtx();
+            ~Context() { ZSTD_freeDCtx(dctx); }
+        };
+        thread_local Context context;
+        const std::size_t got = context.dctx != nullptr
+                ? ZSTD_decompressDCtx(context.dctx, out.data(), out.size(), in, n)
+                : ZSTD_decompress(out.data(), out.size(), in, n);
         if (ZSTD_isError(got) || got != raw_size) { out.clear(); return false; }
         return true;
     }
