@@ -135,13 +135,13 @@ are still claims and still binding.
   - Progress: done. 3 new tests; `test_probe_network_selection.py` + public API names 96 passed, selection/landscape regressions 465 passed.
 
 - **T-20260928-02 · [imp.bff] Co-evolution (DCA) scores as a pair cost for probe selection — deferred**
-  - Status: 🆕 open (deferred by the owner, 2026-09-28)
-  - Owner: —
-  - Opened: 2026-09-28 · Picked: — · Done: —
+  - Status: 🔄 in-progress (owner un-deferred it, 2026-09-28, and widened it to conservation)
+  - Owner: opus-5.5/16a6a771
+  - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: —
   - Why: FRETNet-Designer (SMB-Lab) penalises FRET pairs whose two sites co-evolve (DCA direct information from an MSA): mutating both may disturb the coupling the experiment is meant to observe. imp.bff has no MSA/DCA code. `ProbePairCostTerm` (T-20260928-01) takes a per-pair cost, so precomputed DCA scores can already be fed in once mapped to [0, 1].
   - Done when: decided where MSA generation and DCA live (tttrlib/imp.bff/chisurf, or an external tool such as plmDCA), and a documented path from an MSA to `ProbePairCostTerm` costs, with the mapping from direct information to a probability justified.
-  - Touching: —
-  - Progress: —
+  - Touching: lock released 2026-09-28 (paused, nothing built yet); imp.bff new `include/Sequence{MSA,Conservation,Coevolution}.h` + `src/`, `pyext/include/IMP_bff.sequence*.i`, `test/sequence/`, `test/data/sequence/`; edits to `LabelizerFeatures.*`, `LabelizerScore.*`, `IMP_bff.core.i`, `src/Files.cmake`, `test/test_public_api_names.py`. Plan: clean-room (no Rate4Site/DCA.py source), A/B against the original binaries, faster than rate4site.
+  - Progress: paused at the usage limit. Written, uncommitted: imp.bff `include/SequenceMSA.h` only. A/B reference ready: original rate4site 3.0.0 unpacked (no sudo) at cordeshub `~/r4s_ab/root/usr/bin/rate4site`; on a 150 x 271 RBP alignment it takes 3 min 30 s (alpha 1.35, LL -34397.8). ConSurf-DB downloads not reachable; grade binning will rest on the published description.
 
 - **T-20260926-01 · [imp.bff] Oligomer switch for probe network selection: `ProbeOligomerPairs` (n protomers → site pairs, distance mixtures)**
   - Status: ✅ done (imp.bff `e5e9a843`, pushed to fork)
