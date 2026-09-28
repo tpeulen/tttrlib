@@ -2951,6 +2951,8 @@ std::uint64_t store_bytes_read();
 // Streaming stores: written column by column in bounded memory, read mapped.
 // ---------------------------------------------------------------------------
 
+class File;
+
 /// What \ref StoreReader::info reports about one column.
 struct ColumnInfo {
     std::string name;
@@ -2999,7 +3001,19 @@ public:
     explicit StoreWriter(const std::string& filename,
                          const StoreOptions& options = StoreOptions(),
                          std::size_t segment_bytes = std::size_t(16) << 20);
-    ~StoreWriter();   ///< an unclosed writer removes its temporary
+    /*!
+     * \brief Stream the store into an open, writable container, as a new
+     *        `dstore` object of `kind` called `name`.
+     *
+     * The object is laid down at the container's tail and sized at \ref close,
+     * so the store never exists anywhere else: no temporary, no copy. Until
+     * then the container takes no other writes, and it must outlive the
+     * writer. \ref uid names the object after \ref close.
+     */
+    StoreWriter(File& container, const std::string& kind, const std::string& name,
+                const StoreOptions& options = StoreOptions(),
+                std::size_t segment_bytes = std::size_t(16) << 20);
+    ~StoreWriter();   ///< an unclosed writer removes its temporary (or abandons its object)
     StoreWriter(const StoreWriter&) = delete;
     StoreWriter& operator=(const StoreWriter&) = delete;
 
@@ -3017,8 +3031,11 @@ public:
     /// Append one row of `n` values to a ragged column.
     void append_row(int column, const void* values, std::uint64_t n);
     std::uint64_t n_rows(int column) const;
-    /// Flush, write the directory, rename into place. False on an I/O error.
+    /// Flush, write the directory, rename into place (or size the container's
+    /// object). False on an I/O error.
     bool close();
+    /// The container object written, after \ref close; 0 for a file.
+    std::uint64_t uid() const;
 
 private:
     struct Impl;
@@ -3037,6 +3054,10 @@ private:
 class StoreReader {
 public:
     explicit StoreReader(const std::string& filename);
+    /// A store embedded in another file, at `size` bytes from `offset`.
+    StoreReader(const std::string& filename, std::uint64_t offset, std::uint64_t size);
+    /// A container's `dstore` object. The container may be closed afterwards.
+    StoreReader(const File& container, std::uint64_t uid);
     ~StoreReader();
     StoreReader(const StoreReader&) = delete;
     StoreReader& operator=(const StoreReader&) = delete;
@@ -3185,6 +3206,27 @@ struct PtoObject {
 };
 
 class File;
+
+namespace detail {
+/// A `dstore` object being written at a container's tail: its header goes
+/// down first with wide, zero sizes, the store streams after it, and
+/// \ref finish patches the sizes. Behind \ref pto_add_store and the
+/// container form of \ref StoreWriter.
+struct PtoStoreStream {
+    File* file = nullptr;
+    std::uint64_t uid = 0;
+    std::string kind, name;
+    std::uint64_t at = 0, head_bytes = 0, prefix_bytes = 0;
+
+    static bool begin(File& file, const std::string& kind, const std::string& name,
+                      PtoStoreStream* out);
+    std::FILE* handle() const;        ///< positioned at \ref payload
+    std::uint64_t payload() const;    ///< where the store begins in the file
+    /// The store took `n` bytes; returns the object's uid, or 0.
+    std::uint64_t finish(std::uint64_t n, std::uint64_t rows, std::uint64_t reserve);
+    void abandon();
+};
+}  // namespace detail
 
 /*!
  * \brief What a file on disk would become inside a container.
@@ -3869,6 +3911,8 @@ private:
     // The rest of the store entry points need no friendship: they go through
     // pto_store_region and filename(), which is the whole point of it existing.
     friend PtoObject pto_store_region(const File&, std::uint64_t);
+    // StoreWriter streams a store into an object at the container's tail.
+    friend struct detail::PtoStoreStream;
 };
 /*!
  * \brief Bundle files and directories into an open container, one object each.

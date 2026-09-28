@@ -4127,6 +4127,9 @@ struct StoreWriter::Impl {
 
     std::string filename, temp;
     std::unique_ptr<StoreHandle> file;
+    detail::PtoStoreStream pto;   // the container form: an object at its tail
+    bool in_container = false;
+    std::uint64_t uid = 0;
     std::unique_ptr<BlobStream> out;
     CodecPlan plan;
     std::size_t segment_bytes = 0;
@@ -4183,12 +4186,37 @@ StoreWriter::StoreWriter(const std::string& filename, const StoreOptions& option
     impl_->out->bytes(head, kHeaderBytes);   // completed at close
 }
 
+StoreWriter::StoreWriter(File& container, const std::string& kind, const std::string& name,
+                         const StoreOptions& options, std::size_t segment_bytes)
+        : impl_(new Impl) {
+    std::string why;
+    if (!plan_for(options, &impl_->plan, &why)) throw std::runtime_error("StoreWriter: " + why);
+    impl_->filename = container.filename() + ": " + name;
+    impl_->segment_bytes = std::max<std::size_t>(segment_bytes, 4096);
+    if (!detail::PtoStoreStream::begin(container, kind, name, &impl_->pto))
+        throw std::runtime_error("StoreWriter: " + container.error());
+    impl_->in_container = true;
+    std::FILE* h = impl_->pto.handle();
+    const std::uint64_t base = impl_->pto.payload();
+    if (fseek64(h, static_cast<std::int64_t>(base), SEEK_SET) != 0) {
+        impl_->pto.abandon();
+        throw std::runtime_error("StoreWriter: could not seek in " + container.filename());
+    }
+    impl_->out.reset(new BlobStream(h, base));
+    unsigned char head[kHeaderBytes];
+    std::memset(head, 0, kHeaderBytes);
+    impl_->out->bytes(head, kHeaderBytes);   // completed at close
+}
+
 StoreWriter::~StoreWriter() {
     if (impl_ && !impl_->closed) {
+        if (impl_->in_container) { impl_->pto.abandon(); return; }
         if (impl_->file) impl_->file->close();
         std::remove(impl_->temp.c_str());
     }
 }
+
+std::uint64_t StoreWriter::uid() const { return impl_->uid; }
 
 int StoreWriter::add_column(const std::string& name, ColumnType type, bool ragged,
                             const std::string& codec) {
@@ -4309,11 +4337,17 @@ bool StoreWriter::close() {
     std::memcpy(head + 32, &file_bytes, 8);
     std::memcpy(head + 40, &checksum, 4);
     bool ok = out.ok;
-    if (ok && (fseek64(out.h, 0, SEEK_SET) != 0 ||
+    if (ok && (fseek64(out.h, static_cast<std::int64_t>(out.base), SEEK_SET) != 0 ||
                std::fwrite(head, 1, kHeaderBytes, out.h) != kHeaderBytes))
         ok = false;
-    if (!w.file->close()) ok = false;
     w.closed = true;
+    if (w.in_container) {
+        if (ok && std::fflush(out.h) != 0) ok = false;
+        w.uid = w.pto.finish(ok ? file_bytes : 0, rows, 0);
+        if (w.uid == 0) std::cerr << "StoreWriter: could not write " << w.filename << std::endl;
+        return w.uid != 0;
+    }
+    if (!w.file->close()) ok = false;
     if (ok && !detail::replace_file(w.temp, w.filename)) ok = false;
     if (!ok) {
         std::remove(w.temp.c_str());
@@ -4336,8 +4370,10 @@ struct StoreReader::Impl {
     };
     std::string filename;
     std::uint32_t version = 0;
-    const unsigned char* map = nullptr;
-    std::uint64_t size = 0;
+    const unsigned char* map = nullptr;      // the store's first byte
+    std::uint64_t size = 0;                  // the store's bytes
+    const unsigned char* mapped = nullptr;   // what was mapped: the file from 0
+    std::uint64_t mapped_bytes = 0;
 #ifdef _WIN32
     HANDLE file = INVALID_HANDLE_VALUE;
     HANDLE mapping = nullptr;
@@ -4379,41 +4415,65 @@ struct StoreReader::Impl {
     }
     void unmap() {
 #ifdef _WIN32
-        if (map) UnmapViewOfFile(map);
+        if (mapped) UnmapViewOfFile(mapped);
         if (mapping) CloseHandle(mapping);
         if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
         mapping = nullptr; file = INVALID_HANDLE_VALUE;
 #else
-        if (map) munmap(const_cast<unsigned char*>(map), static_cast<std::size_t>(size));
+        if (mapped) munmap(const_cast<unsigned char*>(mapped), static_cast<std::size_t>(mapped_bytes));
         if (fd >= 0) ::close(fd);
         fd = -1;
 #endif
-        map = nullptr;
+        map = mapped = nullptr;
     }
+    void open(const std::string& name, std::uint64_t base, std::uint64_t region);
 };
 
 StoreReader::StoreReader(const std::string& filename) : impl_(new Impl) {
-    Impl& r = *impl_;
-    r.filename = filename;
+    impl_->open(filename, 0, 0);
+}
+
+StoreReader::StoreReader(const std::string& filename, std::uint64_t offset, std::uint64_t size)
+        : impl_(new Impl) {
+    if (size == 0) throw std::runtime_error(filename + ": an empty region holds no store");
+    impl_->open(filename, offset, size);
+}
+
+StoreReader::StoreReader(const File& container, std::uint64_t uid) : impl_(new Impl) {
+    const PtoObject o = pto_store_region(container, uid);
+    if (o.uid == 0 || o.size == 0)
+        throw std::runtime_error(container.filename() + ": no store object " + std::to_string(uid));
+    impl_->open(container.filename(), o.offset, o.size);
+}
+
+void StoreReader::Impl::open(const std::string& name, std::uint64_t base, std::uint64_t region) {
+    Impl& r = *this;
+    r.filename = name;
+    const std::string& filename = name;
     // The header and directory checks of every other reader, once.
-    OpenStore store(filename);
+    OpenStore store(filename, base, region);
     r.version = store.format_version;
     r.size = store.file_bytes;
+    // A store inside a container is mapped with the file from 0 (a mapping
+    // starts on a page) and served from its own first byte.
+    r.mapped_bytes = base + r.size;
 #ifdef _WIN32
     r.file = CreateFileW(detail::utf8_to_wide(filename).c_str(), GENERIC_READ, FILE_SHARE_READ,
                          nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (r.file == INVALID_HANDLE_VALUE) throw std::runtime_error("cannot open " + filename);
     r.mapping = CreateFileMappingW(r.file, nullptr, PAGE_READONLY, 0, 0, nullptr);
     if (r.mapping == nullptr) { r.unmap(); throw std::runtime_error("cannot map " + filename); }
-    r.map = static_cast<const unsigned char*>(MapViewOfFile(r.mapping, FILE_MAP_READ, 0, 0, 0));
-    if (r.map == nullptr) { r.unmap(); throw std::runtime_error("cannot map " + filename); }
+    r.mapped = static_cast<const unsigned char*>(MapViewOfFile(r.mapping, FILE_MAP_READ, 0, 0,
+                                                                static_cast<SIZE_T>(r.mapped_bytes)));
+    if (r.mapped == nullptr) { r.unmap(); throw std::runtime_error("cannot map " + filename); }
 #else
     r.fd = ::open(filename.c_str(), O_RDONLY);
     if (r.fd < 0) throw std::runtime_error("cannot open " + filename);
-    void* m = mmap(nullptr, static_cast<std::size_t>(r.size), PROT_READ, MAP_SHARED, r.fd, 0);
+    void* m = mmap(nullptr, static_cast<std::size_t>(r.mapped_bytes), PROT_READ, MAP_SHARED, r.fd, 0);
     if (m == MAP_FAILED) { r.unmap(); throw std::runtime_error("cannot map " + filename); }
-    r.map = static_cast<const unsigned char*>(m);
+    r.mapped = static_cast<const unsigned char*>(m);
 #endif
+    r.map = r.mapped + base;
     Reader dir{store.directory.data(), store.directory.size(), 0, store.format_version};
     dir.str();                       // label
     dir.u64();                       // rows
@@ -4559,12 +4619,15 @@ void StoreReader::advise_sequential(const std::string& name) const {
 #ifndef _WIN32
     const Impl::Col& c = impl_->col(name);
     const std::size_t page = static_cast<std::size_t>(sysconf(_SC_PAGESIZE));
+    // Offsets in the file, not the store: a mapping advises on whole pages.
+    const std::uint64_t base = static_cast<std::uint64_t>(impl_->map - impl_->mapped);
     for (std::size_t k = 0; k < c.info.n_segments; ++k) {
         const BlobSegment s = c.data.part(k);
-        const std::uint64_t begin = s.offset / page * page;
-        const std::uint64_t end = std::min<std::uint64_t>(s.offset + s.bytes, impl_->size);
+        const std::uint64_t begin = (base + s.offset) / page * page;
+        const std::uint64_t end = std::min<std::uint64_t>(base + s.offset + s.bytes,
+                                                          impl_->mapped_bytes);
         if (end > begin)
-            madvise(const_cast<unsigned char*>(impl_->map) + begin,
+            madvise(const_cast<unsigned char*>(impl_->mapped) + begin,
                     static_cast<std::size_t>(end - begin), MADV_SEQUENTIAL);
     }
 #else
@@ -5291,6 +5354,8 @@ struct File::Impl {
     std::string err;
     bool writable = false;
     bool dirty = false;
+    /// A StoreWriter is appending an object at the tail; nothing else may write.
+    bool streaming = false;
 
     std::uint64_t seg_data = 0;        ///< first byte of Segment's data
     std::uint64_t seg_size_at = 0;     ///< where Segment's size VINT lives
@@ -5650,6 +5715,7 @@ struct File::Impl {
                               std::uint64_t rows = 0, std::uint64_t raw_size = 0) {
         err.clear();
         if (!writable) { fail("opened read-only"); return 0; }
+        if (streaming) { fail("a store is being streamed into the container"); return 0; }
         // A name is a relative path to disassemble, so refuse one that could
         // not be unpacked safely rather than writing a container whose only
         // honest reader is one that rejects it.
@@ -7338,29 +7404,29 @@ std::uint64_t pto_add_store(File& file, const std::string& kind,
     return pto_add_store(file, kind, name, store, reserve, StoreOptions());
 }
 
-std::uint64_t pto_add_store(File& file, const std::string& kind,
-                            const std::string& name, const DataStore& store,
-                            std::uint64_t reserve, const StoreOptions& options) {
+namespace detail {
+
+bool PtoStoreStream::begin(File& file, const std::string& kind, const std::string& name,
+                           PtoStoreStream* out) {
     File::Impl& m = *file.p_;
     m.err.clear();
-    if (!m.writable) { m.fail("opened read-only"); return 0; }
+    if (!m.writable) return m.fail("opened read-only");
+    if (m.streaming) return m.fail("a store is already being streamed into the container");
     // This lays down its own header rather than going through emit_object, so
     // it needs the name gate of its own. See why_name_cannot_be_written.
     {
         const std::string bad = why_name_cannot_be_written(name);
-        if (!bad.empty()) { m.fail(bad); return 0; }
+        if (!bad.empty()) return m.fail(bad);
     }
-
-    File::Impl::Slot s;
-    s.meta.uid = unused_uid(m.slots);
-    s.meta.kind = kind;
-    s.meta.encoding = "dstore";
-    s.meta.media_type = "application/x-dstore";
-    s.meta.name = name;
-    s.meta.rows = store.n_rows();
+    PtoStoreStream& o = *out;
+    o = PtoStoreStream();
+    o.file = &file;
+    o.uid = unused_uid(m.slots);
+    o.kind = kind;
+    o.name = name;
 
     Buf head;
-    head.uint_elem_fixed(kFileUID, s.meta.uid, kUidOctets);
+    head.uint_elem_fixed(kFileUID, o.uid, kUidOctets);
     head.text_elem(kPtoKind, kind);
     head.text_elem(kPtoEncoding, "dstore");
     if (!name.empty()) head.text_elem(kFileName, name);
@@ -7368,7 +7434,8 @@ std::uint64_t pto_add_store(File& file, const std::string& kind,
     // Always present and always 8 octets, even for an empty table: an update
     // that finds a different number of rows patches this in place, and a
     // packed width would not have the byte a grown count needs.
-    head.uint_elem_fixed(kPtoRowCount, s.meta.rows, 8);
+    head.uint_elem_fixed(kPtoRowCount, 0, 8);
+    o.head_bytes = head.b.size();
 
     // The size is not known until the store has been written, so this always
     // appends -- there is no hole to look for one that fits. The three sizes
@@ -7384,10 +7451,10 @@ std::uint64_t pto_add_store(File& file, const std::string& kind,
     const std::uint64_t pad =
             m.align_payloads ? align_pad(at_raw + before_payload) : 0;
     if (pad != 0) {
-        if (!m.write_void(at_raw, pad)) return 0;
+        if (!m.write_void(at_raw, pad)) return false;
         m.seg_bytes += pad;
     }
-    const std::uint64_t at = at_raw + pad;
+    o.at = at_raw + pad;
 
     Buf prefix;
     prefix.put_id(kAttachments);
@@ -7397,36 +7464,54 @@ std::uint64_t pto_add_store(File& file, const std::string& kind,
     prefix.raw(head.b.data(), head.b.size());
     prefix.put_id(kFileData);
     prefix.put_size(0, kWideSize);
-    if (prefix.b.size() != before_payload) {
-        m.fail("internal: the object header is not the size it was computed to be");
-        return 0;
-    }
+    if (prefix.b.size() != before_payload)
+        return m.fail("internal: the object header is not the size it was computed to be");
+    o.prefix_bytes = prefix.b.size();
 
-    if (!m.f.at(at, prefix.b.data(), prefix.b.size())) { m.fail("write failed"); return 0; }
+    if (!m.f.at(o.at, prefix.b.data(), prefix.b.size())) return m.fail("write failed");
+    m.streaming = true;
+    return true;
+}
 
-    const std::uint64_t n = write_store_at(m.f.get(), store, options);
+std::FILE* PtoStoreStream::handle() const { return file->p_->f.get(); }
+
+std::uint64_t PtoStoreStream::payload() const { return at + prefix_bytes; }
+
+std::uint64_t PtoStoreStream::finish(std::uint64_t n, std::uint64_t rows, std::uint64_t reserve) {
+    File::Impl& m = *file->p_;
+    m.streaming = false;
     if (n == 0) { m.fail("could not write the store into the container"); return 0; }
 
-    const std::uint64_t att_payload = head.b.size() + id_octets(kFileData) + kWideSize + n;
+    const std::uint64_t att_payload = head_bytes + id_octets(kFileData) + kWideSize + n;
     const std::uint64_t att_total = id_octets(kAttachedFile) + kWideSize + att_payload;
     const std::uint64_t elem_total = id_octets(kAttachments) + kWideSize + att_total;
 
+    File::Impl::Slot s;
+    s.meta.uid = uid;
+    s.meta.kind = kind;
+    s.meta.encoding = "dstore";
+    s.meta.media_type = "application/x-dstore";
+    s.meta.name = name;
+    s.meta.rows = rows;
     s.elem_at = at;
     s.elem_bytes = elem_total;
     s.seg_size_at = at + id_octets(kAttachments);
     s.att_size_at = s.seg_size_at + kWideSize + id_octets(kAttachedFile);
-    s.data_size_at = at + prefix.b.size() - kWideSize;
-    s.rows_at = s.att_size_at + kWideSize + head.b.size() - 8;
-    s.meta.offset = at + prefix.b.size();
+    s.data_size_at = at + prefix_bytes - kWideSize;
+    s.rows_at = s.att_size_at + kWideSize + head_bytes - 8;
+    s.meta.offset = at + prefix_bytes;
     s.meta.size = n;
 
     Buf a, b, c;
     a.put_size(att_total, kWideSize);
     b.put_size(att_payload, kWideSize);
     c.put_size(n, kWideSize);
+    unsigned char row_bytes[8];
+    for (int k = 0; k < 8; ++k) row_bytes[k] = static_cast<unsigned char>(rows >> (8 * (7 - k)));
     if (!m.f.at(s.seg_size_at, a.b.data(), a.b.size()) ||
         !m.f.at(s.att_size_at, b.b.data(), b.b.size()) ||
-        !m.f.at(s.data_size_at, c.b.data(), c.b.size())) {
+        !m.f.at(s.data_size_at, c.b.data(), c.b.size()) ||
+        !m.f.at(s.rows_at, row_bytes, 8)) {
         m.fail("write failed");
         return 0;
     }
@@ -7441,6 +7526,22 @@ std::uint64_t pto_add_store(File& file, const std::string& kind,
     m.slots.push_back(s);
     m.dirty = true;
     return s.meta.uid;
+}
+
+void PtoStoreStream::abandon() {
+    if (file != nullptr) file->p_->streaming = false;
+    file = nullptr;
+}
+
+}  // namespace detail
+
+std::uint64_t pto_add_store(File& file, const std::string& kind,
+                            const std::string& name, const DataStore& store,
+                            std::uint64_t reserve, const StoreOptions& options) {
+    detail::PtoStoreStream stream;
+    if (!detail::PtoStoreStream::begin(file, kind, name, &stream)) return 0;
+    const std::uint64_t n = write_store_at(stream.handle(), store, options);
+    return stream.finish(n, store.n_rows(), reserve);
 }
 
 bool pto_update_store(File& file, std::uint64_t uid, const DataStore& store) {
