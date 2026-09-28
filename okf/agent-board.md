@@ -125,6 +125,24 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
+- **T-20260928-03 · [ptolib] Streaming writer, ragged columns, mmap reader, block-compressed random access (for a UniRef90-scale sequence store)**
+  - Status: 🔄 in-progress
+  - Owner: opus-5.5/16a6a771
+  - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: —
+  - Why: owner request: the native homology search stores binary FASTA and a k-mer index in .pto, in little memory. Today a column is written from memory in one piece, there is no variable-length type, no persistent/mapped reader (every read re-opens and re-parses the directory), reads are not thread-safe, and a compressed column decodes whole.
+  - Done when: StoreWriter (begin/append/end, bounded memory), a ragged column type (u64 offsets + values), StoreReader (open once, mmap spans, positional reads, thread-safe, chunk iterator), block-compressed columns with a block index; Python reader parity; GB-scale ptobench; re-vendored into imp.bff and tttrlib.
+  - Touching: ptolib `include/ptolib/ptolib.h`, `src/ptolib.cpp`, `python/ptolib/dstore.py`, `tests/`, `bench/`, `docs/dstore.md`, `CHANGELOG.md`; later imp.bff `thirdparty/ptolib/`, tttrlib `thirdparty/ptolib/`.
+  - Progress: —
+
+- **T-20260928-04 · [imp.bff] Native homology search (MMseqs2's method), streaming, sequence database in .pto, ConSurf pipeline end to end**
+  - Status: 🙋 picked (after T-20260928-03)
+  - Owner: opus-5.5/16a6a771
+  - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: —
+  - Why: the consurfer worker's HMMER search of UniRef90 takes hours per chain. Owner: no external programs, all imp.bff C++ (libcurl/zlib optional libraries), settings instead of hard-coded servers/paths, streaming in little memory, data on /Volumes/SD1TB.
+  - Done when: settings file; `sequence-db create` (FASTA/gz -> binary FASTA .pto) and `index`; search in stream and index modes (k-mer prefilter, diagonal double hits, affine SW, Karlin-Altschul E-values) A/B-checked against the mmseqs binary as a black box; ConSurf's homolog filter; colabfold-v1 server fallback from settings; `imp_bff consurf` writing .grades and a B-factor PDB; UniRef90 on SD1TB: time, peak memory, agreement with ConSurf's 1lk2 grades.
+  - Touching: imp.bff new `include/{BffSettings,SequenceDatabase,SequenceSearch,SequenceHomologs}.h` + src, `src/CommandLine{Sequence,Consurf}.cpp`; edits `SequenceMSA.*`, `SequenceAlignment.*`, `LabelizerScore.cpp`, `CommandLine.cpp`, CMake (optional curl/zlib), README.
+  - Progress: —
+
 - **T-20260928-01 · [imp.bff] `ProbePairCostTerm`: a per-pair cost in the probe network selection**
   - Status: ✅ done (imp.bff `5a4493aa6`, local)
   - Owner: opus-5.5/16a6a771
@@ -135,14 +153,13 @@ are still claims and still binding.
   - Progress: done. 3 new tests; `test_probe_network_selection.py` + public API names 96 passed, selection/landscape regressions 465 passed.
 
 - **T-20260928-02 · [imp.bff] Co-evolution (DCA) scores as a pair cost for probe selection — deferred**
-  - Status: 🔄 in-progress (owner un-deferred it, 2026-09-28, and widened it to conservation)
+  - Status: ✅ done (imp.bff `6f833f837`, `526921b10`, local)
   - Owner: opus-5.5/16a6a771
-  - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: —
+  - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: 2026-09-28
   - Why: FRETNet-Designer (SMB-Lab) penalises FRET pairs whose two sites co-evolve (DCA direct information from an MSA): mutating both may disturb the coupling the experiment is meant to observe. imp.bff has no MSA/DCA code. `ProbePairCostTerm` (T-20260928-01) takes a per-pair cost, so precomputed DCA scores can already be fed in once mapped to [0, 1].
   - Done when: decided where MSA generation and DCA live (tttrlib/imp.bff/chisurf, or an external tool such as plmDCA), and a documented path from an MSA to `ProbePairCostTerm` costs, with the mapping from direct information to a probability justified.
-  - Touching: lock released 2026-09-28 (paused, nothing built yet); imp.bff new `include/Sequence{MSA,Conservation,Coevolution}.h` + `src/`, `pyext/include/IMP_bff.sequence*.i`, `test/sequence/`, `test/data/sequence/`; edits to `LabelizerFeatures.*`, `LabelizerScore.*`, `IMP_bff.core.i`, `src/Files.cmake`, `test/test_public_api_names.py`. Plan: clean-room (no Rate4Site/DCA.py source), A/B against the original binaries, faster than rate4site.
-  - Progress: paused at the usage limit. Written, uncommitted: imp.bff `include/SequenceMSA.h` only. A/B reference ready: original rate4site 3.0.0 unpacked (no sudo) at cordeshub `~/r4s_ab/root/usr/bin/rate4site`; on a 150 x 271 RBP alignment it takes 3 min 30 s (alpha 1.35, LL -34397.8). ConSurf-DB downloads not reachable; grade binning will rest on the published description.
-
+  - Touching: released (imp.bff build lock released 2026-09-28).
+  - Progress: done. Native Rate4Site method + ConSurf grades (exact parity with Rate4Site 3.0.0 and ConSurf's own 1lk2 run, 11-38x faster) and mean-field DCA (DI to 5e-14 vs DCA.py, 8x faster); the Labelizer computes ConSurf's records from an alignment and scores all six conservation tables. Next: the alignment search itself, T-20260928-03 / -04.
 - **T-20260926-01 · [imp.bff] Oligomer switch for probe network selection: `ProbeOligomerPairs` (n protomers → site pairs, distance mixtures)**
   - Status: ✅ done (imp.bff `e5e9a843`, pushed to fork)
   - Owner: opus-5.5/16a6a771
