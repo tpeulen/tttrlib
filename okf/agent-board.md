@@ -1915,6 +1915,14 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
+- **T-20260928-ndxhost · [chisurf+ndxplorer] ChiSurf opens ndX as the emtk app (Qt host), the Qt ndX window retired from ChiSurf**
+  - Status: ✅ done
+  - Owner: opus-5.5/ndx-hosted
+  - Opened: 2026-09-28 · Picked: 2026-09-28 · Done: 2026-09-28
+  - Why: tpeulen "swap qt ndx for emtk ndx in chisurf".
+  - Touching: chisurf `chisurf/plugins/ndxplorer/{window,rpc_bridge,mmfdb_launcher,__init__}.py` + tests, the ndX call sites in trace_browser, mmfdb_admin, imaging_common, burst_h2mm, alex_suite (own hunks only); ndxplorer `app/features/{phasor,accurate_fret}.py`, `app/frame.py`, `tools/parity/features.md`.
+  - Progress: chisurf 2633b5853, 149703517, 30eb376cb, c9ee10342; ndxplorer e5f8252, 6540087, 03f2be0 (gitlink not bumped). Resume: chisurf okf/plugins/ndxplorer-emtk-port.md "Hosted in ChiSurf" (open: MMFDB record_analysis on BID save; the uncommitted native-port `emtk` manifest key + plugins/ndxplorer/gui/app.py must be reconciled with build_ndxplorer_window).
+
 - **T-20260924-embed · [tttrlib+ndxplorer] t-SNE and UMAP in tttrlib for segmentation; ndX drops umap-learn**
   - Status: ✅ done — tttrlib 228a3fc22 (Embedding.h, Tsne.cpp, Umap.cpp, Embedding.cpp; Python/R/JS, Java declared out; registry tsne_embedding/umap_embedding); A/B test_embedding.py 36/36 vs recorded scikit-learn 1.9 + umap-learn 0.5.12 (P 1.3e-14, fuzzy graph 1e-6, a/b 4e-7, spectral layout column-wise, trustworthiness 1e-16; embeddings as good by KL/trust/ARI; FLIM segmentation over 8 seeds median ARI 0.948 vs 0.913); misc suite 344 passed (only failures: test_cli*, the old build/bin/tttr lost libomp in today's base-env upgrade). ndxplorer d71db76: get_umap() -> tttrlib.umap (umap-learn only for non-Euclidean metrics / old tttrlib), suite 183 passed. Found by the A/B: spectral init's Lanczos restart lost the Krylov structure (recorded in okf/testing/math-kernel-validation.md). Not pushed.
   - Owner: opus-5.5/embedding
