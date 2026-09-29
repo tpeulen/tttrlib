@@ -2799,7 +2799,7 @@ namespace {
 /// Version 4 adds a codec, a transform and a raw size to every blob record.
 /// A file that uses no codec is still written as version 3, so a reader that
 /// predates 4 opens everything it could open before.
-const std::uint32_t kVersion = 5;        ///< the newest this reader reads
+const std::uint32_t kVersion = 6;        ///< the newest this reader reads
 const std::uint32_t kVersionCoded = 4;   ///< what write_store writes with a codec
 const std::uint32_t kVersionRaw = 3;
 const std::uint32_t kFlagLittleEndian = 1u << 0;
@@ -2839,6 +2839,281 @@ bool bit_pack(const unsigned char* in, std::size_t n, unsigned bits,
     }
     out.resize((n * bits + 7) / 8);
     return true;
+}
+
+/// Version 6: UInt8 values Huffman-coded (canonical, codes of at most 12
+/// bits, written LSB-first and bit-reversed so a 12-bit window indexes a
+/// table). Layout: u32 n, u16 symbols, symbols x {u8 value, u8 length},
+/// u32 samples, samples x u64 bit position of value 1024 k, then the bits.
+/// A range decodes from the sample before it: random access at ~4.2 bits a
+/// residue.
+const std::uint8_t kTransformHuffman = 0x40;
+const unsigned kHuffmanMaxBits = 12;
+const std::size_t kHuffmanSample = 1024;
+
+/// Canonical code lengths for `freq` (256 symbols), at most `limit` bits;
+/// false when that cannot be met (then the caller stores otherwise).
+bool huffman_lengths(const std::uint64_t* freq, unsigned limit, unsigned char* len) {
+    std::vector<std::pair<std::uint64_t, int>> sym;
+    for (int k = 0; k < 256; ++k) {
+        len[k] = 0;
+        if (freq[k]) sym.push_back({freq[k], k});
+    }
+    if (sym.empty()) return true;
+    if (sym.size() == 1) { len[sym[0].second] = 1; return true; }
+    // Flatten the frequencies until the tree fits the limit.
+    std::vector<std::uint64_t> f(sym.size());
+    for (std::size_t i = 0; i < sym.size(); ++i) f[i] = sym[i].first;
+    for (int attempt = 0; attempt < 40; ++attempt) {
+        // Huffman by a two-queue merge over the sorted leaves
+        std::vector<std::size_t> order(f.size());
+        for (std::size_t i = 0; i < order.size(); ++i) order[i] = i;
+        std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) { return f[a] < f[b]; });
+        struct Node { std::uint64_t w; int left, right; };
+        std::vector<Node> nodes;
+        for (std::size_t i : order) nodes.push_back({f[i], -1, static_cast<int>(i)});
+        std::size_t leaf = 0, inner = order.size();
+        auto take = [&]() {
+            if (leaf < order.size() && (inner >= nodes.size() || nodes[leaf].w <= nodes[inner].w)) return leaf++;
+            return inner++;
+        };
+        while (nodes.size() - inner + (order.size() - leaf) > 1) {
+            const std::size_t a = take(), b = take();
+            nodes.push_back({nodes[a].w + nodes[b].w, static_cast<int>(a), static_cast<int>(b)});
+        }
+        // depths from the root down
+        std::vector<unsigned> depth(nodes.size(), 0);
+        unsigned deepest = 0;
+        for (std::size_t i = nodes.size(); i-- > order.size();) {
+            const Node& n = nodes[i];
+            depth[static_cast<std::size_t>(n.left)] = depth[i] + 1;
+            depth[static_cast<std::size_t>(n.right)] = depth[i] + 1;
+        }
+        for (std::size_t i = 0; i < order.size(); ++i) deepest = std::max(deepest, depth[i]);
+        if (deepest <= limit) {
+            for (std::size_t i = 0; i < order.size(); ++i)
+                len[sym[static_cast<std::size_t>(nodes[i].right)].second] = static_cast<unsigned char>(depth[i]);
+            return true;
+        }
+        for (std::uint64_t& v : f) v = v / 2 + 1;
+    }
+    return false;
+}
+
+/// The canonical codes, bit-reversed for LSB-first writing.
+void huffman_codes(const unsigned char* len, std::uint32_t* code) {
+    unsigned count[kHuffmanMaxBits + 2] = {0};
+    for (int k = 0; k < 256; ++k) if (len[k]) ++count[len[k]];
+    std::uint32_t next[kHuffmanMaxBits + 2] = {0};
+    std::uint32_t c = 0;
+    for (unsigned b = 1; b <= kHuffmanMaxBits; ++b) {
+        c = (c + count[b - 1]) << 1;
+        next[b] = c;
+    }
+    for (int k = 0; k < 256; ++k) {
+        code[k] = 0;
+        if (!len[k]) continue;
+        const std::uint32_t v = next[len[k]]++;
+        std::uint32_t r = 0;
+        for (unsigned b = 0; b < len[k]; ++b) r |= ((v >> b) & 1u) << (len[k] - 1 - b);
+        code[k] = r;
+    }
+}
+
+bool huffman_encode(const unsigned char* in, std::size_t n, std::vector<unsigned char>& out) {
+    std::uint64_t freq[256] = {0};
+    for (std::size_t i = 0; i < n; ++i) ++freq[in[i]];
+    unsigned char len[256];
+    if (!huffman_lengths(freq, kHuffmanMaxBits, len)) return false;
+    std::uint32_t code[256];
+    huffman_codes(len, code);
+    std::uint16_t symbols = 0;
+    for (int k = 0; k < 256; ++k) symbols += len[k] != 0;
+    const std::uint32_t samples = static_cast<std::uint32_t>((n + kHuffmanSample - 1) / kHuffmanSample);
+    std::uint64_t total = 0;
+    for (int k = 0; k < 256; ++k) total += freq[k] * len[k];
+    const std::size_t head = 4 + 2 + 2 * std::size_t(symbols) + 4 + 8 * std::size_t(samples);
+    out.assign(head + static_cast<std::size_t>((total + 7) / 8) + 8, 0);
+    const std::uint32_t n32 = static_cast<std::uint32_t>(n);
+    std::memcpy(out.data(), &n32, 4);
+    std::memcpy(out.data() + 4, &symbols, 2);
+    std::size_t at = 6;
+    for (int k = 0; k < 256; ++k) {
+        if (!len[k]) continue;
+        out[at++] = static_cast<unsigned char>(k);
+        out[at++] = len[k];
+    }
+    std::memcpy(out.data() + at, &samples, 4);
+    const std::size_t sample_at = at + 4;
+    unsigned char* bits = out.data() + head;
+    std::uint64_t bit = 0;
+    for (std::size_t i = 0; i < n; ++i) {
+        if (i % kHuffmanSample == 0) std::memcpy(out.data() + sample_at + 8 * (i / kHuffmanSample), &bit, 8);
+        std::uint64_t word;
+        std::memcpy(&word, bits + bit / 8, 8);
+        word |= std::uint64_t(code[in[i]]) << (bit % 8);
+        std::memcpy(bits + bit / 8, &word, 8);
+        bit += len[in[i]];
+    }
+    out.resize(head + static_cast<std::size_t>((total + 7) / 8));
+    return true;
+}
+
+/// Values [first, first + count) of a Huffman-coded segment of `bytes` bytes.
+void huffman_decode(const unsigned char* p, std::size_t bytes, std::uint64_t first,
+                    std::uint64_t count, unsigned char* out) {
+    auto bad = []() { throw std::runtime_error("store file: invalid Huffman segment"); };
+    if (bytes < 10) bad();
+    std::uint32_t n = 0;
+    std::uint16_t symbols = 0;
+    std::memcpy(&n, p, 4);
+    std::memcpy(&symbols, p + 4, 2);
+    std::size_t at = 6 + 2 * std::size_t(symbols);
+    if (at + 4 > bytes || first + count > n) bad();
+    std::uint32_t samples = 0;
+    std::memcpy(&samples, p + at, 4);
+    const std::size_t sample_at = at + 4;
+    const std::size_t head = sample_at + 8 * std::size_t(samples);
+    if (head > bytes || samples != (n + kHuffmanSample - 1) / kHuffmanSample) bad();
+    // the table: the next 12 bits -> {value, length}
+    thread_local std::vector<std::uint16_t> table;
+    thread_local const unsigned char* table_for = nullptr;
+    thread_local std::size_t table_bytes = 0;
+    if (table_for != p || table_bytes != bytes) {
+        unsigned char len[256] = {0};
+        for (std::uint16_t k = 0; k < symbols; ++k) {
+            const unsigned char v = p[6 + 2 * k], l = p[7 + 2 * k];
+            if (l == 0 || l > kHuffmanMaxBits) bad();
+            len[v] = l;
+        }
+        std::uint32_t code[256];
+        huffman_codes(len, code);
+        table.assign(std::size_t(1) << kHuffmanMaxBits, 0);
+        for (int k = 0; k < 256; ++k) {
+            if (!len[k]) continue;
+            for (std::uint32_t fill = code[k]; fill < (1u << kHuffmanMaxBits); fill += 1u << len[k])
+                table[fill] = static_cast<std::uint16_t>(k | (len[k] << 8));
+        }
+        table_for = p;
+        table_bytes = bytes;
+    }
+    const unsigned char* bits = p + head;
+    const std::size_t nbits = bytes - head;
+    const std::uint64_t s = first / kHuffmanSample;
+    std::uint64_t bit = 0;
+    std::memcpy(&bit, p + sample_at + 8 * s, 8);
+    const std::uint64_t mask = (1u << kHuffmanMaxBits) - 1;
+    for (std::uint64_t i = s * kHuffmanSample; i < first + count; ++i) {
+        if (bit / 8 >= nbits) bad();
+        std::uint64_t word = 0;
+        const std::size_t byte = static_cast<std::size_t>(bit / 8);
+        std::memcpy(&word, bits + byte, std::min<std::size_t>(8, nbits - byte));
+        const std::uint16_t e = table[(word >> (bit % 8)) & mask];
+        if (e == 0 && (table.size() == 0)) bad();
+        const unsigned l = e >> 8;
+        if (l == 0) bad();
+        if (i >= first) out[i - first] = static_cast<unsigned char>(e & 0xFF);
+        bit += l;
+    }
+}
+
+/// Version 6: a ragged column's offsets, compact. Blocks of 64 values, each a
+/// u64 base and the 63 differences to it bit-packed at the block's own width:
+/// about 1.5 bytes a row instead of 8, and any value decodes from its block
+/// alone. Layout: u32 n, u32 blocks, blocks x {u64 base, u64 bitpos | width << 56},
+/// then the bit stream.
+const std::uint8_t kTransformOffsets = 0x61;
+const std::size_t kOffsetBlock = 64;
+
+std::uint64_t read_bits(const unsigned char* p, std::size_t bytes, std::uint64_t bit,
+                        unsigned width) {
+    if (width == 0) return 0;
+    std::uint64_t word = 0;
+    const std::size_t at = static_cast<std::size_t>(bit / 8);
+    std::memcpy(&word, p + at, std::min<std::size_t>(8, bytes - at));
+    return (word >> (bit % 8)) & ((width >= 64) ? ~std::uint64_t(0) : ((std::uint64_t(1) << width) - 1));
+}
+
+/// Compact offsets; false when a difference needs more than 56 bits (then
+/// the segment stays raw).
+bool encode_offsets(const std::uint64_t* v, std::size_t n, std::vector<unsigned char>& out) {
+    const std::size_t blocks = (n + kOffsetBlock - 1) / kOffsetBlock;
+    std::vector<unsigned> widths(blocks, 0);
+    std::uint64_t total_bits = 0;
+    for (std::size_t b = 0; b < blocks; ++b) {
+        const std::size_t first = b * kOffsetBlock, end = std::min(n, first + kOffsetBlock);
+        std::uint64_t widest = 0;
+        for (std::size_t i = first + 1; i < end; ++i) {
+            if (v[i] < v[i - 1]) return false;   // not monotone: not offsets
+            widest = std::max(widest, v[i] - v[i - 1]);
+        }
+        unsigned w = 0;
+        while (w < 64 && (widest >> w) != 0) ++w;
+        if (w > 56) return false;
+        widths[b] = w;
+        total_bits += std::uint64_t(w) * (end - first - 1);
+    }
+    const std::size_t head = 8 + blocks * 16;
+    out.assign(head + static_cast<std::size_t>((total_bits + 7) / 8) + 8, 0);
+    const std::uint32_t n32 = static_cast<std::uint32_t>(n), b32 = static_cast<std::uint32_t>(blocks);
+    std::memcpy(out.data(), &n32, 4);
+    std::memcpy(out.data() + 4, &b32, 4);
+    unsigned char* bits = out.data() + head;
+    std::uint64_t bit = 0;
+    for (std::size_t b = 0; b < blocks; ++b) {
+        const std::size_t first = b * kOffsetBlock, end = std::min(n, first + kOffsetBlock);
+        const std::uint64_t meta = bit | (std::uint64_t(widths[b]) << 56);
+        std::memcpy(out.data() + 8 + b * 16, &v[first], 8);
+        std::memcpy(out.data() + 8 + b * 16 + 8, &meta, 8);
+        const unsigned w = widths[b];
+        for (std::size_t i = first + 1; i < end; ++i, bit += w) {
+            if (w == 0) continue;
+            std::uint64_t word;
+            std::memcpy(&word, bits + bit / 8, 8);
+            word |= (v[i] - v[i - 1]) << (bit % 8);
+            std::memcpy(bits + bit / 8, &word, 8);
+        }
+    }
+    out.resize(head + static_cast<std::size_t>((total_bits + 7) / 8));
+    return true;
+}
+
+/// Values [first, first + count) of compact offsets of `bytes` bytes.
+void decode_offsets(const unsigned char* p, std::size_t bytes, std::uint64_t first,
+                    std::uint64_t count, std::uint64_t* out) {
+    if (bytes < 8) throw std::runtime_error("store file: invalid compact offsets");
+    std::uint32_t n = 0, blocks = 0;
+    std::memcpy(&n, p, 4);
+    std::memcpy(&blocks, p + 4, 4);
+    const std::size_t head = 8 + std::size_t(blocks) * 16;
+    if (head > bytes || blocks != (n + kOffsetBlock - 1) / kOffsetBlock || first + count > n)
+        throw std::runtime_error("store file: invalid compact offsets");
+    const unsigned char* bits = p + head;
+    const std::size_t nbits = bytes - head;
+    std::uint64_t i = first;
+    while (i < first + count) {
+        const std::size_t b = static_cast<std::size_t>(i / kOffsetBlock);
+        std::uint64_t base, meta;
+        std::memcpy(&base, p + 8 + b * 16, 8);
+        std::memcpy(&meta, p + 8 + b * 16 + 8, 8);
+        const unsigned w = static_cast<unsigned>(meta >> 56);
+        const std::uint64_t at = meta & ((std::uint64_t(1) << 56) - 1);
+        if (w > 56 || (w != 0 && at / 8 > nbits))
+            throw std::runtime_error("store file: invalid compact offsets");
+        const std::uint64_t block_first = std::uint64_t(b) * kOffsetBlock;
+        const std::uint64_t block_end = std::min<std::uint64_t>(n, block_first + kOffsetBlock);
+        std::uint64_t value = base;
+        for (std::uint64_t j = block_first; j < block_end && j < first + count; ++j) {
+            if (j > block_first) {
+                const std::uint64_t bit = at + (j - block_first - 1) * w;
+                if (w != 0 && (bit + w + 7) / 8 > nbits)
+                    throw std::runtime_error("store file: invalid compact offsets");
+                value += read_bits(bits, nbits, bit, w);
+            }
+            if (j >= i) out[j - first] = value;
+        }
+        i = block_end;
+    }
 }
 
 /// Values [first, first + n) of a packed stream of `stored` bytes.
@@ -3127,6 +3402,35 @@ struct Reader {
     }
 };
 
+/// Version 6: the column record ends with a list of extensions,
+/// `u32 n, n x {u32 tag, u32 flags, u64 length, bytes}`. A reader skips a tag it
+/// does not know when its flags say it may (bit 0), else refuses the column.
+const std::uint8_t kColumnExtended = 1u << 3;
+const std::uint32_t kExtensionIgnorable = 1u;
+const std::uint32_t kExtensionZoneMap = 1;   ///< per segment {f64 min, f64 max}
+
+struct ColumnExtension {
+    std::uint32_t tag = 0, flags = 0;
+    std::string bytes;
+};
+
+std::vector<ColumnExtension> read_extensions(Reader& dir, std::uint8_t column_flags) {
+    std::vector<ColumnExtension> out;
+    if (!(column_flags & kColumnExtended)) return out;
+    const std::uint32_t n = dir.u32();
+    for (std::uint32_t k = 0; k < n; ++k) {
+        ColumnExtension e;
+        e.tag = dir.u32();
+        e.flags = dir.u32();
+        const std::uint64_t len = dir.u64();
+        dir.need(static_cast<std::size_t>(len));
+        e.bytes.assign(reinterpret_cast<const char*>(dir.p + dir.i), static_cast<std::size_t>(len));
+        dir.i += static_cast<std::size_t>(len);
+        out.push_back(e);
+    }
+    return out;
+}
+
 std::vector<std::uint64_t> read_row_starts(Reader& dir) {
     const std::uint32_t n = dir.u32();
     dir.need(static_cast<std::size_t>(n) * 8);
@@ -3271,11 +3575,55 @@ const std::uint8_t kColumnHasMask = 1u << 0;
 /// every row back to back, and an extra blob holds `n + 1` u64 offsets into
 /// them, in values. Only StoreReader reads one; a DataStore steps over it.
 const std::uint8_t kColumnRagged = 1u << 1;
+/// Version 6: a ragged column that holds only its offsets -- a level's
+/// extent. Row i of the parent level owns rows [o[i], o[i+1]) of the child
+/// level (the group of the same name); there are no values.
+const std::uint8_t kColumnExtent = 1u << 2;
+struct ZoneBounds { double lo, hi; };
+static_assert(sizeof(ZoneBounds) == 16, "a zone map entry is two doubles");
+
+/// min and max of `n` values of `type`, as doubles; false for an empty run.
+bool value_bounds(ColumnType type, const unsigned char* p, std::size_t n, ZoneBounds* out) {
+    if (n == 0) return false;
+    double lo = 0, hi = 0;
+    auto run = [&](auto tag) {
+        using T = decltype(tag);
+        T a, b;
+        std::memcpy(&a, p, sizeof(T));
+        b = a;
+        for (std::size_t k = 1; k < n; ++k) {
+            T v;
+            std::memcpy(&v, p + k * sizeof(T), sizeof(T));
+            if (v < a) a = v;
+            if (v > b) b = v;
+        }
+        lo = static_cast<double>(a);
+        hi = static_cast<double>(b);
+    };
+    switch (type) {
+        case ColumnType::Float64: run(double()); break;
+        case ColumnType::Float32: run(float()); break;
+        case ColumnType::Int64: run(std::int64_t()); break;
+        case ColumnType::Int32: run(std::int32_t()); break;
+        case ColumnType::Int16: run(std::int16_t()); break;
+        case ColumnType::Int8: run(std::int8_t()); break;
+        case ColumnType::UInt64: run(std::uint64_t()); break;
+        case ColumnType::UInt32: run(std::uint32_t()); break;
+        case ColumnType::UInt16: run(std::uint16_t()); break;
+        case ColumnType::UInt8: run(std::uint8_t()); break;
+        default: return false;
+    }
+    out->lo = lo;
+    out->hi = hi;
+    return true;
+}
 
 /// A ragged column's directory record ends with the first row of each values
 /// segment (a count, then u64s), so a reader maps segments to rows without
 /// touching the offsets.
 std::vector<std::uint64_t> read_row_starts(struct Reader& dir);
+struct ColumnExtension;
+std::vector<ColumnExtension> read_extensions(struct Reader& dir, std::uint8_t column_flags);
 
 /*!
  * \brief Is this byte a column type this build knows?
@@ -3441,6 +3789,39 @@ struct Blobs {
             throw std::runtime_error("store file: a column is shorter than its record says");
         if (r.offset > file_bytes || r.bytes > file_bytes - r.offset)
             throw std::runtime_error("store file: a column points past the end");
+        if (r.transform == kTransformHuffman) {
+            if (r.codec != kCodecNone) throw std::runtime_error("store file: invalid Huffman segment");
+            thread_local std::vector<unsigned char> huffman_buffer;
+            const unsigned char* src = nullptr;
+            if (mem != nullptr) {
+                src = mem + r.offset;
+                g_bytes_read += r.bytes;
+            } else {
+                huffman_buffer.resize(static_cast<std::size_t>(r.bytes));
+                read_stored(r, 0, r.bytes, huffman_buffer.data());
+                src = huffman_buffer.data();
+            }
+            huffman_decode(src, static_cast<std::size_t>(r.bytes), off, n,
+                           static_cast<unsigned char*>(into));
+            return;
+        }
+        if (r.transform == kTransformOffsets) {
+            if (r.codec != kCodecNone || off % 8 != 0 || n % 8 != 0)
+                throw std::runtime_error("store file: invalid compact offsets");
+            thread_local std::vector<unsigned char> offsets_buffer;
+            const unsigned char* src = nullptr;
+            if (mem != nullptr) {
+                src = mem + r.offset;
+                g_bytes_read += r.bytes;
+            } else {
+                offsets_buffer.resize(static_cast<std::size_t>(r.bytes));
+                read_stored(r, 0, r.bytes, offsets_buffer.data());
+                src = offsets_buffer.data();
+            }
+            decode_offsets(src, static_cast<std::size_t>(r.bytes), off / 8, n / 8,
+                           static_cast<std::uint64_t*>(into));
+            return;
+        }
         if ((r.transform & 0xF0) == kTransformPack) {
             // Fixed-width bits: decode the range asked for, nothing else.
             const unsigned bits = r.transform & 0x0F;
@@ -3640,6 +4021,7 @@ void read_node(Reader& dir, const Blobs& blobs, DataStore& store,
         const ColumnType type = static_cast<ColumnType>(raw_type);
         BlobRef dict_blob;
         if (type == ColumnType::String) dict_blob = dir.blob();
+        read_extensions(dir, flags);
         if (!want(name)) continue;
         // A variable-length column has no DataStore form: StoreReader reads it.
         if (flags & kColumnRagged) continue;
@@ -3807,6 +4189,7 @@ void walk_paths(Reader& dir, const std::string& prefix,
         // one unconsumed slot here shifts every column and group after it.
         if (dir.version >= 2) dir.str();
         if (type == static_cast<std::uint8_t>(ColumnType::String)) dir.blob();
+        read_extensions(dir, flags);
         if (columns != nullptr && here) columns->push_back(name);
     }
     const std::uint32_t n_groups = dir.u32();
@@ -3848,6 +4231,7 @@ bool seek_to_group(Reader& dir, const std::string& prefix,
         dir.u64(); dir.blob();
         if (dir.version >= 2) dir.str();
         if (type == static_cast<std::uint8_t>(ColumnType::String)) dir.blob();
+        read_extensions(dir, flags);
     }
     const std::uint32_t n_groups = dir.u32();
     for (std::uint32_t g = 0; g < n_groups; g++) {
@@ -4191,7 +4575,19 @@ struct StoreWriter::Impl {
         std::uint64_t buf_first_row = 0;       // ragged: first row in `buf`
         std::size_t segment_bytes = 0;         // of its values
         unsigned bits = 0;                     // UInt8 packed to this many bits; 0: not
+        int level = 0;                         // the level it belongs to
+        bool extent = false;                   // a child level's extent: offsets only
+        bool huffman = false;                  // UInt8 values Huffman-coded
+        bool zone_map = false;                 // record min/max per data segment
+        std::vector<ZoneBounds> zone;
     };
+    struct Level {
+        std::string name;
+        int parent = -1;
+        int extent = -1;                       // its extent column, in the parent
+    };
+    std::vector<Level> levels = std::vector<Level>(1);   // 0: the root
+
 
     std::string filename, temp;
     std::unique_ptr<StoreHandle> file;
@@ -4211,8 +4607,24 @@ struct StoreWriter::Impl {
         return cols[static_cast<std::size_t>(k)];
     }
     void write_part(BlobRef& blob, const unsigned char* bytes, std::size_t n,
-                    std::uint8_t codec, ColumnType type, unsigned bits = 0) {
+                    std::uint8_t codec, ColumnType type, unsigned bits = 0,
+                    bool huffman = false) {
         if (n == 0) return;
+        if (huffman) {
+            std::vector<unsigned char> coded;
+            // kept only when smaller than what would be stored otherwise
+            const std::size_t otherwise = bits ? (n * bits + 7) / 8 : n;
+            if (n < (std::size_t(1) << 32) && huffman_encode(bytes, n, coded) && coded.size() < otherwise) {
+                const BlobRef r = out->blob(coded.data(), coded.size());
+                BlobSegment seg;
+                seg.offset = r.offset; seg.bytes = r.bytes; seg.codec = kCodecNone;
+                seg.transform = kTransformHuffman;
+                seg.raw_bytes = n;
+                blob.add_part(seg);
+                uses_version6 = true;
+                return;
+            }
+        }
         if (bits != 0) {
             std::vector<unsigned char> packed;
             if (!bit_pack(bytes, n, bits, packed))
@@ -4236,19 +4648,38 @@ struct StoreWriter::Impl {
         blob.add_part(seg);
     }
     void flush_values(Col& c) {
-        if (c.buf.empty()) return;
+        if (c.extent || c.buf.empty()) return;
+        if (c.zone_map) {
+            ZoneBounds z{0, 0};
+            value_bounds(c.type, c.buf.data(), c.buf.size() / c.width, &z);
+            c.zone.push_back(z);
+        }
         if (c.ragged) c.row_starts.push_back(c.buf_first_row);
-        write_part(c.data, c.buf.data(), c.buf.size(), c.codec, c.type, c.bits);
+        write_part(c.data, c.buf.data(), c.buf.size(), c.codec, c.type, c.bits, c.huffman);
         c.buf.clear();
         c.buf_first_row = c.n_rows;
     }
     void flush_offsets(Col& c) {
-        // Offsets stay raw whatever the codec: 8 bytes a row, and a row lookup
-        // is then two reads from the map rather than a segment decode.
-        write_part(c.offsets, reinterpret_cast<const unsigned char*>(c.obuf.data()),
-                   c.obuf.size() * 8, kCodecNone, ColumnType::UInt64);
+        // Offsets take no codec: a row lookup must never decode a segment.
+        // Compact (format 6) they are ~1.5 bytes a row and still decode per
+        // block; raw they are 8 bytes and read in place.
+        std::vector<unsigned char> compact;
+        if (compact_offsets && !c.obuf.empty() && encode_offsets(c.obuf.data(), c.obuf.size(), compact)) {
+            const BlobRef r = out->blob(compact.data(), compact.size());
+            BlobSegment seg;
+            seg.offset = r.offset; seg.bytes = r.bytes; seg.codec = kCodecNone;
+            seg.transform = kTransformOffsets;
+            seg.raw_bytes = c.obuf.size() * 8;
+            c.offsets.add_part(seg);
+            uses_version6 = true;
+        } else {
+            write_part(c.offsets, reinterpret_cast<const unsigned char*>(c.obuf.data()),
+                       c.obuf.size() * 8, kCodecNone, ColumnType::UInt64);
+        }
         c.obuf.clear();
     }
+    bool compact_offsets = true;
+    bool uses_version6 = false;
 };
 
 StoreWriter::StoreWriter(const std::string& filename, const StoreOptions& options,
@@ -4300,15 +4731,22 @@ StoreWriter::~StoreWriter() {
 std::uint64_t StoreWriter::uid() const { return impl_->uid; }
 
 int StoreWriter::add_column(const std::string& name, ColumnType type, bool ragged,
-                            const std::string& codec, std::size_t segment_bytes) {
+                            const std::string& codec, std::size_t segment_bytes, int level) {
     if (impl_->closed) throw std::runtime_error("StoreWriter: the store is already closed");
+    if (level < 0 || static_cast<std::size_t>(level) >= impl_->levels.size())
+        throw std::runtime_error("StoreWriter: no level " + std::to_string(level));
+    for (const Impl::Level& l : impl_->levels)
+        if (l.parent == level && l.name == name)
+            throw std::runtime_error("StoreWriter: '" + name + "' names a level there");
     if (type == ColumnType::Bool || type == ColumnType::String)
         throw std::runtime_error("StoreWriter: column '" + name +
                                  "': Bool and String are not streamed; text is a ragged UInt8 column");
     for (const Impl::Col& c : impl_->cols)
-        if (c.name == name) throw std::runtime_error("StoreWriter: column '" + name + "' exists");
+        if (c.name == name && c.level == level)
+            throw std::runtime_error("StoreWriter: column '" + name + "' exists");
     Impl::Col c;
     c.name = name;
+    c.level = level;
     c.type = type;
     c.ragged = ragged;
     c.width = element_bytes(type);
@@ -4321,6 +4759,73 @@ int StoreWriter::add_column(const std::string& name, ColumnType type, bool ragge
     if (ragged) c.obuf.push_back(0);
     impl_->cols.push_back(c);
     return static_cast<int>(impl_->cols.size()) - 1;
+}
+
+void StoreWriter::set_compact_offsets(bool compact) { impl_->compact_offsets = compact; }
+
+int StoreWriter::add_level(const std::string& name, int parent) {
+    if (impl_->closed) throw std::runtime_error("StoreWriter: the store is already closed");
+    if (parent < 0 || static_cast<std::size_t>(parent) >= impl_->levels.size())
+        throw std::runtime_error("StoreWriter: no level " + std::to_string(parent));
+    if (name.empty() || name.find('/') != std::string::npos)
+        throw std::runtime_error("StoreWriter: a level needs a name without '/'");
+    for (const Impl::Level& l : impl_->levels)
+        if (l.parent == parent && l.name == name)
+            throw std::runtime_error("StoreWriter: level '" + name + "' exists");
+    for (const Impl::Col& c : impl_->cols)
+        if (c.level == parent && c.name == name)
+            throw std::runtime_error("StoreWriter: '" + name + "' names a column there");
+    Impl::Col c;   // the extent: offsets only, in the parent level
+    c.name = name;
+    c.type = ColumnType::UInt8;
+    c.ragged = true;
+    c.extent = true;
+    c.level = parent;
+    c.codec = kCodecNone;
+    c.segment_bytes = impl_->segment_bytes;
+    c.obuf.push_back(0);
+    impl_->cols.push_back(c);
+    Impl::Level l;
+    l.name = name;
+    l.parent = parent;
+    l.extent = static_cast<int>(impl_->cols.size()) - 1;
+    impl_->levels.push_back(l);
+    impl_->uses_version6 = true;
+    return static_cast<int>(impl_->levels.size()) - 1;
+}
+
+void StoreWriter::set_zone_map(int column, bool record) {
+    Impl::Col& c = impl_->col(column);
+    if (c.extent) throw std::runtime_error("StoreWriter: '" + c.name + "' is a level");
+    if (c.n_values != 0 || !c.buf.empty())
+        throw std::runtime_error("StoreWriter: '" + c.name + "': ask for a zone map before appending");
+    c.zone_map = record;
+    if (record) impl_->uses_version6 = true;
+}
+
+void StoreWriter::set_huffman(int column, bool coded) {
+    Impl::Col& c = impl_->col(column);
+    if (c.type != ColumnType::UInt8 || c.extent)
+        throw std::runtime_error("StoreWriter: '" + c.name + "': Huffman coding is for UInt8 values");
+    if (c.n_values != 0 || !c.buf.empty())
+        throw std::runtime_error("StoreWriter: '" + c.name + "': set Huffman coding before appending");
+    c.huffman = coded;
+    if (coded) c.codec = kCodecNone;
+}
+
+void StoreWriter::cut() {
+    if (impl_->closed) throw std::runtime_error("StoreWriter: the store is already closed");
+    for (Impl::Col& c : impl_->cols) impl_->flush_values(c);
+}
+
+void StoreWriter::append_children(int level, std::uint64_t n) {
+    if (level <= 0 || static_cast<std::size_t>(level) >= impl_->levels.size())
+        throw std::runtime_error("StoreWriter: no child level " + std::to_string(level));
+    Impl::Col& c = impl_->col(impl_->levels[static_cast<std::size_t>(level)].extent);
+    c.n_values += n;
+    c.n_rows += 1;
+    c.obuf.push_back(c.n_values);
+    if (c.obuf.size() * 8 >= impl_->segment_bytes) impl_->flush_offsets(c);
 }
 
 void StoreWriter::set_bit_width(int column, unsigned bits) {
@@ -4360,6 +4865,7 @@ void StoreWriter::append(int column, const void* values, std::uint64_t n) {
 void StoreWriter::append_row(int column, const void* values, std::uint64_t n) {
     Impl::Col& c = impl_->col(column);
     if (!c.ragged) throw std::runtime_error("StoreWriter: '" + c.name + "' is not ragged; use append");
+    if (c.extent) throw std::runtime_error("StoreWriter: '" + c.name + "' is a level; use append_children");
     const std::uint64_t bytes = n * c.width;
     // A segment never splits a row: flush first when this one would not fit.
     if (!c.buf.empty() && c.buf.size() + bytes > c.segment_bytes) impl_->flush_values(c);
@@ -4383,34 +4889,75 @@ bool StoreWriter::close() {
         w.flush_values(c);
         if (c.ragged) w.flush_offsets(c);
     }
-    Writer dir;
-    dir.version = 5;
-    std::uint64_t rows = 0;
-    for (const Impl::Col& c : w.cols) rows = std::max(rows, c.n_rows);
-    dir.str(std::string());      // label
-    dir.u64(rows);
-    dir.u64(0);                  // no row mask
-    dir.blob(BlobRef());
-    dir.u32(static_cast<std::uint32_t>(w.cols.size()));
-    for (const Impl::Col& c : w.cols) {
-        dir.str(c.name);
-        dir.u8(static_cast<std::uint8_t>(c.type));
-        dir.u64(c.n_rows);
-        dir.u8(c.ragged ? kColumnRagged : 0);
-        dir.blob(c.data);
-        if (c.ragged) {
-            dir.blob(c.offsets);
-            dir.u32(static_cast<std::uint32_t>(c.row_starts.size()));
-            for (std::uint64_t v : c.row_starts) dir.u64(v);
+    // Every level's rows add up to its parent's extent.
+    for (std::size_t l = 1; l < w.levels.size(); ++l) {
+        const Impl::Col& e = w.cols[static_cast<std::size_t>(w.levels[l].extent)];
+        for (const Impl::Col& c : w.cols) {
+            if (c.level != static_cast<int>(l) || c.n_rows == e.n_values) continue;
+            std::cerr << "StoreWriter: level '" << w.levels[l].name << "' has " << e.n_values
+                      << " rows by its extent, column '" << c.name << "' " << c.n_rows << std::endl;
+            w.closed = true;
+            if (w.in_container) w.pto.abandon();
+            else { w.file->close(); std::remove(w.temp.c_str()); }
+            return false;
         }
-        dir.u64(0);              // no validity mask
-        dir.blob(BlobRef());
-        const std::vector<unsigned char> meta =
-                c.meta.empty() ? std::vector<unsigned char>() : metadata_to_msgpack(c.meta);
-        dir.u32(static_cast<std::uint32_t>(meta.size()));
-        if (!meta.empty()) dir.raw(meta.data(), meta.size());
     }
-    dir.u32(0);                  // no groups
+    std::uint64_t rows = 0;      // the root's, which a container records
+    for (const Impl::Col& c : w.cols)
+        if (c.level == 0) rows = std::max(rows, c.n_rows);
+    Writer dir;
+    dir.version = w.uses_version6 ? 6 : 5;   // the directory's layout is 5's
+    // One node per level, the root first; a level is a group of its parent.
+    std::function<void(int)> node = [&](int level) {
+        std::uint64_t rows = 0;
+        for (const Impl::Col& c : w.cols)
+            if (c.level == level) rows = std::max(rows, c.n_rows);
+        if (level > 0) rows = w.cols[static_cast<std::size_t>(w.levels[static_cast<std::size_t>(level)].extent)].n_values;
+        dir.str(level == 0 ? std::string() : w.levels[static_cast<std::size_t>(level)].name);   // label
+        dir.u64(rows);
+        dir.u64(0);              // no row mask
+        dir.blob(BlobRef());
+        std::uint32_t n_cols = 0;
+        for (const Impl::Col& c : w.cols) n_cols += c.level == level;
+        dir.u32(n_cols);
+        for (const Impl::Col& c : w.cols) {
+            if (c.level != level) continue;
+            dir.str(c.name);
+            dir.u8(static_cast<std::uint8_t>(c.type));
+            dir.u64(c.n_rows);
+            dir.u8(static_cast<std::uint8_t>((c.ragged ? kColumnRagged : 0) | (c.extent ? kColumnExtent : 0) |
+                                             (c.zone_map ? kColumnExtended : 0)));
+            dir.blob(c.data);
+            if (c.ragged) {
+                dir.blob(c.offsets);
+                dir.u32(static_cast<std::uint32_t>(c.row_starts.size()));
+                for (std::uint64_t v : c.row_starts) dir.u64(v);
+            }
+            dir.u64(0);          // no validity mask
+            dir.blob(BlobRef());
+            const std::vector<unsigned char> meta =
+                    c.meta.empty() ? std::vector<unsigned char>() : metadata_to_msgpack(c.meta);
+            dir.u32(static_cast<std::uint32_t>(meta.size()));
+            if (!meta.empty()) dir.raw(meta.data(), meta.size());
+            if (c.zone_map) {
+                dir.u32(1);
+                dir.u32(kExtensionZoneMap);
+                dir.u32(kExtensionIgnorable);
+                dir.u64(c.zone.size() * sizeof(ZoneBounds));
+                if (!c.zone.empty()) dir.raw(reinterpret_cast<const unsigned char*>(c.zone.data()),
+                                              c.zone.size() * sizeof(ZoneBounds));
+            }
+        }
+        std::uint32_t n_groups = 0;
+        for (const Impl::Level& l : w.levels) n_groups += l.parent == level;
+        dir.u32(n_groups);
+        for (std::size_t l = 1; l < w.levels.size(); ++l) {
+            if (w.levels[l].parent != level) continue;
+            dir.str(w.levels[l].name);
+            node(static_cast<int>(l));
+        }
+    };
+    node(0);
 
     BlobStream& out = *w.out;
     out.pad_to_8();
@@ -4419,7 +4966,7 @@ bool StoreWriter::close() {
     const std::uint64_t file_bytes = out.pos;
     unsigned char head[kHeaderBytes];
     std::memset(head, 0, kHeaderBytes);
-    const std::uint32_t version = 5;
+    const std::uint32_t version = w.uses_version6 ? 6 : 5;
     const std::uint32_t flags = host_is_little_endian() ? kFlagLittleEndian : 0;
     const std::uint64_t dir_bytes = dir.b.size();
     const std::uint32_t checksum = fnv1a(dir.b.data(), dir.b.size());
@@ -4461,6 +5008,7 @@ struct StoreReader::Impl {
         std::size_t width = 1;
         std::string meta;
         std::vector<std::uint64_t> row_starts;
+        std::vector<ZoneBounds> zone;       // per data segment, when recorded
     };
     std::string filename;
     std::uint32_t version = 0;
@@ -4476,6 +5024,7 @@ struct StoreReader::Impl {
 #endif
     std::map<std::string, Col> cols;
     std::vector<std::string> order;
+    std::vector<std::string> levels;   // child levels by path; each is an extent column too
 
     Blobs blobs() const {
         Blobs b;
@@ -4569,44 +5118,121 @@ void StoreReader::Impl::open(const std::string& name, std::uint64_t base, std::u
 #endif
     r.map = r.mapped + base;
     Reader dir{store.directory.data(), store.directory.size(), 0, store.format_version};
-    dir.str();                       // label
-    dir.u64();                       // rows
-    dir.u64(); dir.blob();           // row mask
-    const std::uint32_t n_columns = dir.u32();
-    for (std::uint32_t k = 0; k < n_columns; ++k) {
-        Impl::Col c;
-        c.info.name = dir.str();
-        const std::uint8_t raw_type = dir.u8();
-        c.info.n_rows = dir.u64();
-        const std::uint8_t flags = dir.u8();
-        c.data = dir.blob();
-        if (flags & kColumnRagged) {
-            c.offsets = dir.blob();
-            c.row_starts = read_row_starts(dir);
+    // A node per level: the root, then groups, named "level/column" below it.
+    std::function<void(const std::string&)> node = [&](const std::string& prefix) {
+        dir.str();                       // label
+        dir.u64();                       // rows
+        dir.u64(); dir.blob();           // row mask
+        const std::uint32_t n_columns = dir.u32();
+        for (std::uint32_t k = 0; k < n_columns; ++k) {
+            Impl::Col c;
+            const std::string own = dir.str();
+            c.info.name = prefix.empty() ? own : prefix + "/" + own;
+            const std::uint8_t raw_type = dir.u8();
+            c.info.n_rows = dir.u64();
+            const std::uint8_t flags = dir.u8();
+            c.data = dir.blob();
+            if (flags & kColumnRagged) {
+                c.offsets = dir.blob();
+                c.row_starts = read_row_starts(dir);
+            }
+            dir.u64(); dir.blob();       // mask
+            if (dir.version >= 2) {
+                const std::string stored = dir.str();
+                c.meta = dir.version >= 3
+                        ? metadata_from_msgpack(reinterpret_cast<const unsigned char*>(stored.data()), stored.size())
+                        : stored;
+            }
+            if (!known_column_type(raw_type))
+                throw std::runtime_error(filename + ": unknown column type for '" + c.info.name + "'");
+            c.info.type = static_cast<ColumnType>(raw_type);
+            if (c.info.type == ColumnType::String) dir.blob();
+            for (const ColumnExtension& e : read_extensions(dir, flags)) {
+                if (e.tag == kExtensionZoneMap) {
+                    c.zone.resize(e.bytes.size() / 16);
+                    std::memcpy(c.zone.data(), e.bytes.data(), c.zone.size() * 16);
+                } else if (!(e.flags & kExtensionIgnorable)) {
+                    throw std::runtime_error(filename + ": '" + c.info.name +
+                                             "' needs a newer reader (extension " +
+                                             std::to_string(e.tag) + ")");
+                }
+            }
+            c.info.ragged = (flags & kColumnRagged) != 0;
+            c.info.extent = (flags & kColumnExtent) != 0;
+            c.width = std::max<std::size_t>(element_bytes(c.info.type), 1);
+            c.info.n_segments = c.data.raw_bytes == 0 ? 0 : c.data.n_parts();
+            c.info.stored_bytes = c.data.bytes;
+            c.info.raw_bytes = c.data.raw_bytes;
+            c.info.n_values = c.info.ragged ? c.data.raw_bytes / c.width : c.info.n_rows;
+            if (c.info.extent) {
+                // its values are the child level's rows, which it does not store
+                std::uint64_t last = 0;
+                if (c.info.n_rows > 0 || c.offsets.raw_bytes >= 8)
+                    blobs().read_range(c.offsets, c.info.n_rows * 8, 8, &last);
+                c.info.n_values = last;
+                r.levels.push_back(c.info.name);
+            }
+            r.order.push_back(c.info.name);
+            r.cols[c.info.name] = c;
         }
-        dir.u64(); dir.blob();       // mask
-        if (dir.version >= 2) {
-            const std::string stored = dir.str();
-            c.meta = dir.version >= 3
-                    ? metadata_from_msgpack(reinterpret_cast<const unsigned char*>(stored.data()), stored.size())
-                    : stored;
+        const std::uint32_t n_groups = dir.u32();
+        for (std::uint32_t g = 0; g < n_groups; ++g) {
+            const std::string name = dir.str();
+            node(prefix.empty() ? name : prefix + "/" + name);
         }
-        if (!known_column_type(raw_type))
-            throw std::runtime_error(filename + ": unknown column type for '" + c.info.name + "'");
-        c.info.type = static_cast<ColumnType>(raw_type);
-        if (c.info.type == ColumnType::String) dir.blob();
-        c.info.ragged = (flags & kColumnRagged) != 0;
-        c.width = std::max<std::size_t>(element_bytes(c.info.type), 1);
-        c.info.n_segments = c.data.raw_bytes == 0 ? 0 : c.data.n_parts();
-        c.info.stored_bytes = c.data.bytes;
-        c.info.raw_bytes = c.data.raw_bytes;
-        c.info.n_values = c.info.ragged ? c.data.raw_bytes / c.width : c.info.n_rows;
-        r.order.push_back(c.info.name);
-        r.cols[c.info.name] = c;
-    }
+    };
+    node(std::string());
 }
 
 StoreReader::~StoreReader() { if (impl_) impl_->unmap(); }
+
+std::vector<std::string> StoreReader::levels() const { return impl_->levels; }
+
+std::vector<std::pair<double, double>> StoreReader::zone_map(const std::string& name) const {
+    const Impl::Col& c = impl_->col(name);
+    std::vector<std::pair<double, double>> out;
+    for (const ZoneBounds& z : c.zone) out.push_back(std::make_pair(z.lo, z.hi));
+    return out;
+}
+
+std::vector<std::size_t> StoreReader::segments_where(const std::string& name, double lo,
+                                                     double hi) const {
+    const Impl::Col& c = impl_->col(name);
+    std::vector<std::size_t> out;
+    if (c.zone.size() != c.info.n_segments) {
+        // no zone map: every segment might hold such a value
+        for (std::size_t k = 0; k < c.info.n_segments; ++k) out.push_back(k);
+        return out;
+    }
+    for (std::size_t k = 0; k < c.zone.size(); ++k)
+        if (c.zone[k].hi >= lo && c.zone[k].lo <= hi) out.push_back(k);
+    return out;
+}
+
+std::pair<std::uint64_t, std::uint64_t> StoreReader::extent(const std::string& level,
+                                                            std::uint64_t parent_row) const {
+    const Impl::Col& c = impl_->col(level);
+    if (!c.info.extent) throw std::runtime_error(impl_->filename + ": '" + level + "' is not a level");
+    std::uint64_t o[2];
+    offsets(level, parent_row, 1, o);
+    return std::make_pair(o[0], o[1]);
+}
+
+std::uint64_t StoreReader::parent(const std::string& level, std::uint64_t row) const {
+    const Impl::Col& c = impl_->col(level);
+    if (!c.info.extent) throw std::runtime_error(impl_->filename + ": '" + level + "' is not a level");
+    if (row >= c.info.n_values)
+        throw std::runtime_error(impl_->filename + ": '" + level + "' has no row " + std::to_string(row));
+    // the last parent row whose first child is at or before `row`
+    std::uint64_t lo = 0, hi = c.info.n_rows;   // answer in [lo, hi)
+    while (hi - lo > 1) {
+        const std::uint64_t mid = lo + (hi - lo) / 2;
+        std::uint64_t first = 0;
+        offsets(level, mid, 0, &first);
+        if (first <= row) lo = mid; else hi = mid;
+    }
+    return lo;
+}
 
 std::uint32_t StoreReader::format_version() const { return impl_->version; }
 std::vector<std::string> StoreReader::columns() const { return impl_->order; }
@@ -4648,6 +5274,8 @@ std::uint64_t StoreReader::row_size(const std::string& name, std::uint64_t row) 
 
 void StoreReader::row(const std::string& name, std::uint64_t row,
                       std::vector<unsigned char>& out) const {
+    if (impl_->col(name).info.extent)
+        throw std::runtime_error(impl_->filename + ": '" + name + "' is a level; read its extent");
     std::uint64_t o[2];
     offsets(name, row, 1, o);
     const Impl::Col& c = impl_->col(name);
@@ -4657,6 +5285,8 @@ void StoreReader::row(const std::string& name, std::uint64_t row,
 
 const void* StoreReader::row_view(const std::string& name, std::uint64_t row,
                                   std::uint64_t* n) const {
+    if (impl_->col(name).info.extent)
+        throw std::runtime_error(impl_->filename + ": '" + name + "' is a level; read its extent");
     std::uint64_t o[2];
     offsets(name, row, 1, o);
     if (n) *n = o[1] - o[0];

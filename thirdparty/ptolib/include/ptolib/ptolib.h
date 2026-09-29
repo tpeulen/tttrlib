@@ -2959,6 +2959,7 @@ struct ColumnInfo {
     ColumnType type = ColumnType::UInt8;   ///< of a value
     std::uint64_t n_rows = 0;
     bool ragged = false;                   ///< variable-length rows
+    bool extent = false;                   ///< a child level's extent: offsets only
     std::uint64_t n_values = 0;            ///< values; equals n_rows unless ragged
     std::size_t n_segments = 0;            ///< of the values blob
     std::uint64_t stored_bytes = 0;        ///< of the values blob, as stored
@@ -3026,7 +3027,45 @@ public:
      *        row costs its segment's decode.
      */
     int add_column(const std::string& name, ColumnType type, bool ragged = false,
-                   const std::string& codec = "", std::size_t segment_bytes = 0);
+                   const std::string& codec = "", std::size_t segment_bytes = 0,
+                   int level = 0);
+    /*!
+     * \brief A level of rows under the rows of \p parent (0: the root); returns its id.
+     *
+     * Hierarchy without per-row parent ids: the parent level gets an extent
+     * column of this name (compact offsets, no values), and its row i owns the
+     * child rows \ref append_children gave it, in order -- clusters > members,
+     * model > chain > residue > atom. Columns join a level through
+     * \ref add_column's `level`; a level's columns must end with as many rows
+     * as its extent gives it. The level is the group of this name
+     * (\ref StoreReader names its columns "level/column"). Format 6.
+     */
+    int add_level(const std::string& name, int parent = 0);
+    /// The next row of \p level's parent owns the next \p n rows of \p level.
+    void append_children(int level, std::uint64_t n);
+    /*!
+     * \brief Record each data segment's smallest and largest value (format 6).
+     *
+     * A zone map: 16 bytes a segment, and \ref StoreReader::segments_where
+     * then names the segments a range query must read -- with \ref cut
+     * aligning the segments of a level's columns, a box query over x, y, z
+     * reads only the chunks whose bounds meet the box. Numeric columns; ask
+     * before the first append.
+     */
+    void set_zone_map(int column, bool record = true);
+    /*!
+     * \brief Huffman-code a UInt8 column's values, segment by segment (format 6).
+     *
+     * Canonical codes of at most 12 bits, a bit position sampled every 1024
+     * values: any range still decodes alone, after at most 1023 values
+     * skipped. For small, skewed alphabets -- residue codes at ~4.2 bits
+     * instead of 5. A segment Huffman does not shrink is stored as it would
+     * be otherwise (\ref set_bit_width, or bytes). Set before appending.
+     */
+    void set_huffman(int column, bool coded = true);
+    /// End the current segment of every column here, so segment k of columns
+    /// written in step covers the same rows (a chunk).
+    void cut();
     /// The column's description (JSON), as \ref Column::set_metadata takes it.
     void set_metadata(int column, const std::string& json);
     /*!
@@ -3039,6 +3078,14 @@ public:
      * before the first append; a value that does not fit throws.
      */
     void set_bit_width(int column, unsigned bits);
+    /*!
+     * \brief Ragged columns' offsets compact (the default) or raw.
+     *
+     * Compact offsets (format 6) take about 1.5 bytes a row instead of 8 and
+     * still decode per 64-row block; raw ones read in place and keep the
+     * file at format 5 for older readers.
+     */
+    void set_compact_offsets(bool compact);
     /// Append `n` values to a fixed-width column.
     void append(int column, const void* values, std::uint64_t n);
     /// Append one row of `n` values to a ragged column.
@@ -3077,6 +3124,18 @@ public:
 
     std::uint32_t format_version() const;
     std::vector<std::string> columns() const;
+    /// The child levels by path ("clusters/members"); each is also an extent column.
+    std::vector<std::string> levels() const;
+    /// The rows of \p level that row \p parent_row of its parent owns: [first, end).
+    std::pair<std::uint64_t, std::uint64_t> extent(const std::string& level,
+                                                   std::uint64_t parent_row) const;
+    /// The parent row that owns row \p row of \p level (a binary search).
+    std::uint64_t parent(const std::string& level, std::uint64_t row) const;
+    /// Each data segment's {min, max}, when the writer recorded a zone map; else empty.
+    std::vector<std::pair<double, double>> zone_map(const std::string& name) const;
+    /// The data segments that may hold a value in [lo, hi]: by the zone map,
+    /// or every segment without one.
+    std::vector<std::size_t> segments_where(const std::string& name, double lo, double hi) const;
     bool has_column(const std::string& name) const;
     ColumnInfo info(const std::string& name) const;
     /// The column's description as JSON text; "" when it has none.
