@@ -2676,6 +2676,16 @@ struct Codec {
                        std::vector<unsigned char>& out)> compress;
     std::function<bool(const unsigned char* in, std::size_t n, std::size_t raw_size,
                        std::vector<unsigned char>& out)> decompress;
+    /// Optional: a dictionary of at most `capacity` bytes trained on `count`
+    /// samples laid back to back (`sizes` each), and coding with one.
+    std::function<bool(const unsigned char* samples, const std::size_t* sizes, std::size_t count,
+                       std::size_t capacity, std::vector<unsigned char>& dictionary)> train;
+    std::function<bool(const unsigned char* in, std::size_t n, int level,
+                       const std::vector<unsigned char>& dictionary,
+                       std::vector<unsigned char>& out)> compress_with;
+    std::function<bool(const unsigned char* in, std::size_t n, std::size_t raw_size,
+                       const std::vector<unsigned char>& dictionary,
+                       std::vector<unsigned char>& out)> decompress_with;
 };
 /// Register a codec, replacing one of the same name. At least one callback
 /// must be present; a missing callback denotes an unsupported operation.
@@ -2960,6 +2970,7 @@ struct ColumnInfo {
     std::uint64_t n_rows = 0;
     bool ragged = false;                   ///< variable-length rows
     bool extent = false;                   ///< a child level's extent: offsets only
+    std::string reference;                 ///< rows stored against this column's (its parent level)
     std::uint64_t n_values = 0;            ///< values; equals n_rows unless ragged
     std::size_t n_segments = 0;            ///< of the values blob
     std::uint64_t stored_bytes = 0;        ///< of the values blob, as stored
@@ -3063,6 +3074,50 @@ public:
      * be otherwise (\ref set_bit_width, or bytes). Set before appending.
      */
     void set_huffman(int column, bool coded = true);
+    /*!
+     * \brief Store \p column's rows against the rows of \p reference (format 6).
+     *
+     * Both ragged UInt8; \p reference in the parent level of \p column's.
+     * A row given with \ref append_row_against is stored as a script against
+     * its parent row of \p reference: the reference span it covers and the
+     * differences -- substitutions, deletions, insertions at Rice-coded gaps,
+     * literals of \p literal_bits bits -- or literally, whichever is smaller.
+     * Members stored against their cluster's representative, instances
+     * against a template. Reading resolves the reference: \ref StoreReader::row
+     * returns the row itself. Set before appending.
+     */
+    void set_reference(int column, int reference, unsigned literal_bits = 8);
+    /*!
+     * \brief Append a row of a referencing column, given its parent's
+     *        reference row and an alignment to it.
+     *
+     * \p alignment spells the two rows' alignment with 'M' (a column of both,
+     * equal or a substitution), 'I' (a value of this row only) and 'D' (a value
+     * of the reference only); leading and trailing 'D' skip the reference's
+     * ends. Empty: store the row literally. \p reference must be what the
+     * parent row holds in the referenced column -- or, with \p sibling > 0,
+     * the row of this column that many rows earlier under the same parent
+     * (a member closer to another member than to their representative).
+     * A row resolves through at most 8 references; a deeper chain throws.
+     */
+    void append_row_against(int column, const void* values, std::uint64_t n,
+                            const void* reference, std::uint64_t reference_n,
+                            const std::string& alignment, std::uint64_t sibling = 0);
+    /*!
+     * \brief Huffman-code the literals of \p column's scripts, by these 256
+     *        frequencies (codes of at most 12 bits); set before appending.
+     */
+    void set_literal_frequencies(int column, const std::uint64_t* frequencies);
+    /*!
+     * \brief Compress a ragged column's segments with a shared dictionary
+     *        (format 6; codecs that train one: zstd).
+     *
+     * Trained once, from the rows of the column's first segment, and stored
+     * with the column: small segments of short, similar rows (sequence headers)
+     * then compress like one large one, and a row still costs only its
+     * segment. Set before appending, with the column's codec.
+     */
+    void set_dictionary(int column, std::size_t dictionary_bytes = 112640);
     /// End the current segment of every column here, so segment k of columns
     /// written in step covers the same rows (a chunk).
     void cut();

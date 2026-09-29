@@ -36,6 +36,15 @@ endif()
 add_library(ptolib_impl ALIAS ptolib)
 set_target_properties(ptolib PROPERTIES POSITION_INDEPENDENT_CODE ON CXX_STANDARD 14
     CXX_VISIBILITY_PRESET default VISIBILITY_INLINES_HIDDEN OFF)
+if(NOT PTOLIB_SHARED)
+    # A static ptolib ends up inside a consumer's shared library, and two
+    # consumers in one process (imp.bff and tttrlib) may carry different
+    # versions. Inline functions -- an implicit copy constructor among them --
+    # are weak symbols the loader merges across libraries, so one library ran
+    # the other's copy for a struct whose layout had changed (a SIGBUS in the
+    # codec registry). Hidden, each library keeps its own.
+    set_target_properties(ptolib PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
+endif()
 add_library(ptolib::ptolib ALIAS ptolib)
 target_include_directories(ptolib PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

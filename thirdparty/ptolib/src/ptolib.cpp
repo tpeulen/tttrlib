@@ -2759,6 +2759,30 @@ bool compress_bytes(const std::string& codec, const unsigned char* in, std::size
     try { return c.compress(in, n, level, out); } catch (...) { out.clear(); return false; }
 }
 
+bool train_dictionary(const std::string& codec, const unsigned char* samples,
+                      const std::size_t* sizes, std::size_t count, std::size_t capacity,
+                      std::vector<unsigned char>& dictionary) {
+    Codec c;
+    if (!find_codec(codec, &c) || !c.train) return false;
+    try { return c.train(samples, sizes, count, capacity, dictionary); } catch (...) { return false; }
+}
+
+bool compress_with_dictionary(const std::string& codec, const unsigned char* in, std::size_t n,
+                              int level, const std::vector<unsigned char>& dictionary,
+                              std::vector<unsigned char>& out) {
+    Codec c;
+    if (!find_codec(codec, &c) || !c.compress_with) return false;
+    try { return c.compress_with(in, n, level, dictionary, out); } catch (...) { return false; }
+}
+
+bool decompress_with_dictionary(const std::string& codec, const unsigned char* in, std::size_t n,
+                                std::size_t raw_size, const std::vector<unsigned char>& dictionary,
+                                std::vector<unsigned char>& out) {
+    Codec c;
+    if (!find_codec(codec, &c) || !c.decompress_with) return false;
+    try { return c.decompress_with(in, n, raw_size, dictionary, out); } catch (...) { return false; }
+}
+
 bool decompress_bytes(const std::string& codec, const unsigned char* in, std::size_t n,
                       std::size_t raw_size, std::vector<unsigned char>& out) {
     Codec c;
@@ -3015,6 +3039,265 @@ void huffman_decode(const unsigned char* p, std::size_t bytes, std::uint64_t fir
         if (i >= first) out[i - first] = static_cast<unsigned char>(e & 0xFF);
         bit += l;
     }
+}
+
+/// Version 6: reference rows. A ragged UInt8 column may reference a ragged
+/// UInt8 column of its parent level; each row is then stored as a script
+/// against its parent row there: literally, or as the reference span it
+/// covers plus the differences (substitutions, deletions, insertions) at
+/// Rice-coded gaps, literals `w` bits each. Bits LSB-first:
+///   literal: 0, gamma(n + 1), n x w bits
+///   script:  1, gamma(n + 1), gamma(start + 1), gamma(span + 1), 4 bits k,
+///            gamma(events + 1), events x {rice_k(gap), 2 bits kind,
+///            kind 0 (substitution): w bits; 1 (deletion); 2 (insertion before
+///            the column): gamma(len), len x w bits}
+struct BitWriter {
+    std::vector<unsigned char> b;
+    std::uint64_t bit = 0;
+    void put(std::uint64_t v, unsigned width) {
+        for (unsigned k = 0; k < width; ++k, ++bit) {
+            if (bit / 8 >= b.size()) b.push_back(0);
+            if ((v >> k) & 1u) b[bit / 8] |= static_cast<unsigned char>(1u << (bit % 8));
+        }
+    }
+    void gamma(std::uint64_t x) {   // x >= 1
+        unsigned n = 0;
+        while ((x >> n) > 1) ++n;
+        put(0, n);
+        put(1, 1);
+        put(x, n);                  // the low n bits (the top one is implied)
+    }
+    void rice(std::uint64_t x, unsigned k) {
+        for (std::uint64_t q = x >> k; q > 0; --q) put(1, 1);
+        put(0, 1);
+        put(x, k);
+    }
+};
+
+struct BitReader {
+    const unsigned char* p;
+    std::size_t bytes;
+    std::uint64_t bit = 0;
+    unsigned one() {
+        if (bit / 8 >= bytes) throw std::runtime_error("store file: a reference row is truncated");
+        const unsigned v = (p[bit / 8] >> (bit % 8)) & 1u;
+        ++bit;
+        return v;
+    }
+    std::uint64_t get(unsigned width) {
+        std::uint64_t v = 0;
+        for (unsigned k = 0; k < width; ++k) v |= std::uint64_t(one()) << k;
+        return v;
+    }
+    std::uint64_t gamma() {
+        unsigned n = 0;
+        while (one() == 0) if (++n > 63) throw std::runtime_error("store file: invalid reference row");
+        return (std::uint64_t(1) << n) | get(n);
+    }
+    std::uint64_t rice(unsigned k) {
+        std::uint64_t q = 0;
+        while (one() == 1) if (++q > (std::uint64_t(1) << 40)) throw std::runtime_error("store file: invalid reference row");
+        return (q << k) | get(k);
+    }
+};
+
+/// How a referencing column's literals are written: `w` bits each, or a
+/// canonical Huffman code (at most 12 bits, bit-reversed, LSB-first).
+struct LiteralCode {
+    unsigned w = 8;
+    bool huffman = false;
+    unsigned char len[256] = {0};
+    std::uint32_t code[256] = {0};
+    std::vector<std::uint16_t> table;   // next 12 bits -> value | length << 8
+
+    void set_lengths(const unsigned char* lengths) {
+        huffman = true;
+        std::memcpy(len, lengths, 256);
+        huffman_codes(len, code);
+        table.assign(std::size_t(1) << kHuffmanMaxBits, 0);
+        for (int k = 0; k < 256; ++k) {
+            if (!len[k]) continue;
+            if (len[k] > kHuffmanMaxBits) throw std::runtime_error("store file: invalid literal code");
+            for (std::uint32_t fill = code[k]; fill < (1u << kHuffmanMaxBits); fill += 1u << len[k])
+                table[fill] = static_cast<std::uint16_t>(k | (len[k] << 8));
+        }
+    }
+    void check(const unsigned char* v, std::size_t n) const {
+        for (std::size_t i = 0; i < n; ++i) {
+            if (huffman ? len[v[i]] == 0 : (w < 8 && (v[i] >> w)))
+                throw std::runtime_error(huffman ? "StoreWriter: a value has no literal code"
+                                                 : "StoreWriter: a value does not fit in " +
+                                                           std::to_string(w) + " literal bits");
+        }
+    }
+    void put(BitWriter& out, unsigned char v) const {
+        if (huffman) out.put(code[v], len[v]);
+        else out.put(v, w);
+    }
+    unsigned char get(BitReader& in) const {
+        if (!huffman) return static_cast<unsigned char>(in.get(w));
+        // peek up to 12 bits (zero past the end), then consume the code's length
+        std::uint64_t window = 0;
+        for (unsigned k = 0; k < kHuffmanMaxBits && (in.bit + k) / 8 < in.bytes; ++k)
+            window |= std::uint64_t((in.p[(in.bit + k) / 8] >> ((in.bit + k) % 8)) & 1u) << k;
+        const std::uint16_t e = table[window];
+        const unsigned l = e >> 8;
+        if (l == 0 || (in.bit + l + 7) / 8 > in.bytes + 1)
+            throw std::runtime_error("store file: invalid reference row");
+        in.bit += l;
+        if (in.bit > in.bytes * 8) throw std::runtime_error("store file: a reference row is truncated");
+        return static_cast<unsigned char>(e & 0xFF);
+    }
+};
+
+/// Script versions: 1 (the first, literals `w` bits, the parent's row only)
+/// and 2 (a reference selector -- the parent's row, or a sibling row `d`
+/// earlier in the same parent -- and literals by LiteralCode).
+const unsigned kMaxReferenceDepth = 8;   ///< a row resolves through at most 8 others
+
+struct ScriptHead {
+    unsigned mode = 0;            // 0 literal, 1 edited
+    std::uint64_t sibling = 0;    // 0: the parent's row
+};
+
+std::vector<unsigned char> literal_script(const unsigned char* v, std::size_t n,
+                                          const LiteralCode& lit) {
+    lit.check(v, n);
+    BitWriter out;
+    out.put(0, 1);
+    out.gamma(n + 1);
+    for (std::size_t i = 0; i < n; ++i) lit.put(out, v[i]);
+    return out.b;
+}
+
+/// The script of `v` against `ref` along `alignment` ('M', 'I', 'D' over the
+/// two; leading and trailing 'D' mark the reference span); `sibling` > 0:
+/// the reference is the row that many rows earlier.
+std::vector<unsigned char> reference_script(const unsigned char* v, std::size_t n,
+                                            const unsigned char* ref, std::size_t ref_n,
+                                            const std::string& alignment, const LiteralCode& lit,
+                                            std::uint64_t sibling) {
+    lit.check(v, n);
+    std::size_t first = 0, last = alignment.size();
+    while (first < last && alignment[first] == 'D') ++first;
+    while (last > first && alignment[last - 1] == 'D') --last;
+    struct Event { std::uint64_t column; unsigned kind; std::size_t at, len; };
+    std::vector<Event> events;
+    std::size_t col = 0, vi = 0;   // column within the span, position in v
+    for (std::size_t k = first; k < last; ++k) {
+        const char op = alignment[k];
+        if (op == 'M') {
+            if (first + col >= ref_n || vi >= n) throw std::runtime_error("StoreWriter: the alignment overruns its rows");
+            if (v[vi] != ref[first + col]) events.push_back({col, 0, vi, 1});
+            ++col; ++vi;
+        } else if (op == 'D') {
+            if (first + col >= ref_n) throw std::runtime_error("StoreWriter: the alignment overruns its rows");
+            events.push_back({col, 1, vi, 0});
+            ++col;
+        } else if (op == 'I') {
+            if (vi >= n) throw std::runtime_error("StoreWriter: the alignment overruns its rows");
+            if (!events.empty() && events.back().kind == 2 && events.back().column == col)
+                ++events.back().len;
+            else
+                events.push_back({col, 2, vi, 1});
+            ++vi;
+        } else {
+            throw std::runtime_error("StoreWriter: an alignment is made of M, I and D");
+        }
+    }
+    if (vi != n || first + col > ref_n) throw std::runtime_error("StoreWriter: the alignment does not cover its rows");
+    // An insertion must come before a substitution or deletion at its column.
+    std::stable_sort(events.begin(), events.end(), [](const Event& a, const Event& b) {
+        if (a.column != b.column) return a.column < b.column;
+        return (a.kind == 2) > (b.kind == 2);
+    });
+    const std::uint64_t span = col;
+    double mean = events.empty() ? 1.0 : double(span) / double(events.size());
+    unsigned k = 0;
+    while (k < 15 && double(std::uint64_t(1) << (k + 1)) <= mean * 0.69) ++k;
+    BitWriter out;
+    out.put(1, 1);
+    if (sibling) { out.put(1, 1); out.gamma(sibling); }
+    else out.put(0, 1);
+    out.gamma(n + 1);
+    out.gamma(first + 1);
+    out.gamma(span + 1);
+    out.put(k, 4);
+    out.gamma(events.size() + 1);
+    std::uint64_t previous = 0;
+    for (const Event& e : events) {
+        out.rice(e.column - previous, k);
+        previous = e.column;
+        out.put(e.kind, 2);
+        if (e.kind == 0) lit.put(out, v[e.at]);
+        if (e.kind == 2) {
+            out.gamma(e.len);
+            for (std::size_t i = 0; i < e.len; ++i) lit.put(out, v[e.at + i]);
+        }
+    }
+    return out.b;
+}
+
+/// What a script refers to, read from its head; `in` is left after it.
+ScriptHead read_script_head(BitReader& in, unsigned version) {
+    ScriptHead h;
+    h.mode = in.one();
+    if (h.mode == 1 && version >= 2 && in.one() == 1) h.sibling = in.gamma();
+    return h;
+}
+
+/// A row from its script (its head already read) and its reference row.
+void apply_script(BitReader& in, const ScriptHead& head, const unsigned char* ref,
+                  std::size_t ref_n, const LiteralCode& lit, std::vector<unsigned char>& out) {
+    const std::uint64_t n = in.gamma() - 1;
+    if (n > (std::uint64_t(1) << 40)) throw std::runtime_error("store file: invalid reference row");
+    out.clear();
+    out.reserve(static_cast<std::size_t>(n));
+    if (head.mode == 0) {
+        for (std::uint64_t i = 0; i < n; ++i) out.push_back(lit.get(in));
+        return;
+    }
+    const std::uint64_t first = in.gamma() - 1, span = in.gamma() - 1;
+    const unsigned k = static_cast<unsigned>(in.get(4));
+    const std::uint64_t n_events = in.gamma() - 1;
+    if (first + span > ref_n) throw std::runtime_error("store file: a reference row reaches past its reference");
+    std::uint64_t column = 0, events_read = 0;
+    std::uint64_t next_column = 0;
+    unsigned next_kind = 3;
+    auto read_event = [&]() {
+        if (events_read == n_events) { next_kind = 3; next_column = span + 1; return; }
+        next_column = column + in.rice(k);
+        next_kind = static_cast<unsigned>(in.get(2));
+        ++events_read;
+    };
+    read_event();
+    std::uint64_t col = 0;
+    while (col <= span) {
+        bool consumed = false;
+        while (next_kind != 3 && next_column == col) {
+            column = next_column;
+            if (next_kind == 2) {
+                const std::uint64_t len = in.gamma();
+                for (std::uint64_t i = 0; i < len; ++i) out.push_back(lit.get(in));
+            } else if (next_kind == 0) {
+                if (col == span) throw std::runtime_error("store file: invalid reference row");
+                out.push_back(lit.get(in));
+                consumed = true;
+            } else if (next_kind == 1) {
+                if (col == span) throw std::runtime_error("store file: invalid reference row");
+                consumed = true;
+            } else {
+                throw std::runtime_error("store file: invalid reference row");
+            }
+            read_event();
+            if (consumed) break;
+        }
+        if (col == span) break;
+        if (!consumed) out.push_back(ref[first + col]);
+        ++col;
+    }
+    if (out.size() != n || events_read != n_events || next_kind != 3)
+        throw std::runtime_error("store file: invalid reference row");
 }
 
 /// Version 6: a ragged column's offsets, compact. Blocks of 64 values, each a
@@ -3291,6 +3574,7 @@ struct BlobRef {
     std::uint64_t raw_bytes = 0;    ///< after decoding; equals `bytes` when raw
     std::vector<BlobSegment> parts; ///< version 5, when more than one; else empty
     std::vector<std::uint64_t> starts;  ///< decoded byte offset of each part
+    const std::vector<unsigned char>* dictionary = nullptr;   ///< its column's, when it has one
 
     std::size_t n_parts() const { return parts.empty() ? 1 : parts.size(); }
     BlobSegment part(std::size_t k) const {
@@ -3408,6 +3692,8 @@ struct Reader {
 const std::uint8_t kColumnExtended = 1u << 3;
 const std::uint32_t kExtensionIgnorable = 1u;
 const std::uint32_t kExtensionZoneMap = 1;   ///< per segment {f64 min, f64 max}
+const std::uint32_t kExtensionReference = 2; ///< u8 literal bits, then the referenced column's path
+const std::uint32_t kExtensionDictionary = 3; ///< the codec dictionary its segments were coded with
 
 struct ColumnExtension {
     std::uint32_t tag = 0, flags = 0;
@@ -3773,6 +4059,7 @@ struct Blobs {
         while (n > 0) {
             const BlobSegment s = r.part(k);
             BlobRef one;
+            one.dictionary = r.dictionary;
             one.offset = s.offset; one.bytes = s.bytes; one.codec = s.codec;
             one.transform = s.transform; one.raw_bytes = s.raw_bytes;
             const std::uint64_t in_part = off - r.part_start(k);
@@ -3866,9 +4153,12 @@ struct Blobs {
             if (!can_decompress(name))
                 throw std::runtime_error("store file: a column is compressed with " + name +
                                          ", and no " + name + " decoder is available");
-            if (!decompress_bytes(name, stored, static_cast<std::size_t>(r.bytes),
-                                  static_cast<std::size_t>(r.raw_bytes), raw) ||
-                raw.size() != r.raw_bytes)
+            const bool ok = (r.dictionary != nullptr && !r.dictionary->empty())
+                    ? decompress_with_dictionary(name, stored, static_cast<std::size_t>(r.bytes),
+                                                 static_cast<std::size_t>(r.raw_bytes), *r.dictionary, raw)
+                    : decompress_bytes(name, stored, static_cast<std::size_t>(r.bytes),
+                                       static_cast<std::size_t>(r.raw_bytes), raw);
+            if (!ok || raw.size() != r.raw_bytes)
                 throw std::runtime_error("store file: a " + name + " stream is corrupt");
         } else {
             raw.assign(stored, stored + r.bytes);
@@ -4578,6 +4868,14 @@ struct StoreWriter::Impl {
         int level = 0;                         // the level it belongs to
         bool extent = false;                   // a child level's extent: offsets only
         bool huffman = false;                  // UInt8 values Huffman-coded
+        int reference = -1;                    // rows as scripts against this column's rows
+        LiteralCode lit;                       // how the scripts' literals are written
+        std::size_t dictionary_bytes = 0;      // train a codec dictionary of this size
+        bool dictionary_tried = false;
+        std::vector<unsigned char> dictionary;
+        std::vector<std::size_t> sample_sizes; // rows of the first segment: the training samples
+        std::vector<unsigned char> depth;      // reference depth of this parent's rows so far
+        std::uint64_t depth_first = ~std::uint64_t(0);
         bool zone_map = false;                 // record min/max per data segment
         std::vector<ZoneBounds> zone;
     };
@@ -4585,6 +4883,7 @@ struct StoreWriter::Impl {
         std::string name;
         int parent = -1;
         int extent = -1;                       // its extent column, in the parent
+        std::uint64_t parent_first = 0;        // the current parent row's first child row
     };
     std::vector<Level> levels = std::vector<Level>(1);   // 0: the root
 
@@ -4647,8 +4946,74 @@ struct StoreWriter::Impl {
         seg.transform = r.transform; seg.raw_bytes = r.raw_bytes;
         blob.add_part(seg);
     }
-    void flush_values(Col& c) {
+    void flush_values(Col& c, bool final_flush = false) {
         if (c.extent || c.buf.empty()) return;
+        if (c.dictionary_bytes && !c.dictionary_tried) {
+            // Gather rows to train on first: ~64 x the dictionary, at most 8 MB,
+            // then write what was gathered as ordinary segments.
+            const std::size_t target = std::min<std::size_t>(std::max<std::size_t>(64 * c.dictionary_bytes, 1 << 20),
+                                                             std::size_t(8) << 20);
+            if (!final_flush && c.buf.size() < target) return;
+            c.dictionary_tried = true;
+            // a dictionary at most an eighth of what it learns from: ZDICT
+            // faults on less, and a small column would not repay a large one
+            const std::size_t capacity = std::min(c.dictionary_bytes, c.buf.size() / 8);
+            if (c.sample_sizes.size() >= 16 && capacity >= 256)
+                train_dictionary(kCodecNames[c.codec], c.buf.data(), c.sample_sizes.data(),
+                                 c.sample_sizes.size(), capacity, c.dictionary);
+            if (!c.dictionary.empty()) uses_version6 = true;
+            // the gathered rows, split into segments at row boundaries
+            std::vector<unsigned char> gathered;
+            gathered.swap(c.buf);
+            std::vector<std::size_t> sizes;
+            sizes.swap(c.sample_sizes);
+            std::size_t at = 0, rows_done = 0;
+            const std::uint64_t first_row = c.buf_first_row;
+            while (at < gathered.size()) {
+                std::size_t end = at, rows = 0;
+                while (rows_done + rows < sizes.size() &&
+                       (end == at || end - at + sizes[rows_done + rows] <= c.segment_bytes)) {
+                    end += sizes[rows_done + rows];
+                    ++rows;
+                }
+                c.buf.assign(gathered.begin() + static_cast<std::ptrdiff_t>(at),
+                             gathered.begin() + static_cast<std::ptrdiff_t>(end));
+                c.buf_first_row = first_row + rows_done;
+                const std::uint64_t n_rows = c.n_rows;
+                c.n_rows = c.buf_first_row + rows;   // what the segment's end reports
+                flush_values(c);
+                c.n_rows = n_rows;
+                at = end;
+                rows_done += rows;
+            }
+            c.buf.clear();
+            c.buf_first_row = c.n_rows;
+            return;
+        }
+        if (!c.dictionary.empty()) {
+            if (c.ragged) c.row_starts.push_back(c.buf_first_row);
+            if (c.zone_map) {
+                ZoneBounds z{0, 0};
+                value_bounds(c.type, c.buf.data(), c.buf.size() / c.width, &z);
+                c.zone.push_back(z);
+            }
+            std::vector<unsigned char> packed;
+            BlobSegment seg;
+            if (compress_with_dictionary(kCodecNames[c.codec], c.buf.data(), c.buf.size(), plan.level,
+                                         c.dictionary, packed) && packed.size() < c.buf.size()) {
+                const BlobRef r = out->blob(packed.data(), packed.size());
+                seg.offset = r.offset; seg.bytes = r.bytes; seg.codec = c.codec;
+            } else {
+                const BlobRef r = out->blob(c.buf.data(), c.buf.size());
+                seg.offset = r.offset; seg.bytes = r.bytes; seg.codec = kCodecNone;
+            }
+            seg.transform = 0;
+            seg.raw_bytes = c.buf.size();
+            c.data.add_part(seg);
+            c.buf.clear();
+            c.buf_first_row = c.n_rows;
+            return;
+        }
         if (c.zone_map) {
             ZoneBounds z{0, 0};
             value_bounds(c.type, c.buf.data(), c.buf.size() / c.width, &z);
@@ -4680,6 +5045,17 @@ struct StoreWriter::Impl {
     }
     bool compact_offsets = true;
     bool uses_version6 = false;
+    void append_raw_row(Col& c, const void* values, std::uint64_t n);
+    /// Rows of \p c already under the current parent row of its level.
+    std::size_t rows_in_parent(Col& c) {
+        const std::uint64_t first = levels[static_cast<std::size_t>(c.level)].parent_first;
+        if (c.depth_first != first) { c.depth.clear(); c.depth_first = first; }
+        return static_cast<std::size_t>(c.n_rows - first);
+    }
+    void note_depth(Col& c, unsigned depth) {
+        rows_in_parent(c);
+        c.depth.push_back(static_cast<unsigned char>(depth));
+    }
 };
 
 StoreWriter::StoreWriter(const std::string& filename, const StoreOptions& options,
@@ -4815,13 +5191,14 @@ void StoreWriter::set_huffman(int column, bool coded) {
 
 void StoreWriter::cut() {
     if (impl_->closed) throw std::runtime_error("StoreWriter: the store is already closed");
-    for (Impl::Col& c : impl_->cols) impl_->flush_values(c);
+    for (Impl::Col& c : impl_->cols) impl_->flush_values(c, true);
 }
 
 void StoreWriter::append_children(int level, std::uint64_t n) {
     if (level <= 0 || static_cast<std::size_t>(level) >= impl_->levels.size())
         throw std::runtime_error("StoreWriter: no child level " + std::to_string(level));
     Impl::Col& c = impl_->col(impl_->levels[static_cast<std::size_t>(level)].extent);
+    impl_->levels[static_cast<std::size_t>(level)].parent_first = c.n_values;
     c.n_values += n;
     c.n_rows += 1;
     c.obuf.push_back(c.n_values);
@@ -4866,16 +5243,112 @@ void StoreWriter::append_row(int column, const void* values, std::uint64_t n) {
     Impl::Col& c = impl_->col(column);
     if (!c.ragged) throw std::runtime_error("StoreWriter: '" + c.name + "' is not ragged; use append");
     if (c.extent) throw std::runtime_error("StoreWriter: '" + c.name + "' is a level; use append_children");
+    if (c.reference >= 0) {
+        const std::vector<unsigned char> script =
+                literal_script(static_cast<const unsigned char*>(values), static_cast<std::size_t>(n), c.lit);
+        impl_->note_depth(c, 0);
+        impl_->append_raw_row(c, script.data(), script.size());
+        return;
+    }
+    impl_->append_raw_row(c, values, n);
+}
+
+void StoreWriter::append_row_against(int column, const void* values, std::uint64_t n,
+                                     const void* reference, std::uint64_t reference_n,
+                                     const std::string& alignment, std::uint64_t sibling) {
+    Impl::Col& c = impl_->col(column);
+    if (c.reference < 0)
+        throw std::runtime_error("StoreWriter: '" + c.name + "' references no column; use append_row");
+    unsigned depth = 1;
+    if (sibling) {
+        const std::size_t here = impl_->rows_in_parent(c);
+        if (sibling > here)
+            throw std::runtime_error("StoreWriter: '" + c.name + "': no sibling that far back in this parent");
+        depth = c.depth[here - static_cast<std::size_t>(sibling)] + 1u;
+        if (depth > kMaxReferenceDepth)
+            throw std::runtime_error("StoreWriter: '" + c.name + "': a reference chain deeper than " +
+                                     std::to_string(kMaxReferenceDepth));
+    }
+    const unsigned char* v = static_cast<const unsigned char*>(values);
+    std::vector<unsigned char> script = literal_script(v, static_cast<std::size_t>(n), c.lit);
+    unsigned chosen = 0;
+    if (!alignment.empty()) {
+        const std::vector<unsigned char> edits = reference_script(
+                v, static_cast<std::size_t>(n), static_cast<const unsigned char*>(reference),
+                static_cast<std::size_t>(reference_n), alignment, c.lit, sibling);
+        if (edits.size() < script.size()) { script = edits; chosen = depth; }
+    }
+    impl_->note_depth(c, chosen);
+    impl_->append_raw_row(c, script.data(), script.size());
+}
+
+void StoreWriter::set_dictionary(int column, std::size_t dictionary_bytes) {
+    Impl::Col& c = impl_->col(column);
+    if (!c.ragged || c.extent || c.reference >= 0 || c.bits || c.huffman)
+        throw std::runtime_error("StoreWriter: '" + c.name + "': a dictionary is for a ragged column's codec");
+    if (c.codec == kCodecNone)
+        throw std::runtime_error("StoreWriter: '" + c.name + "': a dictionary needs a codec");
+    Codec codec;
+    if (!find_codec(kCodecNames[c.codec], &codec) || !codec.train || !codec.compress_with)
+        throw std::runtime_error("StoreWriter: '" + c.name + "': its codec trains no dictionary");
+    if (c.n_values != 0 || !c.buf.empty())
+        throw std::runtime_error("StoreWriter: '" + c.name + "': set the dictionary before appending");
+    c.dictionary_bytes = std::max<std::size_t>(dictionary_bytes, 1024);
+}
+
+void StoreWriter::set_literal_frequencies(int column, const std::uint64_t* frequencies) {
+    Impl::Col& c = impl_->col(column);
+    if (c.reference < 0) throw std::runtime_error("StoreWriter: '" + c.name + "' references no column");
+    if (c.n_values != 0 || !c.buf.empty())
+        throw std::runtime_error("StoreWriter: '" + c.name + "': set the literal code before appending");
+    unsigned char len[256];
+    if (!huffman_lengths(frequencies, kHuffmanMaxBits, len))
+        throw std::runtime_error("StoreWriter: no literal code of at most 12 bits for these frequencies");
+    c.lit.set_lengths(len);
+}
+
+void StoreWriter::set_reference(int column, int reference, unsigned literal_bits) {
+    Impl::Col& c = impl_->col(column);
+    const Impl::Col& r = impl_->col(reference);
+    if (!c.ragged || c.extent || c.type != ColumnType::UInt8 || !r.ragged || r.extent ||
+        r.type != ColumnType::UInt8)
+        throw std::runtime_error("StoreWriter: a reference joins two ragged UInt8 columns");
+    if (c.level == 0 || impl_->levels[static_cast<std::size_t>(c.level)].parent != r.level)
+        throw std::runtime_error("StoreWriter: '" + c.name + "' can reference a column of its parent level only");
+    if (literal_bits == 0 || literal_bits > 8) throw std::runtime_error("StoreWriter: literals take 1 to 8 bits");
+    if (c.n_values != 0 || !c.buf.empty())
+        throw std::runtime_error("StoreWriter: '" + c.name + "': set the reference before appending");
+    c.reference = reference;
+    c.lit = LiteralCode();
+    c.lit.w = literal_bits;
+    c.bits = 0;
+    c.huffman = false;
+    impl_->uses_version6 = true;
+}
+
+void StoreWriter::Impl::append_raw_row(Col& c, const void* values, std::uint64_t n) {
     const std::uint64_t bytes = n * c.width;
+    if (c.dictionary_bytes && !c.dictionary_tried) {
+        // gathering training rows: no segment boundaries yet
+        const unsigned char* g = static_cast<const unsigned char*>(values);
+        c.sample_sizes.push_back(static_cast<std::size_t>(bytes));
+        c.buf.insert(c.buf.end(), g, g + bytes);
+        c.n_values += n;
+        c.n_rows += 1;
+        flush_values(c);   // trains and writes once enough is gathered
+        c.obuf.push_back(c.n_values);
+        if (c.obuf.size() * 8 >= segment_bytes) flush_offsets(c);
+        return;
+    }
     // A segment never splits a row: flush first when this one would not fit.
-    if (!c.buf.empty() && c.buf.size() + bytes > c.segment_bytes) impl_->flush_values(c);
+    if (!c.buf.empty() && c.buf.size() + bytes > c.segment_bytes) flush_values(c);
     const unsigned char* p = static_cast<const unsigned char*>(values);
     c.buf.insert(c.buf.end(), p, p + bytes);
     c.n_values += n;
     c.n_rows += 1;
-    if (c.buf.size() >= c.segment_bytes) impl_->flush_values(c);
+    if (c.buf.size() >= c.segment_bytes) flush_values(c);
     c.obuf.push_back(c.n_values);
-    if (c.obuf.size() * 8 >= impl_->segment_bytes) impl_->flush_offsets(c);
+    if (c.obuf.size() * 8 >= segment_bytes) flush_offsets(c);
 }
 
 std::uint64_t StoreWriter::n_rows(int column) const {
@@ -4886,7 +5359,7 @@ bool StoreWriter::close() {
     if (impl_->closed) return true;
     Impl& w = *impl_;
     for (Impl::Col& c : w.cols) {
-        w.flush_values(c);
+        w.flush_values(c, true);
         if (c.ragged) w.flush_offsets(c);
     }
     // Every level's rows add up to its parent's extent.
@@ -4926,7 +5399,8 @@ bool StoreWriter::close() {
             dir.u8(static_cast<std::uint8_t>(c.type));
             dir.u64(c.n_rows);
             dir.u8(static_cast<std::uint8_t>((c.ragged ? kColumnRagged : 0) | (c.extent ? kColumnExtent : 0) |
-                                             (c.zone_map ? kColumnExtended : 0)));
+                                             ((c.zone_map || c.reference >= 0 || !c.dictionary.empty())
+                                                      ? kColumnExtended : 0)));
             dir.blob(c.data);
             if (c.ragged) {
                 dir.blob(c.offsets);
@@ -4939,8 +5413,32 @@ bool StoreWriter::close() {
                     c.meta.empty() ? std::vector<unsigned char>() : metadata_to_msgpack(c.meta);
             dir.u32(static_cast<std::uint32_t>(meta.size()));
             if (!meta.empty()) dir.raw(meta.data(), meta.size());
+            if (c.zone_map || c.reference >= 0 || !c.dictionary.empty())
+                dir.u32((c.zone_map ? 1u : 0u) + (c.reference >= 0 ? 1u : 0u) + (c.dictionary.empty() ? 0u : 1u));
+            if (!c.dictionary.empty()) {
+                dir.u32(kExtensionDictionary);
+                dir.u32(0);   // not ignorable: the segments need it
+                dir.u64(c.dictionary.size());
+                dir.raw(c.dictionary.data(), c.dictionary.size());
+            }
+            if (c.reference >= 0) {
+                std::string path;   // the referenced column's full path
+                const Impl::Col& r = w.cols[static_cast<std::size_t>(c.reference)];
+                for (int l = r.level; l > 0; l = w.levels[static_cast<std::size_t>(l)].parent)
+                    path = w.levels[static_cast<std::size_t>(l)].name + "/" + path;
+                path += r.name;
+                dir.u32(kExtensionReference);
+                dir.u32(0);   // not ignorable: without it the rows are unreadable
+                // script version 2: bit 7 of the first byte; then whether the
+                // literals are Huffman-coded, and their code lengths
+                dir.u64(2 + (c.lit.huffman ? 256 : 0) + path.size());
+                const unsigned char head[2] = {static_cast<unsigned char>(c.lit.w | 0x80u),
+                                               static_cast<unsigned char>(c.lit.huffman ? 1 : 0)};
+                dir.raw(head, 2);
+                if (c.lit.huffman) dir.raw(c.lit.len, 256);
+                dir.raw(reinterpret_cast<const unsigned char*>(path.data()), path.size());
+            }
             if (c.zone_map) {
-                dir.u32(1);
                 dir.u32(kExtensionZoneMap);
                 dir.u32(kExtensionIgnorable);
                 dir.u64(c.zone.size() * sizeof(ZoneBounds));
@@ -5009,6 +5507,10 @@ struct StoreReader::Impl {
         std::string meta;
         std::vector<std::uint64_t> row_starts;
         std::vector<ZoneBounds> zone;       // per data segment, when recorded
+        std::string reference;              // rows are scripts against this column's
+        LiteralCode lit;
+        unsigned script_version = 1;
+        std::vector<unsigned char> dictionary;
     };
     std::string filename;
     std::uint32_t version = 0;
@@ -5151,6 +5653,27 @@ void StoreReader::Impl::open(const std::string& name, std::uint64_t base, std::u
                 if (e.tag == kExtensionZoneMap) {
                     c.zone.resize(e.bytes.size() / 16);
                     std::memcpy(c.zone.data(), e.bytes.data(), c.zone.size() * 16);
+                } else if (e.tag == kExtensionDictionary) {
+                    c.dictionary.assign(e.bytes.begin(), e.bytes.end());
+                } else if (e.tag == kExtensionReference && !e.bytes.empty()) {
+                    const unsigned char first = static_cast<unsigned char>(e.bytes[0]);
+                    std::size_t at = 1;
+                    c.lit.w = first & 0x7Fu;
+                    if (first & 0x80u) {   // script version 2
+                        c.script_version = 2;
+                        if (e.bytes.size() < 2) throw std::runtime_error(filename + ": invalid reference");
+                        const bool huffman = e.bytes[1] != 0;
+                        at = 2;
+                        if (huffman) {
+                            if (e.bytes.size() < 2 + 256) throw std::runtime_error(filename + ": invalid reference");
+                            c.lit.set_lengths(reinterpret_cast<const unsigned char*>(e.bytes.data() + 2));
+                            at += 256;
+                        }
+                    }
+                    c.reference = e.bytes.substr(at);
+                    c.info.reference = c.reference;
+                    if (c.lit.w == 0 || c.lit.w > 8)
+                        throw std::runtime_error(filename + ": '" + c.info.name + "': invalid reference");
                 } else if (!(e.flags & kExtensionIgnorable)) {
                     throw std::runtime_error(filename + ": '" + c.info.name +
                                              "' needs a newer reader (extension " +
@@ -5173,7 +5696,8 @@ void StoreReader::Impl::open(const std::string& name, std::uint64_t base, std::u
                 r.levels.push_back(c.info.name);
             }
             r.order.push_back(c.info.name);
-            r.cols[c.info.name] = c;
+            Impl::Col& placed = r.cols[c.info.name] = c;
+            if (!placed.dictionary.empty()) placed.data.dictionary = &placed.dictionary;
         }
         const std::uint32_t n_groups = dir.u32();
         for (std::uint32_t g = 0; g < n_groups; ++g) {
@@ -5269,6 +5793,15 @@ void StoreReader::offsets(const std::string& name, std::uint64_t first, std::uin
 std::uint64_t StoreReader::row_size(const std::string& name, std::uint64_t row) const {
     std::uint64_t o[2];
     offsets(name, row, 1, o);
+    const Impl::Col& c = impl_->col(name);
+    if (!c.reference.empty()) {
+        // the row's length leads its script
+        std::vector<unsigned char> script(static_cast<std::size_t>(o[1] - o[0]));
+        if (!script.empty()) impl_->blobs().read_range(c.data, o[0], o[1] - o[0], script.data());
+        BitReader in{script.data(), script.size(), 0};
+        read_script_head(in, c.script_version);
+        return in.gamma() - 1;
+    }
     return o[1] - o[0];
 }
 
@@ -5276,6 +5809,38 @@ void StoreReader::row(const std::string& name, std::uint64_t row,
                       std::vector<unsigned char>& out) const {
     if (impl_->col(name).info.extent)
         throw std::runtime_error(impl_->filename + ": '" + name + "' is a level; read its extent");
+    const Impl::Col& rc = impl_->col(name);
+    if (!rc.reference.empty()) {
+        // A small per-thread cache of decoded rows: a run of siblings read in
+        // order then decodes each row once.
+        struct Cached { const void* reader; std::string column; std::uint64_t row; std::vector<unsigned char> v; };
+        thread_local std::vector<Cached> cache;
+        for (const Cached& k : cache)
+            if (k.reader == this && k.row == row && k.column == name) { out = k.v; return; }
+        std::uint64_t o[2];
+        offsets(name, row, 1, o);
+        std::vector<unsigned char> script(static_cast<std::size_t>(o[1] - o[0]));
+        if (!script.empty()) impl_->blobs().read_range(rc.data, o[0], o[1] - o[0], script.data());
+        const std::string::size_type slash = name.find_last_of('/');
+        const std::string level = slash == std::string::npos ? std::string() : name.substr(0, slash);
+        BitReader in{script.data(), script.size(), 0};
+        const ScriptHead head = read_script_head(in, rc.script_version);
+        std::vector<unsigned char> ref;
+        if (head.mode == 1) {
+            if (head.sibling) {
+                const std::uint64_t first = extent(level, parent(level, row)).first;
+                if (head.sibling > row - first)
+                    throw std::runtime_error(impl_->filename + ": '" + name + "': a sibling outside its parent");
+                this->row(name, row - head.sibling, ref);
+            } else {
+                this->row(rc.reference, parent(level, row), ref);
+            }
+        }
+        apply_script(in, head, ref.data(), ref.size(), rc.lit, out);
+        if (cache.size() >= 16) cache.erase(cache.begin());
+        cache.push_back(Cached{this, name, row, out});
+        return;
+    }
     std::uint64_t o[2];
     offsets(name, row, 1, o);
     const Impl::Col& c = impl_->col(name);
@@ -5287,6 +5852,10 @@ const void* StoreReader::row_view(const std::string& name, std::uint64_t row,
                                   std::uint64_t* n) const {
     if (impl_->col(name).info.extent)
         throw std::runtime_error(impl_->filename + ": '" + name + "' is a level; read its extent");
+    if (!impl_->col(name).reference.empty()) {   // decoded, never in place
+        if (n) *n = row_size(name, row);
+        return nullptr;
+    }
     std::uint64_t o[2];
     offsets(name, row, 1, o);
     if (n) *n = o[1] - o[0];
@@ -5332,6 +5901,7 @@ const void* StoreReader::segment_data(const std::string& name, std::size_t k,
         return impl_->map + s.offset;
     }
     BlobRef one;
+    one.dictionary = c.data.dictionary;
     one.offset = s.offset; one.bytes = s.bytes; one.codec = s.codec;
     one.transform = s.transform; one.raw_bytes = s.raw_bytes;
     scratch.resize(static_cast<std::size_t>(s.raw_bytes));
