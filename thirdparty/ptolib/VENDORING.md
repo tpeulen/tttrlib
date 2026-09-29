@@ -1,6 +1,6 @@
 # ptolib source package
 
-From https://github.com/tpeulen/ptolib, revision v0.3.2-10-g1a505f9.
+From https://github.com/tpeulen/ptolib, revision v0.3.2-11-gd91e3fb.
 VENDORING.json records the exact SHA-256 of every managed source file.
 
 Build with add_subdirectory() and link ptolib::ptolib. Codecs are built

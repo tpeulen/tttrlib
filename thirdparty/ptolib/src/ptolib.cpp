@@ -2819,6 +2819,48 @@ std::uint8_t codec_id(const std::string& name) {
 // A transform byte: kind in the high nibble, element width in the low one.
 const std::uint8_t kTransformDelta = 0x10;
 const std::uint8_t kTransformShuffle = 0x20;
+/// Version 5: UInt8 values of `w` significant bits (the low nibble, 1..7)
+/// packed into a little-endian bit stream, value k at bit k * w. A fixed
+/// width keeps random access: any range decodes alone.
+const std::uint8_t kTransformPack = 0x30;
+
+/// Pack `n` values of `bits` bits each; false when a value does not fit.
+bool bit_pack(const unsigned char* in, std::size_t n, unsigned bits,
+              std::vector<unsigned char>& out) {
+    out.assign((n * bits + 7) / 8 + 8, 0);   // 8 spare bytes for whole-word stores
+    const unsigned limit = 1u << bits;
+    std::size_t bit = 0;
+    for (std::size_t i = 0; i < n; ++i, bit += bits) {
+        if (in[i] >= limit) return false;
+        std::uint64_t word;
+        std::memcpy(&word, out.data() + bit / 8, 8);
+        word |= static_cast<std::uint64_t>(in[i]) << (bit % 8);
+        std::memcpy(out.data() + bit / 8, &word, 8);
+    }
+    out.resize((n * bits + 7) / 8);
+    return true;
+}
+
+/// Values [first, first + n) of a packed stream of `stored` bytes.
+void bit_unpack(const unsigned char* packed, std::size_t stored, unsigned bits,
+                std::uint64_t first, std::uint64_t n, unsigned char* out,
+                unsigned start_bit = 0) {
+    const std::uint64_t mask = (std::uint64_t(1) << bits) - 1;
+    std::uint64_t bit = first * bits + start_bit;
+    std::uint64_t i = 0;
+    // whole-word loads while 8 bytes remain, then byte by byte at the end
+    for (; i < n && bit / 8 + 8 <= stored; ++i, bit += bits) {
+        std::uint64_t word;
+        std::memcpy(&word, packed + bit / 8, 8);
+        out[i] = static_cast<unsigned char>((word >> (bit % 8)) & mask);
+    }
+    for (; i < n; ++i, bit += bits) {
+        std::uint64_t word = 0;
+        const std::size_t at = static_cast<std::size_t>(bit / 8);
+        std::memcpy(&word, packed + at, std::min<std::size_t>(8, stored - at));
+        out[i] = static_cast<unsigned char>((word >> (bit % 8)) & mask);
+    }
+}
 
 /// Delta-code `n` bytes of `width`-byte little-endian integers in place:
 /// each becomes the difference to the one before, wrapping. Exact and
@@ -3399,6 +3441,30 @@ struct Blobs {
             throw std::runtime_error("store file: a column is shorter than its record says");
         if (r.offset > file_bytes || r.bytes > file_bytes - r.offset)
             throw std::runtime_error("store file: a column points past the end");
+        if ((r.transform & 0xF0) == kTransformPack) {
+            // Fixed-width bits: decode the range asked for, nothing else.
+            const unsigned bits = r.transform & 0x0F;
+            if (r.codec != kCodecNone || bits == 0 || bits > 7 ||
+                r.bytes != (r.raw_bytes * bits + 7) / 8)
+                throw std::runtime_error("store file: invalid packed column");
+            thread_local std::vector<unsigned char> packed_buffer;
+            const std::uint64_t first_byte = off * bits / 8;
+            const std::uint64_t last_byte = std::min<std::uint64_t>(r.bytes, ((off + n) * bits + 7) / 8);
+            const unsigned char* src = nullptr;
+            if (mem != nullptr) {
+                src = mem + r.offset + first_byte;
+                g_bytes_read += last_byte - first_byte;
+            } else {
+                // only the bytes the range covers
+                packed_buffer.resize(static_cast<std::size_t>(last_byte - first_byte));
+                read_stored(r, first_byte, last_byte - first_byte, packed_buffer.data());
+                src = packed_buffer.data();
+            }
+            // relative to the first byte: value `off` starts at bit (off * bits) % 8
+            bit_unpack(src, static_cast<std::size_t>(last_byte - first_byte), bits,
+                       0, n, static_cast<unsigned char*>(into), (off * bits) % 8);
+            return;
+        }
         // A mapped store decodes from the map; the buffers are per thread and
         // kept, so a run of small segment reads (random rows) allocates once.
         thread_local std::vector<unsigned char> stored_buffer, raw_buffer;
@@ -4124,6 +4190,7 @@ struct StoreWriter::Impl {
         std::vector<std::uint64_t> row_starts; // ragged: first row of each values segment
         std::uint64_t buf_first_row = 0;       // ragged: first row in `buf`
         std::size_t segment_bytes = 0;         // of its values
+        unsigned bits = 0;                     // UInt8 packed to this many bits; 0: not
     };
 
     std::string filename, temp;
@@ -4144,8 +4211,21 @@ struct StoreWriter::Impl {
         return cols[static_cast<std::size_t>(k)];
     }
     void write_part(BlobRef& blob, const unsigned char* bytes, std::size_t n,
-                    std::uint8_t codec, ColumnType type) {
+                    std::uint8_t codec, ColumnType type, unsigned bits = 0) {
         if (n == 0) return;
+        if (bits != 0) {
+            std::vector<unsigned char> packed;
+            if (!bit_pack(bytes, n, bits, packed))
+                throw std::runtime_error("StoreWriter: a value does not fit in " +
+                                         std::to_string(bits) + " bits");
+            const BlobRef r = out->blob(packed.data(), packed.size());
+            BlobSegment seg;
+            seg.offset = r.offset; seg.bytes = r.bytes; seg.codec = kCodecNone;
+            seg.transform = static_cast<std::uint8_t>(kTransformPack | bits);
+            seg.raw_bytes = n;
+            blob.add_part(seg);
+            return;
+        }
         std::size_t twidth = 0;
         const std::uint8_t transform = plan.transform ? transform_for(type, &twidth) : 0;
         const BlobRef r = out->coded_blob(bytes, n, codec, plan.level, transform, twidth,
@@ -4158,7 +4238,7 @@ struct StoreWriter::Impl {
     void flush_values(Col& c) {
         if (c.buf.empty()) return;
         if (c.ragged) c.row_starts.push_back(c.buf_first_row);
-        write_part(c.data, c.buf.data(), c.buf.size(), c.codec, c.type);
+        write_part(c.data, c.buf.data(), c.buf.size(), c.codec, c.type, c.bits);
         c.buf.clear();
         c.buf_first_row = c.n_rows;
     }
@@ -4241,6 +4321,17 @@ int StoreWriter::add_column(const std::string& name, ColumnType type, bool ragge
     if (ragged) c.obuf.push_back(0);
     impl_->cols.push_back(c);
     return static_cast<int>(impl_->cols.size()) - 1;
+}
+
+void StoreWriter::set_bit_width(int column, unsigned bits) {
+    Impl::Col& c = impl_->col(column);
+    if (c.type != ColumnType::UInt8 || bits == 0 || bits > 7)
+        throw std::runtime_error("StoreWriter: '" + c.name +
+                                 "': bit packing is for UInt8 values of 1 to 7 bits");
+    if (c.n_values != 0 || !c.buf.empty())
+        throw std::runtime_error("StoreWriter: '" + c.name + "': set the bit width before appending");
+    c.bits = bits;
+    c.codec = kCodecNone;
 }
 
 void StoreWriter::set_metadata(int column, const std::string& json) {

@@ -3029,6 +3029,16 @@ public:
                    const std::string& codec = "", std::size_t segment_bytes = 0);
     /// The column's description (JSON), as \ref Column::set_metadata takes it.
     void set_metadata(int column, const std::string& json);
+    /*!
+     * \brief Store a UInt8 column's values in `bits` bits each (1..7), packed.
+     *
+     * For small alphabets: 21 residue codes take 5 bits, 62.5 % of a byte.
+     * The width is fixed, so any range still decodes alone -- a row is read
+     * without its segment -- and the column is served decoded (\ref view
+     * returns null; \ref read, \ref row and \ref segment_data decode). Set
+     * before the first append; a value that does not fit throws.
+     */
+    void set_bit_width(int column, unsigned bits);
     /// Append `n` values to a fixed-width column.
     void append(int column, const void* values, std::uint64_t n);
     /// Append one row of `n` values to a ragged column.
