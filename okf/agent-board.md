@@ -141,7 +141,7 @@ are still claims and still binding.
   - Why: the consurfer worker's HMMER search of UniRef90 takes hours per chain. Owner: no external programs, all imp.bff C++ (libcurl/zlib optional libraries), settings instead of hard-coded servers/paths, streaming in little memory, data on /Volumes/SD1TB.
   - Done when: settings file; `sequence-db create` (FASTA/gz -> binary FASTA .pto) and `index`; search in stream and index modes (k-mer prefilter, diagonal double hits, affine SW, Karlin-Altschul E-values) A/B-checked against the mmseqs binary as a black box; ConSurf's homolog filter; colabfold-v1 server fallback from settings; `imp_bff consurf` writing .grades and a B-factor PDB; UniRef90 on SD1TB: time, peak memory, agreement with ConSurf's 1lk2 grades.
   - Touching: imp.bff new `include/{BffSettings,SequenceDatabase,SequenceSearch,SequenceHomologs}.h` + src, `src/CommandLine{Sequence,Consurf}.cpp`; edits `SequenceMSA.*`, `SequenceAlignment.*`, `LabelizerScore.cpp`, `CommandLine.cpp`, CMake (optional curl/zlib), README. **imp.bff build lock held (claimed 2026-09-28).**
-  - Progress: ptolib 9abd1d8 / 50863a3 (stores streamed into and mapped from a .pto; per-column segments). imp.bff (local): b8d9cc35e settings + .pto sequence database; 128fa147a native search (A/B vs mmseqs on Swiss-Prot: all hits at E<=1e-10, misses only <32 % id; 0.4 s vs 25 s); be926f358 ConSurf homologue rules + compute_consurf + .grades + Labelizer records; 78d33070d CLI `sequence-db`, `sequence-search`, `consurf`, `labelizer --conservation db:NAME`; 1c4d7e7a6 colabfold-v1 server fallback (libcurl optional); 897ae798c two-stage search UniRef50 -> UniRef90 (owner: search faster than streaming all of UniRef90 from the SD card). k-mer index mode deferred: 200-360 GB and ~5 h for 2-4x on this SD card. Next: UniRef90/50 + idmapping downloading to /Volumes/SD1TB/sequences; full-scale timing. Build lock still held.
+  - Progress: native search + ConSurf pipeline + CLI + server fallback done (see commits in imp.bff 128fa147a..fabf49352). UniRef on /Volumes/SD1TB/sequences: one clustered store uniref.pto (23.4 GB; UniRef50 reps over UniRef90 members stored as edits vs rep or sibling; ptolib format 6: compact offsets, levels, zone maps, Huffman, reference rows, dictionaries). 1lk2 ConSurf 239 s (one full UniRef90 pass: 1154 s), 321 MB. Open: build peaks at 3 GB (budget); k-mer index mode dropped (SD card); ESM-2 conservation term proposed. Build lock still held.
 
 - **T-20260928-01 · [imp.bff] `ProbePairCostTerm`: a per-pair cost in the probe network selection**
   - Status: ✅ done (imp.bff `5a4493aa6`, local)
@@ -1931,6 +1931,15 @@ retired so nobody works the same thing twice.)*
 ---
 
 ## Active
+
+- **T-20260929-01 · [chisurf+emtk] chimol-in-ChiSurf emtk host: window resize ignored, trajectory playback only advances on mouse motion**
+  - Status: ✅ done
+  - Owner: hermes/glm-flash
+  - Opened: 2026-09-29 · Picked: 2026-09-29 · Done: 2026-09-29
+  - Why: tpeulen: "the scaling (resize) when opening [chimol] from chisurf is broken; trajectory play only plays when I move the mouse."
+  - Done when: resizing the hosted window re-renders the chimol frame at the new size; playback advances without input events; regression tests replay both sequences and pass.
+  - Touching: chisurf `chisurf/plugins/chimol/app.py` (untracked, this session's), `chisurf/plugins/chimol/test/test_emtk_host.py`, `okf/plugins/chimol-emtk.md`, `okf/log.md`. No chimol or emtk changes needed.
+  - Progress: done. `_resize_chimol` now grows the offscreen canvas (`set_logical_size`) before `on_resize`; `ChimolHostApp.animating()` reports `playback.running` so emtk's `ControlHost` keeps repainting during a movie; a `command.executed` bus subscription wakes the host (`request_frame`) when `mplay` starts without an input event. Both bugs reproduced headlessly first, fixed, `test_emtk_host.py` 8/8, e2e on the real Qt host (`ControlHost` + event loop): window resize re-renders at 1500x924, `mplay` advances 11 frames in 600 ms with zero input. Each regression test verified to fail against the pre-fix adapter. Resume: okf/plugins/chimol-emtk.md "Where to pick this up".
 
 - **T-20260928-ndxhost · [chisurf+ndxplorer] ChiSurf opens ndX as the emtk app (Qt host), the Qt ndX window retired from ChiSurf**
   - Status: ✅ done
@@ -3783,3 +3792,25 @@ retired so nobody works the same thing twice.)*
     NEW GUARD in mmfdb: no program name in any dictionary category/item
     keyword — if you add dictionary terms, keep them agnostic; the
     chisurf/chinet/ndxplorer/tttrlib spellings fail the build now.
+
+- **T-20260929-01 · [emtk+chisurf] ndX file drops broken in the Qt host; FRET save/load buttons out of Plot controls**
+  - claimed: 2026-09-29, hermes (tpeulen's session).
+  - Symptom: dropping a file on ChiSurf's ndX window does nothing. Root cause:
+    `emtk.qt_host.ControlHost` never enables drops and has no dragEnter/dropEvent,
+    and Qt does not propagate an ignored drag to the parent window — so both the
+    surface and the `ChisurfDolTool` window handlers are bypassed. Fix in emtk
+    (`emtk/qt_host.py` + test), the host is the one place every embedded app gets it.
+  - Also: remove the FRET calibration / Save calibration / Load calibration
+    buttons from ndX's Plot controls (chisurf `chisurf/plugins/ndxplorer/gui/app.py`,
+    `_add_fret_actions`); the FRET menu already carries all three.
+  - Progress: landed. emtk `3c2c5e2` (Qt host takes file drops: setAcceptDrops,
+    dragEnter/dragMove/dropEvent -> control's files_dropped / on_files_dropped,
+    2 new tests; suite 2170 passed); chisurf `074a03309` (docs 41 + okf log +
+    known-issues). The buttons were removed in `gui/app.py`, which is the
+    emtk-entrypoint migration's untracked file — the removal rides in that
+    file's tree state, not its own commit. Known issue opened: manifest
+    `entrypoints.emtk` makes the menu open the bare ControlHost while
+    test_window_routes still expects NdxWindow (pre-existing disagreement).
+  - Touching: emtk `emtk/qt_host.py`, `tests/test_qt_host.py`; chisurf
+    `chisurf/plugins/ndxplorer/gui/app.py`, plugin tests, docs guides 41/46 touch-ups,
+    okf/log.md. NOT touching: ndxplorer module, window.py, chisurf_dock_tool.py.
