@@ -35,7 +35,8 @@ OUTDIR="${1:-$ROOT/dist/pyodide}"
 if [[ ! -x "$PYODIDE_VENV/bin/python" ]]; then
     echo "==> creating $PYODIDE_VENV"
     if command -v uv >/dev/null; then
-        uv venv --python 3.13 "$PYODIDE_VENV"
+        # --seed: pyodide-build installs the cross-build packages with pip
+        uv venv --seed --python 3.13 "$PYODIDE_VENV"
     else
         python3.13 -m venv "$PYODIDE_VENV"
     fi

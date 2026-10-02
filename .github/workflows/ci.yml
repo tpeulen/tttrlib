@@ -2297,10 +2297,91 @@ jobs:
   # Downloads pre-built cibuildwheel artifacts from all platforms, builds an
   # sdist, and publishes everything to PyPI.
 
+  # ── Pyodide wheel (wasm32-emscripten) ──────────────────────────────────────
+  #
+  # tools/pyodide/build_wheel.sh, as on a desktop; its toolchain (pyodide-build,
+  # the cross-build environment, emsdk) lives under ~/opt and is cached.
+  #
+  # One binary, two names: `pyodide_2025_0_wasm32` is what micropip 0.10
+  # (Pyodide 0.28, what the pages load) installs; PyPI takes only the PEP 783
+  # name of the same ABI, `pyemscripten_2025_0_wasm32`, so a retagged copy goes
+  # into `pip-wheels-pyodide` and is published with the native wheels.
+  # Every push to dev also replaces the wheel on the rolling `pyodide-dev`
+  # pre-release, which the web pages (smfret-web) build from.
+  pyodide_wheel:
+    name: Wheel (Pyodide)
+    if: >
+      github.event_name == 'release' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: astral-sh/setup-uv@v6
+      - name: Cache the toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/opt/emsdk
+            ~/opt/pyodide-venv
+            ~/opt/pyodide-xbuildenv
+          key: pyodide-toolchain-${{ runner.os }}-${{ hashFiles('tools/pyodide/build_wheel.sh') }}
+      - name: Build
+        run: tools/pyodide/build_wheel.sh dist/pyodide
+      - name: Retag for PyPI
+        run: |
+          mkdir -p dist/pypi
+          cp dist/pyodide/tttrlib-*-pyodide_2025_0_wasm32.whl dist/pypi/
+          uvx --from 'wheel>=0.42' wheel tags --remove \
+              --platform-tag pyemscripten_2025_0_wasm32 dist/pypi/*.whl
+          ls -l dist/pyodide dist/pypi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pyodide-wheel
+          path: dist/pyodide/*.whl
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pip-wheels-pyodide
+          path: dist/pypi/*.whl
+          if-no-files-found: error
+
+  pyodide_dev_release:
+    name: Pyodide wheel -> pyodide-dev release
+    needs: pyodide_wheel
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pyodide-wheel
+          path: dist
+      - name: Replace the wheel on the pyodide-dev pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          notes="Pyodide wheel of the dev branch, replaced on every push (now ${GITHUB_SHA}). Not a release."
+          gh release view pyodide-dev -R "$REPO" >/dev/null 2>&1 ||
+            gh release create pyodide-dev -R "$REPO" --prerelease --target "$GITHUB_SHA" \
+               --title "Pyodide wheel (dev branch)" --notes "$notes"
+          gh release edit pyodide-dev -R "$REPO" --notes "$notes"
+          new=$(basename dist/*.whl)
+          gh release upload pyodide-dev -R "$REPO" "dist/$new" --clobber
+          # then drop the older wheels, so there is never a moment with none
+          gh release view pyodide-dev -R "$REPO" --json assets -q '.assets[].name' |
+            while read -r name; do
+              [ "$name" = "$new" ] || gh release delete-asset pyodide-dev "$name" -R "$REPO" -y
+            done
+
   publish_pypi:
     name: Publish to PyPI
     needs: [build_pip_lnx, build_pip_osx_arm64, build_pip_osx_x86_64, build_pip_win,
-            test_pip_lnx, test_pip_osx, test_pip_win]
+            test_pip_lnx, test_pip_osx, test_pip_win, pyodide_wheel]
     if: >
       (github.event_name == 'release' && github.event.action == 'published') ||
       (github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch')
