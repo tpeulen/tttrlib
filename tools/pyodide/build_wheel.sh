@@ -36,7 +36,9 @@ if [[ ! -x "$PYODIDE_VENV/bin/python" ]]; then
     echo "==> creating $PYODIDE_VENV"
     if command -v uv >/dev/null; then
         # --seed: pyodide-build installs the cross-build packages with pip
-        uv venv --seed --python 3.13 "$PYODIDE_VENV"
+        # --clear: a venv whose interpreter is gone (a restored CI cache without
+        # uv's Python) is replaced rather than refused
+        uv venv --seed --clear --python 3.13 "$PYODIDE_VENV"
     else
         python3.13 -m venv "$PYODIDE_VENV"
     fi
