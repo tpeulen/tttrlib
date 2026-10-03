@@ -91,6 +91,10 @@ PLUMBING = {
         "StoreOptions", "classify_by_extension", "codecs", "element_name", "has_codec",
         "can_compress", "can_decompress",
         "pack8", "popcount64", "split_encoding", "spread8", "store_format_version",
+        # store formats 5/6 (ptolib re-vendors 7726aa3..a4f5bfd): the streaming writer,
+        # the mapped reader and what it reports per column / segment, and the stream
+        # of a store inside a .pto -- storage, not analyses
+        "StoreWriter", "StoreReader", "ColumnInfo", "SegmentInfo", "PtoStoreStream",
     },
     "the registry itself": {
         "AlgorithmDescriptor", "algorithm_capabilities", "algorithm_key", "algorithm_operations_json",
