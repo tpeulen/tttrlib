@@ -3814,3 +3814,12 @@ retired so nobody works the same thing twice.)*
   - Touching: emtk `emtk/qt_host.py`, `tests/test_qt_host.py`; chisurf
     `chisurf/plugins/ndxplorer/gui/app.py`, plugin tests, docs guides 41/46 touch-ups,
     okf/log.md. NOT touching: ndxplorer module, window.py, chisurf_dock_tool.py.
+
+- **T-20261003-IMPBFF-WINLINK · [imp.bff] Windows CI `/WHOLEARCHIVE` link failure and follow-on settings regressions — DONE**
+  - Status: ✅ done — 2026-10-04
+  - Owner: hermes, continuing Claude session `63fef032-5a30-4635-b393-0a8f9ae81488`
+  - Opened: 2026-10-03 · Picked: 2026-10-03 · Done: 2026-10-04
+  - Why: the first uncancelled Windows build after `45670ac90` failed linking `_IMP_bff.pyd` with `LNK2005`/`LNK1169`; later test execution exposed Windows-only settings and mapped-file sharing cases.
+  - Root cause: the plain `target_link_libraries()` call exported `$<LINK_LIBRARY:WHOLE_ARCHIVE,ptolib::ptolib>` to the SWIG consumer. Its `/WHOLEARCHIVE:ptolib.lib` came after IMP import libraries whose thunks already defined `PtoTag::floats`' `std::vector<double>` members. Separately, BffSettings normalized an absolute POSIX path before checking whether it was absolute.
+  - Resolution: scope whole-archive ptolib to `IMP.bff-lib`'s own `LINK_LIBRARIES` (`bcd781b68`); fail conda packaging if installed Python extensions are absent; honor `XDG_CONFIG_HOME`, use native separators for relative settings paths, and preserve all absolute spellings (`535f3121f`, `8d8e46083`, `248187acf`). ptolib's Windows mapped reader now permits concurrent writers upstream (`d70b0ad`), re-vendored into BFF. CI also installs the exact notebook-test dependencies introduced by the NPS examples (`a12b824e4`).
+  - Verification: ptolib C++ tests 11/11; native IMP rebuild plus `test_bff_settings.py` and `test_sequence_clusters.py` 22/22 locally. GitHub Actions run `37159162547` completed successfully: all 12 scheduled jobs succeeded, including `IMP module (windows-latest)` build, package install, and fast suite; only release publishing was intentionally skipped.
