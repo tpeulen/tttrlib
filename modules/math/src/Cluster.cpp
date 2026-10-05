@@ -252,6 +252,74 @@ void KDTree::query(const double* point, int k, int* out_index,
     std::copy(ix.begin(), ix.end(), out_index);
 }
 
+namespace {
+
+/// Minkowski "distance to the p" between two rows, or a box gap vector
+/// collapsed the same way; `p` is 1, 2, inf or any other value >= 1.
+inline double minkowski_accumulate(double acc, double gap, double p) {
+    if (p == 2.0) return acc + gap * gap;
+    if (p == 1.0) return acc + gap;
+    if (std::isinf(p)) return gap > acc ? gap : acc;
+    return acc + std::pow(gap, p);
+}
+
+inline double minkowski_bound(double r, double p) {
+    if (p == 2.0) return r * r;
+    if (p == 1.0 || std::isinf(p)) return r;
+    return std::pow(r, p);
+}
+
+}  // namespace
+
+void KDTree::query_radius(const double* point, double r, double p, std::vector<int>& out) const {
+    if (!(p >= 1.0)) throw std::invalid_argument("KDTree::query_radius: p must be >= 1");
+    if (n_samples_ == 0 || !(r >= 0.0)) return;
+    const double bound = minkowski_bound(r, p);
+    std::vector<int> stack{0};
+    while (!stack.empty()) {
+        const int node = stack.back();
+        stack.pop_back();
+        const double* lo = &bounds_[static_cast<size_t>(2 * n_features_) * node];
+        const double* hi = lo + n_features_;
+        double box = 0.0;
+        for (int f = 0; f < n_features_; ++f) {
+            double gap = 0.0;
+            if (point[f] < lo[f]) gap = lo[f] - point[f];
+            else if (point[f] > hi[f]) gap = point[f] - hi[f];
+            box = minkowski_accumulate(box, gap, p);
+        }
+        if (box > bound) continue;
+        const Node& nd = nodes_[node];
+        if (nd.left >= 0) {
+            stack.push_back(nd.right);
+            stack.push_back(nd.left);
+            continue;
+        }
+        for (int i = nd.start; i < nd.stop; ++i) {
+            const int j = index_[i];
+            const double* row = data_ + static_cast<size_t>(j) * n_features_;
+            double acc = 0.0;
+            for (int f = 0; f < n_features_; ++f) acc = minkowski_accumulate(acc, std::fabs(row[f] - point[f]), p);
+            if (acc <= bound) out.push_back(j);
+        }
+    }
+}
+
+std::vector<int> KDTree::query_pairs(double r, double p) const {
+    std::vector<int> pairs, hits;
+    for (int i = 0; i < n_samples_; ++i) {
+        hits.clear();
+        query_radius(data_ + static_cast<size_t>(i) * n_features_, r, p, hits);
+        std::sort(hits.begin(), hits.end());
+        for (const int j : hits) {
+            if (j <= i) continue;
+            pairs.push_back(i);
+            pairs.push_back(j);
+        }
+    }
+    return pairs;
+}
+
 std::vector<double> KDTree::core_distances(int k) const {
     if (k < 1) throw std::invalid_argument("core_distances: k must be >= 1");
     const int kk = k > n_samples_ ? n_samples_ : k;

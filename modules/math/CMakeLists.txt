@@ -30,11 +30,14 @@ tttrlib_add_module(
              "${CMAKE_CURRENT_SOURCE_DIR}/src/KMeans.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/Kalman.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/Watershed.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/NdImage.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/Lsap.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/Hierarchy.cpp"
     HEADERS  "${CMAKE_CURRENT_SOURCE_DIR}/include"
     DEPENDS  util core   # core: the registry (Registry.h) the kernels declare themselves in
     EXTERNAL_DEPS tttrlib::pocketfft
     SWIG_INTERFACES Cluster.i Deconvolution.i Jitter.i Sampling.i
-                    HmmLattice.i Kalman.i Watershed.i ImageOps.i Embedding.i
+                    HmmLattice.i Kalman.i Watershed.i ImageOps.i NdImage.i Embedding.i
     TEST_DIR test/python/misc
 )
 

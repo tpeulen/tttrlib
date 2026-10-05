@@ -27,6 +27,27 @@ The `math` module houses tttrlib's shared numerical infrastructure: dense linear
   agree with it bit for bit — which is why the translation unit compiles with
   `-ffp-contract=off` (a fused multiply-add changes a tied edge, then the
   dendrogram; see the CMakeLists comment).
+- **`NdImage.h` / `NdImage.cpp`** (+ the binding facade `NdImageOps.h`): the
+  part of `scipy.ndimage` image analysis uses, N-D and std-only -- separable
+  and N-D correlation, Gaussian (and its derivatives / Laplacian), box, min/max,
+  rank and median filters in every boundary mode, connected-component labels
+  and `find_objects`, binary erosion/dilation (iterated, masked) and hole
+  filling, the exact Euclidean feature transform, and B-spline prefilter +
+  sampling (`map_coordinates`, `shift`, orders 0-5). Ports of scipy's C, not
+  re-derivations, and **bit-identical** to scipy 1.18.0 -- see below. Python:
+  `tttrlib.ndimage`, a module with scipy's names and signatures.
+- **`Lsap.h` / `Lsap.cpp`**: `linear_sum_assignment` (rectangular, Crouse's
+  shortest augmenting path), scipy's port line for line so tied costs pick the
+  same pairs.
+- **`Hierarchy.h` / `Hierarchy.cpp`**: agglomerative clustering from a condensed
+  distance matrix (single, complete, average/UPGMA, weighted, ward) and the
+  `fcluster` cuts (distance, maxclust, inconsistent, monocrit,
+  maxclust_monocrit), producing scipy's `Z` and scipy's cluster numbers.
+- **`ConvexHull.h`**: the 2-D convex hull (monotone chain), shaped like
+  `scipy.spatial.ConvexHull` (`vertices`, `equations`, `volume`, `area`).
+- **`SpatialOps.h`**: batch k-d tree queries -- k nearest neighbours,
+  ball (Minkowski p) and pair queries -- behind `KDTree.query`,
+  `.query_ball_point` and `.query_pairs`, which follow `cKDTree`.
 - **`Embedding.h`**: t-SNE and UMAP, non-linear 2-D/3-D embeddings of a point
   cloud (burst parameters, per-pixel lifetime/intensity/phasor features) in
   which clusters that overlap in every single projection come apart, for gating
@@ -390,6 +411,67 @@ valid — minimum spanning tree. That is the failure the whole total-order
 apparatus exists to prevent, and it hid for a while because the two kernels
 still agreed on most fixtures.
 
+
+## NdImage.h, Lsap.h, Hierarchy.h -- scipy's image, assignment and clustering code, ported
+
+These exist so that ChiSurf (and anything else) can drop scipy without a
+number moving, so the bar is identity, not closeness: every filter, the
+morphology, labelling, the feature transform, the spline sampler, the
+assignment and the dendrogram are compared **for exact equality, dtype
+included,** with scipy 1.18.0 in `test/python/misc/test_ndimage_parity.py`
+(74 tests). Only the k-d tree distances and the hull area -- an equally
+correct, differently ordered sum -- are compared to a few ulp.
+
+What identity cost, so nobody "simplifies" it away:
+
+- **`FP_CONTRACT ON` in `NdImage.cpp`**, the opposite of `Cluster.cpp`.
+  scipy's wheels are compiled with clang's default contraction, so its
+  `acc += x * w` is an fma. With contraction off, 162 of the 582 cases in
+  the exploratory sweep differed by 1-8 ulp (every Gaussian, correlate,
+  spline); with it on, none.
+- **Two boundary schemes.** Line filters extend each line with
+  `extend_line` (NI_ExtendLine); footprint filters map each coordinate with
+  `map_filter_index` (NI_InitFilterOffsets' switch, its `(int)` casts
+  included). They disagree once a pad is longer than the line, as scipy's do.
+- **dtype is written pass by pass.** scipy stores each 1-D pass of a
+  multi-axis filter in the *output* dtype, so a uint8 image smoothed along two
+  axes is truncated twice. The kernels work in double; `tttrlib.ndimage`
+  does the casts at the same points, including `CASE_FILTER_OUT_SAFE`'s
+  wrap of negatives into unsigned types for N-D filters.
+- **Order is part of the answer.** Labels are numbered by each component's
+  first pixel in a C-order scan (what scipy's merge-table compaction yields);
+  the Voronoi feature transform keeps scipy's tie-break; `linkage` keeps the
+  nearest-neighbour chain's "prefer the previous element" rule, the stable
+  sort and the union-find relabelling; `linear_sum_assignment` keeps the
+  reversed `remaining` fill and the prefer-a-free-column tie.
+- **The Gaussian kernel is built in Python**, with numpy, exactly as scipy
+  builds it, because its normalising sum is numpy's pairwise sum. The C++
+  `gaussian_kernel1d` exists for C++ callers and is ulp-close, not identical.
+
+Measured against scipy (Apple M-series, best of 5, single thread both sides):
+
+| case | scipy | tttrlib | ratio |
+|---|---:|---:|---:|
+| gaussian 512^2, s=2 | 3.26 ms | 3.67 ms | 1.13 |
+| gaussian 64x128x128, s=1.5 | 26.3 ms | 41.3 ms | 1.57 |
+| uniform 512^2, size 5 | 3.15 ms | 4.45 ms | 1.41 |
+| median 512^2, size 3 / 5 | 27.6 / 94.1 ms | 38.7 / 97.4 ms | 1.40 / 1.04 |
+| maximum, cross footprint, 512^2 | 1.55 ms | 1.67 ms | 1.07 |
+| convolve 512^2, 5x5 | 4.77 ms | 4.17 ms | 0.87 |
+| label 512^2 | 1.55 ms | 2.59 ms | 1.67 |
+| binary_dilation, 3 iterations | 5.68 ms | 11.9 ms | 2.09 |
+| binary_fill_holes 512^2 | 9.15 ms | 16.9 ms | 1.84 |
+| distance_transform_edt + indices | 13.2 ms | 14.9 ms | 1.13 |
+| map_coordinates o3, 62.5k points | 9.36 ms | 8.06 ms | 0.86 |
+| shift o3 512^2 | 22.1 ms | 17.4 ms | 0.79 |
+| linear_sum_assignment 300x300 | 2.24 ms | 2.23 ms | 1.00 |
+| linkage average, n=1500 | 14.7 ms | 12.3 ms | 0.83 |
+| k-d tree build + 4-NN, n=20k | 20.3 ms | 20.1 ms | 0.99 |
+
+The slow rows are the morphology (a per-pixel structure walk where scipy
+keeps a coordinate list of the border) and the line filters along a strided
+axis of a large volume (scipy buffers many lines at once, the port copies one).
+Neither is on a hot path today; both are where to look first if one becomes so.
 
 ## Deconvolution.h — undoing a known blur
 

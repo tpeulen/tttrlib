@@ -129,6 +129,17 @@ public:
     std::vector<double> mst_prim(const std::vector<double>& core,
                                  double alpha = 1.0) const;
 
+    /// Indices of every point within distance `r` of `point` in the
+    /// Minkowski `p`-norm (`p >= 1`, `inf` allowed), the boundary included:
+    /// scipy's `cKDTree.query_ball_point` test, `sum |dx|^p <= r^p` (for
+    /// `p = 2` squared distances against `r * r`, for `inf` the largest
+    /// coordinate gap against `r`). Appended to `out` in no particular order.
+    void query_radius(const double* point, double r, double p, std::vector<int>& out) const;
+
+    /// Every pair `(i, j)`, `i < j`, no farther apart than `r` in the
+    /// `p`-norm, flat as `[i0, j0, i1, j1, ...]` and sorted by `(i, j)`.
+    std::vector<int> query_pairs(double r, double p) const;
+
     /// Leaf size to build with when the caller has no opinion.
     ///
     /// Small leaves pay off only while the bounding boxes are tight enough to

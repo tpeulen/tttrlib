@@ -59,6 +59,10 @@ TTTRLIB_NOGIL(tttrlib::kmeans)
 // spelling; the Python-facing surface is the two free functions plus the
 // tree's own core_distances / mutual_reachability_mst.
 %ignore tttrlib::KDTree::query;
+// vector out-parameters; Python reaches them through the batch entry points
+// in NdImage.i (kdtree_query_ball_point, kdtree_query_pairs)
+%ignore tttrlib::KDTree::query_radius;
+%ignore tttrlib::KDTree::query_pairs;
 
 %include "Cluster.h"
 %include "KMeans.h"
@@ -68,6 +72,61 @@ TTTRLIB_NOGIL(tttrlib::kmeans)
     %pythoncode %{
     def __repr__(self):
         return "KDTree({} x {})".format(self.n_samples(), self.n_features())
+
+    def query(self, x, k=1):
+        """Distances and indices of the `k` nearest neighbours (scipy cKDTree.query, p=2).
+
+        `x` is one point or an (m, d) array; `k` an int or a list of
+        1-based neighbour ranks. Missing neighbours (k > n) come back as
+        distance inf and index n, as scipy pads them. Ties are ordered by
+        index.
+        """
+        x = np.asarray(x, dtype=np.float64)
+        single = x.ndim == 1
+        pts = np.ascontiguousarray(np.atleast_2d(x))
+        ks = None if np.isscalar(k) else np.asarray(k, dtype=np.int64)
+        kmax = int(k) if ks is None else int(ks.max())
+        idx, dist = kdtree_query(self, pts, kmax)
+        idx = np.asarray(idx, dtype=np.intp).reshape(-1, kmax)
+        dist = np.asarray(dist).reshape(-1, kmax)
+        if ks is not None:
+            idx, dist = idx[:, ks - 1], dist[:, ks - 1]
+        elif kmax == 1:
+            idx, dist = idx[:, 0], dist[:, 0]
+        if single:
+            idx, dist = idx[0], dist[0]
+        return dist, idx
+
+    def query_ball_point(self, x, r, p=2.0):
+        """Indices within `r` of `x` in the Minkowski `p`-norm, boundary included.
+
+        One point gives a sorted list; an (m, d) array an object array of
+        sorted lists (scipy cKDTree.query_ball_point with return_sorted).
+        """
+        x = np.asarray(x, dtype=np.float64)
+        single = x.ndim == 1
+        pts = np.ascontiguousarray(np.atleast_2d(x))
+        offsets, hits = kdtree_query_ball_point(self, pts, float(r), float(p))
+        lists = [hits[offsets[i]:offsets[i + 1]].tolist() for i in range(pts.shape[0])]
+        if single:
+            return lists[0]
+        out = np.empty(len(lists), dtype=object)
+        for i, l in enumerate(lists):
+            out[i] = l
+        return out
+
+    def query_pairs(self, r, p=2.0, output_type="set"):
+        """All pairs (i, j), i < j, within `r` (scipy cKDTree.query_pairs).
+
+        `output_type` is ``'set'`` (a set of tuples) or ``'ndarray'`` (an
+        (n, 2) array sorted by (i, j)).
+        """
+        flat = np.asarray(kdtree_query_pairs(self, float(r), float(p)), dtype=np.intp).reshape(-1, 2)
+        if output_type == "ndarray":
+            return flat
+        if output_type != "set":
+            raise ValueError("Invalid output type")
+        return set(zip(flat[:, 0].tolist(), flat[:, 1].tolist()))
     %}
 }
 
