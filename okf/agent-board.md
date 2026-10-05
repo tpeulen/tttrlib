@@ -1933,6 +1933,15 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
+- **T-20261005-FITWIN-EMTK · [chisurf+emtk] Fit window content is ONE emtk surface: plots, data table, info, code editor**
+  - Status: ✅ done (emtk bb4cce6, 4bfdadf, 10de583; chisurf 794b8e27d; local, not pushed)
+  - Owner: claude-opus-5.5/fitwin-emtk
+  - Opened: 2026-10-05 · Picked: 2026-10-05 · Done: 2026-10-05
+  - Why: tpeulen "plots in fitplot windows must be all in emtk, this includes also the code editor and the data table. there was/is an initial attempt to do so that failed so far."
+  - Done: `FitPlotsArea` = one `ControlHost` over an emtk `ImApp`+`DockManager`; every page body drawn in emtk (translator `chisurf/gui/plots/emtk_page.py`); Data table = emtk page with the Qt page's tools; Code face = emtk (`fit_code_face.py`). All-model sweep (`test_fit_window_pages_all_models.py --run-slow`): 236 pages / 42 models drawn by emtk except StateSchemePlot, ProteinMCStructurePlot (Qt islands over the surface, shrinking `QT_PAGES`).
+  - Open (resume in okf/subsystems/fit-window.md): **push emtk and bump pixi.lock** (CI installs an emtk without host_control/PaneStack until then); port StateSchemePlot and ProteinMC structure; plot controllers (options dock) still Qt.
+  - Pre-existing, not from this change (red identically on a clean HEAD worktree): test_autoform_state::test_it_works_on_shipped_view_specs, test_burst_reuse (2). test/test_prd_mentions.py red on other lanes' uncommitted burst_h2mm/burst_mle_analysis files + stale core_fit.py allow-list line. Released all touched paths.
+
 - **T-20261001-nps · [imp.bff] NPS without IMP: the two IMP restraints become plain functions; the standalone/Pyodide build of dev compiles again**
   - Status: ✅ done (imp.bff 2dc10ac21, pushed to fork/dev)
   - Owner: opus-5.5/labelizer
