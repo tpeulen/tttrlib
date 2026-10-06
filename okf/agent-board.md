@@ -3599,6 +3599,45 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261006-W7-RUNTIME · [emtk + chisurf] confirmed click-all root fixes**
+  - Status: ✅ done (2026-10-07)
+  - Owner: codex/w7-runtime
+  - Touching: emtk testing.Driver unavailable-rectangle capture + test_driver; ChiSurf pto_inspector/gui/app.py picker API call only (not shared dataset_picker.py), globalview/gui/model.py refresh callback only, structure_tools/app.py optional child key-release forwarding only; focused new regression tests and owning docs/OKF. Provider lane owns coherent committed IMP.bff core wheel verification; parent owns hash/version swap in pixi.lock and test/math/test_bff_provider.py. Immutable e6137af4f wheel installed (SCM0.15.0a2.dev215+ge6137af4f), native exports/callbacks verified before lock swap.
+  - Done when: actual faulty controls run without exceptions; typed callback/optional event regressions pass; PNGs inspected; matched provider exports F distribution arrays.
+  - Progress: exact e2e traceback/phase records in renders/e2e; source snapshots preserve foreign edits.
+  - Landed: Committed emtk2862b6a, ChiSurfcdd514998/1000136d4/96d007a66 and IMP.bff3550daa57/ecdebc57e/e6137af4f. Canonical provider32 scientific cases, ChiSurf15 provider/legacy trace cases and17 runtime regressions pass; actual PNGs inspected. QuEst clipping/retired viewer imports remain W6d/W9; PSF labels W11.
+  - Definition of Done (A2):
+    - [x] Root owner fixes, regression tests, matching native provider and pin.
+    - [x] Realistic headless GUI rendered and PNGs inspected; menu A/B inventory retained intended controls.
+    - [x] No new untranslated controls; native Cancel description/status handled by its separate resolved unit.
+    - [x] Owning concepts, user guide, evidence, dated log and programme resume updated; catalogue regenerated.
+    - [x] Available programme guards and harness987passed/17 expected skips.
+    - [ ] Whole-programme bundle guard depends on W0; real plugin e2e acceptance retains W6 and harness review gates.
+    - [x] Plain focused local commits, no trailers or pushes.
+    - [x] Resolved board; mnemosyne unavailable, numerical/pin/mode lessons persisted in OKF.
+
+
+- **T-20261007-W7-FIT · [chisurf] fit completion notifications and active link targets**
+  - Status: ✅ done (2026-10-07)
+  - Owner: codex/w7-globalfit
+  - Scope: W7 manual-screenshot reporting defects; source numerics remain unchanged.
+  - Touching: core/fitting/fit.py notification-only helper and completed-run event hunks; gui/main.py _refresh_fit_display UID targeting only; server/services/_stats.py additive active_in_structure metadata only; gui/widgets/fitting/parameter_widgets.py _fill_link_targets inactive filtering only; new focused fitting/GUI tests. Parent owns docs/OKF/log and source-hunk commits.
+  - Coordination note: the owner explicitly absorbed T-20261003-PROJECT-LIFECYCLE, T-20261004-PROJECT-INTEGRATION and T-20261003-PROJECT-STORAGE on 2026-10-06. Re-own only Main's fit-event refresh method here; all project/lifecycle and concurrent ndX parameter-table hunks stay outside this claim.
+  - Evidence: exact numeric residual/dof checks pass (global13.7941, real FCS34.3969); graph completion can publish no fit.updated events, and Main ignores the event UID. Parse FCS owns134 topology ports but exactly6 active equation targets. Keep parameters_all intact and filter only presentation.
+  - Done when: graph/single/global completion emits correct member/window events without duplicate model evaluation; UID selects the correct window; six active Parse link targets, all134 topology ports retained; targeted tests, actual GUI PNG inspected, docs/tracking and plain local commit.
+  - A2 DoD: root/test; inspected realistic GUI; controls/descriptions/tr; docs; owning OKF/log/status/resume; available guards plus explicit programme gates; local commit; resolved board/durable lesson.
+  - Landed: ChiSurf87f5e0917/e7e794a94;23 focused and89 DTO/service/global-graph cases pass. Actual before/after A488 Info/menu PNGs inspected; menu134→6 while all catalogue ports/UIDs persist. chi2r0.9999763241843488 rounds to1.0000 legitimately; no objective formula change. Source-owned deltas preserve foreign edits/modes.
+  - Definition of Done (A2):
+    - [x] Root owner fixes, regression tests, matching native provider and pin.
+    - [x] Realistic headless GUI rendered and PNGs inspected; menu A/B inventory retained intended controls.
+    - [x] No new untranslated controls; native Cancel description/status handled by its separate resolved unit.
+    - [x] Owning concepts, user guide, evidence, dated log and programme resume updated; catalogue regenerated.
+    - [x] Available programme guards and harness987passed/17 expected skips.
+    - [ ] Whole-programme bundle guard depends on W0; real plugin e2e acceptance retains W6 and harness review gates.
+    - [x] Plain focused local commits, no trailers or pushes.
+    - [x] Resolved board; mnemosyne unavailable, numerical/pin/mode lessons persisted in OKF.
+
+
 - **T-20261006-W7-CANCEL · [chisurf] bounded native long-job cancellation root**
   - Status: ✅ done (ChiSurf0faba1b19; 2026-10-07)
   - Owner: codex/w7-cancel
