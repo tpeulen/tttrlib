@@ -39,6 +39,7 @@ from tttrlib.core import *
 %include "Watershed.i"
 %include "ImageOps.i"
 %include "NdImage.i"
+%include "Signal.i"
 %include "Embedding.i"
 %include "Deconvolution.i"
 %include "Jitter.i"

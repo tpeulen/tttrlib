@@ -133,7 +133,7 @@ IF(BUILD_PYTHON_INTERFACE)
     file(GLOB SWIG_INTERFACE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/python/*.i" "${CMAKE_CURRENT_SOURCE_DIR}/python/split/*.i")
     list(REMOVE_ITEM SWIG_INTERFACE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/python/tttrlib.i")
     file(GLOB SWIG_PYTHON_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/python/*.py")
-    list(FILTER SWIG_PYTHON_HELPERS EXCLUDE REGEX ".*/(tttrlib|pipeline_module|ndimage_module|matfile_module).py$")
+    list(FILTER SWIG_PYTHON_HELPERS EXCLUDE REGEX ".*/(tttrlib|pipeline_module|ndimage_module|matfile_module|signal_module|interpolate_module).py$")
     set(SWIG_DEPENDENCIES "${SWIG_INTERFACE_FILES};${SWIG_PYTHON_HELPERS}")
     list(REMOVE_DUPLICATES SWIG_DEPENDENCIES)
 
@@ -305,6 +305,18 @@ IF(BUILD_PYTHON_INTERFACE)
     INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/python/ndimage_module.py
             DESTINATION ${TTTRLIB_PY_PACKAGE_DIR}
             RENAME ndimage.py
+            COMPONENT bindings)
+
+    # `tttrlib.signal` / `tttrlib.interpolate` -- scipy.signal's lfilter and
+    # savgol, scipy.interpolate's fixed-knot splrep/splev, over Signal.h. Real
+    # modules, outside the helper glob, for the same reasons as `ndimage`.
+    INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/python/signal_module.py
+            DESTINATION ${TTTRLIB_PY_PACKAGE_DIR}
+            RENAME signal.py
+            COMPONENT bindings)
+    INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/python/interpolate_module.py
+            DESTINATION ${TTTRLIB_PY_PACKAGE_DIR}
+            RENAME interpolate.py
             COMPONENT bindings)
 
     # `tttrlib.matfile` -- scipy.io's loadmat/savemat over MatFile.h. A real

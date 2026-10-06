@@ -165,6 +165,8 @@ def experimental(cls):
 %include "Watershed.i"
 %include "ImageOps.i"
 %include "NdImage.i"
+/* lfilter and FITPACK curfit/splev -- tttrlib.signal, tttrlib.interpolate */
+%include "Signal.i"
 %include "Embedding.i"
 /* Richardson-Lucy and Wiener deconvolution over the vendored FFT */
 %include "Deconvolution.i"
