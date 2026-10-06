@@ -46,6 +46,9 @@ from tttrlib.core import *
 #ifndef TTTRLIB_WITHOUT_IO_STORE
 %include "StoreFile.i"
 #endif
+#ifndef TTTRLIB_WITHOUT_IO_MAT
+%include "MatFile.i"
+#endif
 #ifndef TTTRLIB_WITHOUT_IO_PTO
 %include "Pto.i"
 #endif

@@ -21,6 +21,7 @@ add_subdirectory(hdf5)    # HDF5, both jobs: Photon-HDF5 v0.5 (a photon stream,
 add_subdirectory(image)   # TIFF arrays -- file I/O, but not a TTTR container
 add_subdirectory(csv)     # CSV -> DataStore. Depends on core; see its CMakeLists.
 add_subdirectory(store)   # the native .dstore file. No external dependency at all.
+add_subdirectory(mat)     # MATLAB Level-5 MAT-files, own inflate/deflate.
 add_subdirectory(pto)     # PTO, the PhoTon cOntainer: EBML, DocType "pto".
 
 # Last, because it depends on every module above that can hold a table and
