@@ -125,6 +125,15 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
+- **T-20261007-W7-INTEGRATION · [chisurf] open plugin acceptance gate**
+  - Status: ⏳ advertised, source implementation complete
+  - Owner: unassigned; integrate after ordered W1/W6/W0 owners
+  - Touching: no source paths held; rerun committed test/e2e after dependent units integrate.
+  - Done when: all124 current-hash workers pass; zero remaining tour/demo/tooltip/reachability gates and FCS/MMFDB timeouts; bundle guard green; authorized CI validation.
+  - Evidence: frozen9a124workers30pass/94fail, zeroordinaryruntimeexceptions; errors are coverage/integration findings until owner reproduction. Three timeouts; all artifacts/phase/control/manifest owners in permanent ledger.
+  - Next: W1 recovers5eed46f9f before fixing splitter duplicate…IDs; W6 supplies safe demo-first actual awaits and reachable controls; W0 supplies bundle guard. Program remains active, no permission/pause requested.
+
+
 - **T-20261006-W1 · [chisurf + imp-tricks + ndxplorer] CLAIM — PRD-154 W1: tree hygiene (P-K)**
   - Status: 🆕 open
   - Owner: —
@@ -133,13 +142,6 @@ are still claims and still binding.
   - Touching: worktrees `~/dev/chisurf-fix-wt`, `~/dev/chisurf-lint-check`; the 6 files of 5eed46f9f (`core/fluorescence/imaging/intensity.py`, `plugins/core/code_editor/gui/{__init__,editor_preferences,html_output}.py`, `plugins/tttr/tttr_splitter/gui/app.py`) + its untracked robustness tests/`core/plugin/discovery.py`/`menu_switch`; root stray files (AGY_*, CODEX_TASK, HANDOVER*, .env, .hermes, tools/emtk_migration); `.gitignore` root lines; `.ui` files + loaders P-K rows 1–14 (`chisurf/gui/decorators.py`, `chisurf/__main__.py`, `chisurf/gui/widgets/{fio,experiments,fluorescence/av,pdb,wizard}/**`, tcspc/structure view.jsons, `experiment_configs.yaml`, `core/project/session.py` alias map lines only, manifests/wizards of fcs_merger, fcs_correlator, burst_fcs_correlator, vv_vh_g_factor, microtime_histogram, burst_selection/gui/legacy); `test/test_no_ui_files.py`, `test/ui_file_allowlist.txt`; `chisurf/_bundled_packages.py`; `~/dev/imp-tricks/src/sitecustomize.py`; `modules/ndxplorer/test{,s}/`; `okf/workflows/testing.md` (new `## Lint A/B targets` section only — W7 also edits this file, appending only); prd-154 W1 resume item.
   - Progress: stopped before implementation/commit; stale claim released 2026-10-06 per user. Resume in PRD-154; W5 goes first.
 
-- **T-20261006-W7 · [chisurf + emtk] CLAIM — PRD-154 W7: e2e click-all, CI e2e, red suites (P-G)**
-  - Status: 🆕 open
-  - Owner: —
-  - Opened: 2026-10-06 · Picked: 2026-10-06 · Done: —
-  - Done when: `test_ui_schemas.py` 0 failed; `pixi run -e test test-e2e` runs every plugin with PNG+JSON sidecars; CI workflows carry the e2e job + smoke + loud deploy-key step; triage script + test.
-  - Touching: emtk `emtk/view_form.py` (new SECTION_KEYS/COMMON_KEYS block only), emtk `tests/test_view_form_schema.py`; chisurf `chisurf/plugins/emtk_layout.py`, `chisurf/core/dataspec/schema.py`, `chisurf/core/dataspec/schemas/view.schema.json`, `test/test_ui_schemas.py`, the view.json files carrying typo keys (`parameter_table`/`add`/`log_x`/`parametric`/`columns_source`), `test/e2e/**`, `pixi.toml` (test-e2e task + e2e marker), `.github/workflows/{test-coverage,pixi-ci,pixi-act-test}.yml`, `build_tools/dev_utils/triage_failures.py` + test, `okf/workflows/testing.md`, prd-154 W7 item.
-  - Progress: stopped before implementation/commit; stale claim released 2026-10-06 per user. Resume in PRD-154; W5 goes first.
 
 - **T-20260928-03 · [ptolib] Streaming writer, ragged columns, mmap reader, block-compressed random access (for a UniRef90-scale sequence store)**
   - Status: ✅ done (ptolib 7726aa3, local)
@@ -3598,6 +3600,38 @@ retired so nobody works the same thing twice.)*
 *(Move completed entries here. Prune entries older than 30 days.)*
 
 ## Resolved
+
+- **T-20261007-W7-SERVER · [chisurf] bounded lifecycle red-file diagnosis**
+  - Status: ✅ resolved (2026-10-07)
+  - Owner: codex/w7-server
+  - Scope: W7 known shared-server fixture isolation/43 red cases/hang front.
+  - Touching: read/test `test/server/test_integration_lifecycle.py`, `test/server/helpers.py`, `chisurf/server/app.py`, `chisurf/core/api/_client.py`; no source writes until root posts precise fix scope. New scratch settings/MMFDB/database and owned ephemeral ports only.
+  - Done when: exact targeted-file baseline/timeout attributable; recommend owning root/test fix, preserve foreign work and avoid user daemons.
+  - A2: no implementation claimed; targeted tests only, no full suite, bounded own processes, durable handoff to parent.
+  - Evidence: full targeted lifecycle75/75 passed in9.93s, exit0 under isolated storage/ephemeral ports; no watchdog/hang. Current commits already fix stale contracts; no source edit warranted. ChiSurfedf3a85a7 reconciles two stale issue records with durable JUnit/log. Root resume/log updated; no GUI/control changes; no push.
+
+
+- **T-20261006-W7 · [chisurf + emtk] CLAIM — PRD-154 W7: e2e click-all, CI e2e, red suites (P-G)**
+  - Status: ✅ source implementation landed; programme integration remains open
+  - Owner: codex/prd154-w7
+  - Discovered-root subclaim: Quest `quest/core/dye_diffusion.py`, `tests/test_quencher_distances.py`, numexpr lines in pyproject/pixi, owning diffusion concept/log/README; dependency is missing during real Qt factory import, scientific8-case distance oracle preserves contacts and precision.
+  - Scope correction: owning ndxplorer `app/parameter_table.py` exports parameter-table/curve metadata keys; schema/tour native envelopes and raw-loader checks follow current readers. Prior parameter-table claim is done/released.
+  - Opened: 2026-10-06 · Picked: 2026-10-06 · Done: —
+  - Done when: `test_ui_schemas.py` 0 failed; `pixi run -e test test-e2e` runs every plugin with PNG+JSON sidecars; CI workflows carry the e2e job + smoke + loud deploy-key step; triage script + test.
+  - Touching: emtk `emtk/view_form.py` (new SECTION_KEYS/COMMON_KEYS block only), emtk `tests/test_view_form_schema.py`; chisurf `chisurf/plugins/emtk_layout.py`, `chisurf/core/dataspec/schema.py`, `chisurf/core/dataspec/schemas/view.schema.json`, `test/test_ui_schemas.py`, the view.json files carrying typo keys (`parameter_table`/`add`/`log_x`/`parametric`/`columns_source`), `test/e2e/**`, `pixi.toml` (test-e2e task + e2e marker), `.github/workflows/{test-coverage,pixi-ci,pixi-act-test}.yml`, `build_tools/dev_utils/triage_failures.py` + test, `okf/workflows/testing.md`, prd-154 W7 item.
+  - Progress: re-owned 2026-10-06; user now authorizes continuation through the entire PRD without stopping. Schema authority first, e2e next; targeted tests only. Preserve all foreign hunks. mnemosyne unavailable; durable notes in PRD/OKF.
+  - A2 DoD: root+test+pin; inspected GUI parity; control descriptions/tr; docs; OKF/log/status/resume; guard gate; plain local commits; resolved board/durable lesson.
+  - Handoff2026-10-07: schema647, frozenharness36, availableguards+harness991/17expectedskips; sources7f02c5cdb and owning runtime/science commits verified. Fresh124workers30pass/94 explicit integration/coverage failures, zeroordinaryruntimeexceptions; durableledger chisurf/okf/validation/release-readiness-w7/final-9a.json. ParentupdatedPRD/log in2a2436ab3. Source paths released; nextactiveW1.
+  - Definition of Done (A2):
+    - [x] Owning schema, Driver/runtime, cancellation and provider fixes with targeted tests and exact pin.
+    - [x] Changed GUI realistically rendered and inspected; numeric/menu A/B receipts.
+    - [x] Changed Cancel description/translatable statuses; no fabricated tour notifications.
+    - [x] User docs, owning concepts, catalogue, dated log and PRD resume updated.
+    - [x] Existing programme guards and36harness cases pass991/17expectedskips.
+    - [ ] Programme acceptance still needs W1 orphan-source, W6 demo/tour/layout and W0 bundle integration; CI publication only when asked.
+    - [x] Focused plain local commits, no trailers/push; foreign tree/index work preserved.
+    - [x] Source unit resolved; durable lessons in OKF, mnemosyne unavailable.
+
 
 - **T-20261006-W7-RUNTIME · [emtk + chisurf] confirmed click-all root fixes**
   - Status: ✅ done (2026-10-07)
