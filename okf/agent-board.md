@@ -3597,6 +3597,49 @@ retired so nobody works the same thing twice.)*
 
 *(Move completed entries here. Prune entries older than 30 days.)*
 
+## Resolved
+
+- **T-20261006-W5 · [emtk + chisurf] CLAIM — PRD-154 W5: emtk root fixes (keyboard nav, node zoom, window frame, grid layout, position, Driver)**
+  - Status: ✅ done
+  - Owner: codex/w5-root
+  - Opened: 2026-10-06 · Picked: 2026-10-06 · Done: 2026-10-06
+  - Done when: W5 root steps plus documented sizing corrections landed; targeted acceptance verified; exact emtk hash pinned.
+  - Touching: emtk `emtk/{qt_host,native,im_core,im_widgets,nodes,flags,style,painter*,docking,testing}.py`, `emtk/widgets/view_spec.py`, `emtk/view_form.py` (`draw_sections` only — NOT W7's SECTION_KEYS block), emtk `tests/**` (new files + test_qt_host/test_nodes/test_emtk_im); NOT emtk `dialog_window.py` (someone's uncommitted edits). chisurf `chisurf/emtk/state.py`, `chisurf/plugins/core/help/gui/help_app.py`, new `chisurf/plugins/misc/games/gui/keys.py` + `if modifiers` guards in games `app.py`, literal-constant `Cond.ALWAYS` window sizes (size line only; not tool_hub.py), `pixi.lock` (emtk hash), `okf/subsystems/gui-autoform.md`, node-editor concept, prd-154 W5 item, `okf/log.md` bullet.
+  - Progress: completed 2026-10-06. emtk Driver-first 5de4c87 → a1398e0; ChiSurf 3f0266ecc / 0ebc6d96f / fe51b8175 (+ import-order follow-up). 327 emtk / 88 ChiSurf targeted passed; final Driver/frame 21 and helper seam 12 passed. Build, docs catalogue and scoped mypy verified; PNGs inspected. W7 next: exactly 102 schema failures, unchanged. Evidence: chisurf okf/validation/release-readiness-w5.md. Foreign edits preserved; no push.
+  - Definition of Done (A2):
+    - [x] Root fix + tests in owning repo; chisurf pin bumped.
+    - [x] GUI headless realistic render and PNG inspected; migrations before/after inventory.
+    - [x] Changed controls described and translated.
+    - [x] Docs updated.
+    - [x] Owning concepts, log, tracker and resume updated.
+    - [ ] Programme guard gate: 102 schema failures remain assigned to W7; bundle guard absent until W0. Every other existing Part A guard is green; no W5 regression. This is not a global programme acceptance.
+    - [x] Focused local plain-message commits, no trailers.
+    - [x] Board resolved and durable lesson recorded.
+
+- **T-20261006-W5-NAV · [emtk + chisurf] W5 bounded sub-claim**
+  - Status: ✅ done
+  - Owner: codex/w5-nav
+  - Touching: emtk/{im_core,im_widgets,__init__}.py; tests/{test_nav_keyboard,test_imgui_demo_last}.py; docs/concepts.rst. Col is canonical in im_core; default NAV_CURSOR style token reused.
+  - Done when: specified W5 root behavior tested and realistic PNG inspected; report to W5 leader.
+  - Progress: 2026-10-06: 124 targeted tests passed; default Tab/ShiftTab handled before app, window-local wrapping, Enter/Space activation, focus rings, slider/combo arrows, text caret + space/Enter preserved. Obsolete helper/export/caller deleted. nav-before/nav-after/nav-text PNGs inspected; visual verdict 98 pass. No commits from child.
+  - Landed: included in emtk a1398e0 and ChiSurf W5 commits; leader inspected captures and integrated regressions.
+
+- **T-20261006-W5-GRID · [emtk + chisurf] W5 bounded sub-claim**
+  - Status: ✅ done
+  - Owner: codex/w5-grid
+  - Touching: emtk/widgets/view_spec.py; tests/test_view_spec_grid.py; docs view-spec grid section.
+  - Done when: specified W5 root behavior tested and realistic PNG inspected; report to W5 leader.
+  - Progress: Driver shipped 5de4c87; preserve foreign hunks; targeted tests only; no commits from child.
+  - Landed: included in emtk a1398e0 and ChiSurf W5 commits; leader inspected captures and integrated regressions.
+
+- **T-20261006-W5-HOST · [emtk + chisurf] W5 bounded sub-claim**
+  - Status: ✅ done
+  - Owner: codex/w5-host
+  - Touching: emtk/{qt_host,native}.py; emtk/tests/test_qt_host.py + position tests; chisurf/emtk/state.py; test/gui/test_autoform_state.py.
+  - Done when: specified W5 root behavior tested and realistic PNG inspected; report to W5 leader.
+  - Progress: Driver shipped 5de4c87; preserve foreign hunks; targeted tests only; no commits from child.
+  - Landed: included in emtk a1398e0 and ChiSurf W5 commits; leader inspected captures and integrated regressions.
+
 ## Handoffs
 
 - **[tttrlib] Burst pipeline → C++ port**
