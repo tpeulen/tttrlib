@@ -125,6 +125,22 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
+- **T-20261006-W1 · [chisurf + imp-tricks + ndxplorer] CLAIM — PRD-154 W1: tree hygiene (P-K)**
+  - Status: 🆕 open
+  - Owner: —
+  - Opened: 2026-10-06 · Picked: 2026-10-06 · Done: —
+  - Done when: P-K acceptance — `git worktree list` one line; no root stray files; `find chisurf -name '*.ui'` = 1 (`gui/gui.ui`); `test/test_no_ui_files.py` green; imp-tricks sitecustomize no longer raises; `_bundled_packages` no longer shadows `sys.path[0]`.
+  - Touching: worktrees `~/dev/chisurf-fix-wt`, `~/dev/chisurf-lint-check`; the 6 files of 5eed46f9f (`core/fluorescence/imaging/intensity.py`, `plugins/core/code_editor/gui/{__init__,editor_preferences,html_output}.py`, `plugins/tttr/tttr_splitter/gui/app.py`) + its untracked robustness tests/`core/plugin/discovery.py`/`menu_switch`; root stray files (AGY_*, CODEX_TASK, HANDOVER*, .env, .hermes, tools/emtk_migration); `.gitignore` root lines; `.ui` files + loaders P-K rows 1–14 (`chisurf/gui/decorators.py`, `chisurf/__main__.py`, `chisurf/gui/widgets/{fio,experiments,fluorescence/av,pdb,wizard}/**`, tcspc/structure view.jsons, `experiment_configs.yaml`, `core/project/session.py` alias map lines only, manifests/wizards of fcs_merger, fcs_correlator, burst_fcs_correlator, vv_vh_g_factor, microtime_histogram, burst_selection/gui/legacy); `test/test_no_ui_files.py`, `test/ui_file_allowlist.txt`; `chisurf/_bundled_packages.py`; `~/dev/imp-tricks/src/sitecustomize.py`; `modules/ndxplorer/test{,s}/`; `okf/workflows/testing.md` (new `## Lint A/B targets` section only — W7 also edits this file, appending only); prd-154 W1 resume item.
+  - Progress: stopped before implementation/commit; stale claim released 2026-10-06 per user. Resume in PRD-154; W5 goes first.
+
+- **T-20261006-W7 · [chisurf + emtk] CLAIM — PRD-154 W7: e2e click-all, CI e2e, red suites (P-G)**
+  - Status: 🆕 open
+  - Owner: —
+  - Opened: 2026-10-06 · Picked: 2026-10-06 · Done: —
+  - Done when: `test_ui_schemas.py` 0 failed; `pixi run -e test test-e2e` runs every plugin with PNG+JSON sidecars; CI workflows carry the e2e job + smoke + loud deploy-key step; triage script + test.
+  - Touching: emtk `emtk/view_form.py` (new SECTION_KEYS/COMMON_KEYS block only), emtk `tests/test_view_form_schema.py`; chisurf `chisurf/plugins/emtk_layout.py`, `chisurf/core/dataspec/schema.py`, `chisurf/core/dataspec/schemas/view.schema.json`, `test/test_ui_schemas.py`, the view.json files carrying typo keys (`parameter_table`/`add`/`log_x`/`parametric`/`columns_source`), `test/e2e/**`, `pixi.toml` (test-e2e task + e2e marker), `.github/workflows/{test-coverage,pixi-ci,pixi-act-test}.yml`, `build_tools/dev_utils/triage_failures.py` + test, `okf/workflows/testing.md`, prd-154 W7 item.
+  - Progress: stopped before implementation/commit; stale claim released 2026-10-06 per user. Resume in PRD-154; W5 goes first.
+
 - **T-20260928-03 · [ptolib] Streaming writer, ragged columns, mmap reader, block-compressed random access (for a UniRef90-scale sequence store)**
   - Status: ✅ done (ptolib 7726aa3, local)
   - Owner: opus-5.5/16a6a771
