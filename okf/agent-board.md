@@ -3599,6 +3599,24 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261006-W7-CANCEL · [chisurf] bounded native long-job cancellation root**
+  - Status: ✅ done (ChiSurf0faba1b19; 2026-10-07)
+  - Owner: codex/w7-cancel
+  - Touching: `chisurf/core/math/hmm.py` (cancellation checks only; preserve foreign NumPy/scipy hunks), `chisurf/plugins/core/hmm/core/analysis.py` (fit_traces/scan cancellation propagation only), `chisurf/plugins/tttr/intensity_trace/model.py`, `gui/app.py`, `gui/intensity_trace.view.json`; new cancellation regression files. Parent owns intensity help/guide/concept/user docs and log.
+  - Done when: cooperative cancellation interrupts fit/scan, keeps previous completed results, real GUI Cancel returns worker idle, numeric baselines unchanged, before/after PNGs inspected.
+  - Progress: 47 focused regressions passed; captured EM/SQUAREM parameters/states exact, likelihood/BIC differences zero. Real demo Cancel clicked, workers idle, before/busy/cancelled PNGs inspected. Docs/catalogue updated. Existing programme guards plus harness982pass/17skip; absent bundle guard remains W0. Dwell-label provider issue remains separately owned W7-RUNTIME.
+  - Definition of Done (A2):
+    - [x] Owning HMM/analysis/app roots fixed with regression tests.
+    - [x] Realistic offscreen before/after/cancelled GUI rendered and inspected.
+    - [x] Cancel description and translated status strings; declarative labels use form localization.
+    - [x] Concept, numbered guide, help and guided-tour text updated; catalogue regenerated.
+    - [x] Owning TTTR concept, dated log and programme resume point updated.
+    - [x] Available programme guards and harness green (982 passed/17 expected skips).
+    - [ ] Whole-programme bundle guard still depends on W0; e2e acceptance retains W6 gates.
+    - [x] Focused plain local commit, no trailers or push; foreign numerical hunks excluded.
+    - [x] Moved to Resolved; mnemosyne unavailable, durable numerical lesson in OKF.
+
+
 - **T-20261006-W5 · [emtk + chisurf] CLAIM — PRD-154 W5: emtk root fixes (keyboard nav, node zoom, window frame, grid layout, position, Driver)**
   - Status: ✅ done
   - Owner: codex/w5-root
