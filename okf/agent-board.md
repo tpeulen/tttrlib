@@ -3601,6 +3601,15 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-MMFDB-CLI · [chisurf] manifest-authoritative headless curation launcher**
+  - Status: ✅ done (2026-10-07), ChiSurf `618824bbb3a49f924b5e3e8c97bf559ea8045fa3`; exact source/test/docs scope released.
+  - Owner: codex/grid-mmfdb-cli; integrated and committed by parent.
+  - Touching: released only `chisurf/plugins/core/mmfdb_admin/{manifest.json,__init__.py}` launcher metadata, exact shrinking PRD allowlist row, `test/core/test_mmfdb_cli_dispatch.py`, guide102 headless paragraph and MMFDB catalogue Surfaces row. Catalogue index byte-identical; no CLI registry/GUI/backend/science/provider/dependency/GF changes.
+  - Verified commit result: the manifest authoritatively exposes existing `csc fluorophore` to the real `mmfdb.admin.cli:cli`; redundant module declaration/export and stale planning comment are removed. Guide lists verified `pixi run -e test csc fluorophore --help` and `list --json` user commands; internal launcher-target prose remains evidence only. OKF/log/PRD resume and committed receipt accompany the focused plain local commit.
+  - Evidence: committed `okf/validation/release-readiness-w1/mmfdb-cli/` records3 genuine RED→3 GREEN and39 owning CLI/PRD passes5.08s; parent repeated3 passes1.62s and actual installed help succeeds with real owning subcommands/no discrepancy warning. Real read-only list uses scratch MFDatabase, forbidden socket connections and isolated settings/home/storage; help creates no DB. Ruff/diff clean. Exact original-source shadow reproduces all4 inherited legacy GUI bootstrap mypy errors unchanged; no suppression introduced. Raw RED output retained privately; tracked diagnostic differs only by trailing-whitespace normalization. Installed environment is canonical editable ChiSurf with unchanged declared providers.
+  - A2: [x] owning manifest root/regression; [x] no GUI change/new controls; [x] paired user docs/catalogue; [x] same-change OKF/log/PRD resume; [x] targeted real dispatcher/installed-command acceptance; [x] focused plain local commit; [x] exact released/Resolved scope. Private before/after snapshots, modes and isolated patch remain `/private/tmp/chisurf-w1-mmfdb-cli` and `-before`.
+
+
 - **T-20261007-W1-ROW7-DOCS · [chisurf] paired native FRET workflow documentation**
   - Status: ✅ done (2026-10-07), ChiSurf `e851b77924ac722011b4e64fe3b53d2e16d6ad0c`; exact docs/figure scope released.
   - Owner: codex/w1-row7-docs; integrated and committed by parent.
