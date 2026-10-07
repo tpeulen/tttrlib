@@ -3601,6 +3601,23 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-ROW7-DOCS · [chisurf] paired native FRET workflow documentation**
+  - Status: ✅ done (2026-10-07), ChiSurf `e851b77924ac722011b4e64fe3b53d2e16d6ad0c`; exact docs/figure scope released.
+  - Owner: codex/w1-row7-docs; integrated and committed by parent.
+  - Touching: released FRET-only prose in `docs/concepts/structure_trajectories.md`, `docs/guides/81_trajectory_tools.md`, and `docs/guides/figures/traj_tools_fret_native_hgbp.png`. Scientific formulas and seven other hub tool sections retained; no source/backend/app ownership remains in this documentation ticket.
+  - Verified commit result: hosted/standalone native launch, four horizontal chain/residue/atom triples with cascades/defaults, close/queued-worker ownership and accepted stride4/lifetime4ns hgbp scene are documented with the committed inspected figure and existing theory/guide/headless links. Source retirement, catalogue/OKF/log/PRD and lifecycle tests landed in the same parent unit.
+  - Evidence: committed `okf/validation/release-readiness-w1/fret-retirement/receipt.md` records parent69 targeted and665 contract passes, four inspected before/after states and normal capture exit. Committed legacy/native CSV blobs are byte-identical (116 rows, six columns; SHA2560257451933040a3b86b570f0785d2d0d85c96944f1d07c77ed38df9f199ed823). Figure blob exists at78805bytes. Historical mixed Qt crash evidence is retained; the accepted post-retirement scenario exits normally without claiming every Qt lifetime proven.
+  - A2: [x] existing paired scientific docs; [x] inspected accepted real render; [x] meaningful control/numeric/lifecycle proof; [x] same-change docs/catalogue/OKF/log/PRD; [x] focused plain local commit; [x] exact scope released and Resolved. No new controls/pages/dependencies.
+
+- **T-20261007-W1-MMFDB-DEMO-CAPTIONS · [chisurf] truthful packaged synthetic demo captions**
+  - Status: ✅ done (2026-10-07), ChiSurf `f268efdc2c0dc6f6db6c0a20eb5570eafd088a9e`; exact caption/test scope released.
+  - Owner: codex/w1-mmfdb-demo-captions; integrated and committed by parent.
+  - Touching: released only two translated legacy captions in `chisurf/plugins/core/mmfdb_admin/gui/tool.py` and `test/gui/test_mmfdb_demo_captions.py`. No UI layout/control/backend/provider or native population-action changes.
+  - Verified commit result: confirmation/running captions truthfully name packaged synthetic smFRET burst tables through QObject self.tr; No starts no work and Yes keeps the existing background/result lifecycle. Parent user guide102 and inspected result figure, log/PRD/W1 evidence landed with the source.
+  - Evidence: committed `okf/validation/release-readiness-w1/mmfdb-captions/receipt.json` records RED2→GREEN2, Ruff/compile checks and six personally inspected question/running/result PNGs. Actual isolated seed is50/38/32 input rows (120 total),63 selected rows, synthetic true; no sockets, daemon or real user storage/accounts. Result figure blob exists at172848bytes. The screenshot ReplayClient freezes only population completion while replaying genuine owning-seed data; this bounded ticket does not claim header gesture wiring or native action coverage.
+  - A2: [x] owning semantic strings/tr; [x] meaningful actual-handler regressions; [x] inspected headless before/after parity; [x] no controls/dependencies introduced; [x] same-change docs/OKF/log/PRD; [x] focused plain local commit; [x] exact scope released and Resolved.
+
+
 - **T-20261007-W1-FCS-ROW10-DOCS · [chisurf] paired native FCS workflow documentation**
   - Status: ✅ done; scoped unit landed2026-10-07 in `d1333481e8ac9627e3f7e5ea5e95e0ea98072809`; exact paths released.
   - Owner: /root/w7_server.
