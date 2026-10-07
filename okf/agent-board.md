@@ -3601,6 +3601,24 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-STRUCTURE-RETIRE · [chisurf] bounded row6 retirement tests and preparation**
+  - Status: ✅ done (2026-10-07), scientific/preparation scope published by ChiSurf `514e66be4` with full row6.
+  - Owner: codex/w1-structure; integrated by codex/prd154-w1.
+  - Touching: released; explicit lazy constructor filename in `core/experiments/modelling/reader.py`, matching cached-Structure facts in the existing session structure branch, owning source-free/configuration/import tests and producer only. Preparation introduced no serialized counter trust, broad project changes or widget workaround; Grid's session use was read-only and separately committed bool predicates remain intact.
+  - Verified: initial lost-source/zero-facts RED roots became8 current green cases, then the two YAML/host gates completed after row5; final parent10 cases and configured host A/B inspection are accepted. Normalized missing-source matches yield1300atoms/164residues from actual cached148L, selected-unimported source retains0/0; supplied internal option and original filename persist.
+  - Evidence: scoped before/root patch and explicit preparation-only PNG at `/private/tmp/prd154-w1-structure-retire-before/`; durable accepted full evidence in `chisurf/okf/validation/release-readiness-w1/structure-retirement/` and owning W1 concept. Source modes/foreign bytes retained; package/user/test docs, log and PRD included in `514e66be4`.
+  - A2 unit DoD: [x] owning scientific root/regressions; [x] realistic inventory/producer and final inspected host; [x] existing descriptions/tr and no new dependencies; [x] same-change docs/OKF/log/PRD; [x] scoped acceptance, superseded pending gates now completed by final unit; [x] plain local commit and released preparation scope; [x] resolved board/durable handoff. Full W1, row7, caption/later reader/FCS fronts, global communication and RMF output remain open under their owners.
+
+- **T-20261007-W1-STRUCTURE-FINAL · [chisurf] full row6 native reader retirement after row5**
+  - Status: ✅ done (2026-10-07), ChiSurf `514e66be4`, row6 scope only.
+  - Owner: codex/w1-structure; integrated by codex/prd154-w1.
+  - Touching: released; exact Structure YAML null-controller row; retired modelling controller/dead folder chain and two dedicated UIs; exact package exports/folder-only imports; only the removed Structure communication-budget entry. Owning reader/session facts and tests published with this unit. No remaining ownership of row7 selector production or provider sources.
+  - Verified: parent10 actual148L/root/import tests pass; lazy source and internal-coordinate behavior retained; restored display facts derive from matching cached atoms without original-source access, mismatch keepszero. Strict configured host imports once with exact atoms/counts. Available Part A five-guard selection961 passed/17 expected skips.
+  - Preservation: PDBSelector entire AST class source chunk and pdb_widget.ui proved byte-identical at row6 landing; original modes preserved, including pdb.py100755. Row7 remains independently active and owns any later selector changes. Foreign committed bool-mask/session and all other hunks preserved; no dependencies or folder API added.
+  - Evidence/docs: `chisurf/okf/validation/release-readiness-w1/structure-retirement/{receipt.md,structure-configured-host.json,structure-configured-host.png}`; actual A/B inventory and configured148L PNG inspected by child and parent. User docs `chisurf/docs/reference/file_formats/structure_files.md` plus `figures/structure_reader_native.png`; test contract `chisurf/docs/development/emtk_interaction_testing.md`; owning W1 concept/log/PRD published in the commit.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected configured control parity; [x] descriptions/tr preserved and no new dependencies; [x] same-change docs/OKF/log/PRD; [x] targeted/available guard evidence; [x] plain local commit and released scope/modes; [x] resolved board/durable receipt. Global communication guard2 failures (268/67 diagnostic) and canonical-core RMF sampling remain open programme gates, not row6 completion claims.
+
+
 - **T-20261007-W1-SIMULATOR · native TCSPC simulator preparation**
   - Status: ✅ resolved (2026-10-07), ChiSurf `c5770b603`; native tabs SDK `309d97012`, pin `4e9ec9799`.
   - Owner: /root/nav; integrated by codex/prd154-w1.
