@@ -3601,6 +3601,18 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-MARKER-PERF · [emtk] real FCS dense scatter renderer root**
+  - Status: ✅ resolved (2026-10-07); owning SDK `d998f93f173461613fc51be6314f26b74ccd5e17`, ChiSurf publication `e80883375f6daff2436d42700718da925ef7f013`.
+  - Owner: codex/w1-marker-performance; integrated by codex/prd154-w1.
+  - Touching: released marker slice only: emtk/{implot_items,implot,qt_painter,testing,offset_painter}.py and tests/test_marker_rendering.py. No FCS source/data sampling; Globalfit visibility/diagnostic claim and all other ownership remain separate.
+  - Verified: 61 targeted child renderer/painter tests and 65 canonical installed-SDK parent tests passed (parent 8.91s). Exact Qt byte parity covers alpha/layering, fractional centres, clipping, DPI/device scale, transforms and opacity; software opaque coverage skips only already identical pixels, with no coordinate quantization. Explicit zero marker outline is corrected; legend/default fills remain visible and both-transparent styling stays transparent.
+  - Real-scene measurement: complete BH_SPC132 input has 183,657 photons; the existing caller's positive-dT mask draws 183,648 markers (selected 96,766; removed 86,882). Original Qt ready-to-saved-PNG wall interval 41.81s includes PNG encoding; final pure Qt draw 4.44s and software draw 7.08s are separate scopes. No false pure-before timing claim.
+  - Data identity: input SHA256 `c5039821af4643258af8b5f8a5d989a79380395fd5316c9b25a66c6997019373`; full selected/removed source arrays retain 96,774 / 86,883 rows and all four x/y hashes remain identical before/after (exact hashes in `/private/tmp/prd154-w1-markers-receipt.json`). No numerical, selection, fit or hover source reduction.
+  - Canonical publication: emtk 0.1.6 at the immutable SDK commit is installed; ChiSurf lock has all 21 pin references, `pixi lock --check` exits 0. Parent published SDK docs and ChiSurf concept/evidence/docs/log/PRD resume in the linked commits; parent inspected the three dense before/after PNGs.
+  - Evidence: frozen owned patch `/private/tmp/prd154-w1-markers-owned.patch` (SHA256 `cf4e336fccbc3183581c8f52c556b603b41933415f40ccb3e0b820d672c355c5`); before `/private/tmp/prd154-w1-markers-before`; after `/private/tmp/prd154-w1-markers-after`; producer and timing limits `/private/tmp/prd154-w1-markers-receipt.json`; inspected images `/private/tmp/prd154-w1-marker-renders/{before-qt,after-qt,after-pixel}.png`.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected real before/after; [x] style/alpha/geometry semantics and no new dependencies; [x] published docs/OKF/log/PRD resume; [x] targeted and canonical acceptance; [x] plain local immutable SDK/host commits and released scope; [x] resolved board/durable receipt. Full FCS family acceptance remains its own claim.
+
+
 - **T-20261007-W1-FCS-PEAK-TERM · [mmfdb] central FCS diffusion-time vocabulary**
   - Status: ✅ done and released (2026-10-07), MMFDB `8a38bd1e0d62eabdd9d7ea9c917ed173c80e6220`, ChiSurf record `2b5614baf121f9319ea356a52b9fc0a591b5747e`.
   - Owner: codex/prd154-w1
