@@ -3601,6 +3601,15 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-CHIPLOT-AXIS-UNITS · [chisurf] owning plot axis unit metadata**
+  - Status: ✅ landed and released2026-10-07; scoped plotting prerequisite only.
+  - Scope: `chisurf/gui/chiplot/canvas.py::Plot.set_labels`; `backends/base.py::Canvas.set_labels`; `backends/pyqtgraph_backend.py::_PgCanvas.set_labels,set_si_prefix` plus `_set_axis_si_prefix` adapter and `_Curve.get_data` raw-sample root; `chisurf/gui/chiplot/handles.py::Curve.get_data` contract doc only; `backends/emtk_backend.py::EmtkCanvas.__init__,set_labels,set_si_prefix,draw,_draw_axes` plus an axis display helper; new `test/gui/test_chiplot_axis_units.py`; `docs/development/api.rst` axis semantics only.
+  - Done when: additive four unit kwargs preserve text/unit metadata, actual PG axis units and emtk left/bottom SI ticks without rescaling curve data; RED/GREEN targeted tests; realistic before/after PNGs personally inspected; exact lint/type baseline; frozen own patch. Parent owns OKF/log/PRD and focused local commit.
+  - DoD: [x] owning root + tests; [x] before/after GUI + inventory; [x] descriptions/tr not applicable (plot data labels are caller supplied); [x] docs; [x] parent OKF/resume/log; [x] parent guards; [x] plain local commit; [x] resolved board.
+  - No additional emtk right/top axes: preserve metadata, document current PG-only rendering capability. No deps, direct native escapes, framework, staging or commits.
+  - Handoff: source paths released/frozen `/private/tmp/prd154-w1-chiplot-axis-units/receipt.json`;111 targeted cases pass5.77s, Ruff0/newtesttypes0,45 inherited source diagnostics unchanged. Actual BH200-point before/after inspected, PG unit pixels exact and original arrays unchanged. Parent integration/OKF/commit pending.
+  - Parent acceptance: ChiSurf678e8ad059f8b6a0860293c69f1ac05cc71bcf4c;111targetedcases3.28s plus959availablePartAguards/16expectedskips32.50s; all8measuredrenderspersonallyread.7exactsource/test/API-docpaths,modes andunownedASTpreserved; PGunitPNGbyteexact/all200samplehashesunchanged.45inheritedtypeddiagnostics stayW0; absentbundle guardpreventsfullsix-fileprogrammeclaim. No deps/nativeescape/passthrough/allowanceexpansion/estimatorchange. Sourceaxesreleased; three nativecell/GFcallbacktestports retain separateactiveclaim.
+
 - **T-20261007-W1-BURST-DOCS · [chisurf] current shipped Burst Selection instructions**
   - Status: ✅ landed and released2026-10-07; bounded fallback retirement or shipped instruction cleanup.
   - Owner: /root/w7_server; parent owns OKF/source acceptance/publication.
