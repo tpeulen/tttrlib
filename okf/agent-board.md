@@ -3601,6 +3601,17 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-ROW7 · [chisurf] bounded native selector/FRET retirement**
+  - Status: ✅ done and released (2026-10-07), ChiSurf `e851b77924ac722011b4e64fe3b53d2e16d6ad0c`, row7 scope only.
+  - Owner: codex/w1-row7; integrated by codex/prd154-w1, paired docs by codex/w1-row7-docs.
+  - Touching: released; remaining legacy PDBSelector/module/UI/export and FRET Qt pane/sections retired; native exports/launcher/manifest and exact Traj Tools FRET adapter/owned-close lifecycle adopted; scoped oracle/GUI/host tests. Original seven other hub tabs, scientific engine/model bodies, grouping API, structure fields and all foreign hunks/modes preserved. Helper/wheel prerequisites `5918c13d0` remain separate committed roots.
+  - Verified: parent69 FRET/hub cases and665 schema/plugin/source contracts pass; three adapter/launcher/owned-close RED cases became GREEN. Hosted hgbp output116×6 is byte-identical to the preserved successful legacy file; independent coordinate distance/kappa/rate assertions remain. Two app/model AST audits confirm numerical bodies unchanged. Actual configured-hub and subsequent native-raster captures pass with normal process exit; no retention, skip or forced-exit workaround.
+  - Available guard scope: parent five Part A guards958 passed/17 expected skips in24.14s after row7; three removed legacy cases explain the prior961 count. Sixth `test/test_okf_bundle.py` remains absent and owned by W0. This scoped result does not accept global communication, RMF sampling or whole W1/programme DoD.
+  - Visual evidence: four inspected PNGs in `chisurf/okf/validation/release-readiness-w1/fret-retirement/`: `before-hub.png`, `after-loaded.png`, `after-analysis.png`, `after-hub-closed.png`. Full eight tabs and every before control remain;12 cascading choices now use four horizontal atom triples. Stride1/R0=52Å/tau2.6ns/frame1ns/dipoles defaults unchanged; accepted parity scene stride4/tau4 retains required units/output. Parent and owner inspected all four captures including closed-hub lifecycle.
+  - Docs/record: paired `chisurf/docs/concepts/structure_trajectories.md` and `docs/guides/81_trajectory_tools.md`, new owned hgbp figure and regenerated `docs/reference/plugins/traj_fret.md`; owning `okf/plugins/trajectory.md`, W1 evidence, known-issue disposition, PRD pickup and dated log published in the commit. Durable receipt/control inventory plus preserved legacy/native files under `fret-retirement/`; exact private source/docs snapshots retained for ownership audit.
+  - A2 unit DoD: [x] owning frontend/lifecycle roots and regressions; [x] inspected four-image control/exit parity; [x] descriptions/tr/units/defaults preserved and no new dependencies; [x] paired theory/guide/catalogue and owning concept/PRD/log; [x]69 parent tests/665 contracts/exact scientific bytes; [x] plain local commit and released scoped paths/modes; [x] resolved board/durable receipt. Main W1, later reader/caption/FCS fronts and global communication/RMF sampling gates remain open, not accepted by this unit.
+
+
 - **T-20261007-W1-STRUCTURE-RETIRE · [chisurf] bounded row6 retirement tests and preparation**
   - Status: ✅ done (2026-10-07), scientific/preparation scope published by ChiSurf `514e66be4` with full row6.
   - Owner: codex/w1-structure; integrated by codex/prd154-w1.
