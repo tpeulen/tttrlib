@@ -3601,6 +3601,32 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-STARTUP · [chisurf] retire startup-only UI loader**
+  - Status: ✅ done (2026-10-07)
+  - Owner: codex/w1-startup
+  - Touching: released; chisurf/__main__.py startup error path; chisurf/gui/widgets/simple_error_dialog.ui removal; test/gui/test_error_dialog.py and new test/core/test_startup_failure_reporting.py. Parent owns docs/OKF/log/PRD and exact source-delta commit.
+  - Done when: P-K row1 startup failures log traceback and re-raise original exception without Qt/dialog/settings deletion; original diagnostic scene captured before deletion; crash logging honors scratch settings and cleans resources on failure; success hard-exit contract remains until W9.
+  - A2 unit DoD: [x] owning root/test; [x] inspected GUI or approved diagnostic/removal baseline; [x] control descriptions/tr where changed (none new for removals); [x] docs and owning OKF/log/PRD resume; [x] focused acceptance checks with programme-wide gates still owned by W1; [x] plain focused local commit; [x] resolved board and durable receipt.
+  - Progress: landed and released. ChiSurf 6aadc9ce2; 10 targeted startup/basic tests passed. Original diagnostic PNG inspected; failures log and re-raise without a second GUI or settings deletion. Receipt: chisurf/okf/validation/release-readiness-w1/startup/receipt.md.
+
+- **T-20261007-W1-READER-HOST · [chisurf] native reader-settings shell seam**
+  - Status: ✅ done (2026-10-07)
+  - Owner: codex/w1-reader-host
+  - Touching: released; new chisurf/emtk/reader_settings.py; SetupMixin._refresh_setup_ui native reader fallback hunks only (called by onSetupChanged) in chisurf/gui/main_helper.py; new test/native_emtk/test_reader_settings.py and test/gui/test_native_reader_settings_host.py. No reader/spec/YAML migration yet. Parent owns docs/OKF/log and exact-delta commits.
+  - Coordination: user absorbed PROJECT-LIFECYCLE/PROJECT-INTEGRATION/PROJECT-STORAGE on2026-10-06. Re-own this shell callback hunk only; preserve foreign startup/controller-resolution/history/project sections. No other scope held here.
+  - Done when: null-controller reader with a declared view renders in existing settings dock via emtk ControlHost; genuine values/callbacks and lifecycle proved; legacy controllers retain behavior; real loaded-CSV PNG inspected; targeted red/green tests and plain local commit.
+  - A2 unit DoD: [x] owning root/test; [x] inspected GUI or approved diagnostic/removal baseline; [x] control descriptions/tr where changed (none new for removals); [x] docs and owning OKF/log/PRD resume; [x] focused acceptance checks with programme-wide gates still owned by W1; [x] plain focused local commit; [x] resolved board and durable receipt.
+  - Progress: landed and released. ChiSurf 550d5a5cf; 20 focused host/lifecycle cases passed. Four PNGs inspected (source, file picker, database picker, supported CSV subspec). This proves the host subset only: full CSV/session-curve specs and legacy reader UI retirement remain open. Receipts: chisurf/okf/validation/release-readiness-w1/reader-host/.
+
+- **T-20261007-W1-SPC-DEAD · [chisurf] unused photon sample widget removal**
+  - Status: ✅ done (2026-10-07)
+  - Owner: codex/w1-spc-dead
+  - Touching: released; SpcFileWidget class and now-unused imports only in chisurf/gui/widgets/fio/fio.py; chisurf/gui/widgets/fio/spcSampleSelectWidget.ui removal. Preserve CsvWidget and other helpers untouched. Parent owns docs/OKF/log/PRD and staging.
+  - Done when: verified no callers; before diagnostic/real-sample capture or explicit construction failure retained; class/UI removed; FIO/reader imports and targeted CSV tests remain green; root source snapshot/mode preserved.
+  - A2 unit DoD: [x] owning root/test; [x] inspected GUI or approved diagnostic/removal baseline; [x] control descriptions/tr where changed (none new for removals); [x] docs and owning OKF/log/PRD resume; [x] focused acceptance checks with programme-wide gates still owned by W1; [x] plain focused local commit; [x] resolved board and durable receipt.
+  - Progress: landed and released. ChiSurf 26cf56c11fcfada5f855bcc6b4030ed26008e26c; 19 parent checks and 20 child before/after checks passed. Before PNGs inspected; explicit approved uncalled-widget removal, no replacement/parity claim. CsvWidget tail byte-identical, source mode100755 retained. Receipt: chisurf/okf/validation/release-readiness-w1/spc-retirement/parent-verification.json.
+
+
 - **T-20261007-W7-SERVER · [chisurf] bounded lifecycle red-file diagnosis**
   - Status: ✅ resolved (2026-10-07)
   - Owner: codex/w7-server
