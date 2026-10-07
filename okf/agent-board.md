@@ -3601,6 +3601,15 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-UI-DECORATORS-PREP · [chisurf] final Designer helper cleanup preparation**
+  - Status: ✅ landed and released2026-10-08; unused Designer helper cleanup only.
+  - Owner: /root.
+  - Touching: own board entry/private `/private/tmp/prd154-w1-ui-decorators-before/` snapshots, exact caller/dependency/packaging plan only. No production/test edits, staging, commits, dependencies or deletion. Existing `test/test_no_ui_files.py` remains parent-owned.
+  - A2 preparation: [ ] exact helper/caller inventory and foreign bytes/modes captured; [ ] retained drag-file callback/source-jump Python contract identified; [ ] explicit main `chisurf.gui/gui.ui` runtime packaging verified by planned manifest regression; [ ] bounded cleanup/test plan returned. Source/docs/guard/commit A2 remains deferred to parent-authorized cleanup after row14.
+  - Evidence:18files/foreign diff snapshots preserved; two predecessor decorator sites and one retained drag caller measured. Actual Qt drag/Python-source probe passed; five package-data cases passed; in-memory proposed exact package mapping includes main gui.ui. Plan and receipts at `/private/tmp/prd154-w1-ui-decorators-before`; extra dead code_badge UI fallback requires explicit future scope. No production/test bytes edited.
+  - Future exact authorized cleanup scope (held): `chisurf/gui/decorators.py` (retired UI helpers only, drag injector preserved), `chisurf/gui/devtools/source_jump.py` (two UI fallback branches + stale source PRD doc), `chisurf/gui/widgets/code_badge.py` (dead UI fallback/doc only), `pyproject.toml` (global UI glob→explicit chisurf.gui gui.ui), `test/gui/test_ui_compile_cache.py` (obsolete cache-only tests retirement), `test/prd_mention_allowlist.txt` (source_jump row only); future focused drag/Python-source/main-package regression file(s) named before release. All originals now19snapshots. Parent no-ui guard remains read-only.
+  - Final acceptance: ChiSurf9c1c5b44fcbf8864a87b00bc0b79a7132c33f843;18targetedbehavior/package/noUI/sourcechecks21.49s plus959availableguards/16expectedskips32.34s, actualdragbefore/afterPNGparentread, dragbodybyteidentical, realmainUIpackage selection. Loader/cache/XMLfallback/cache-onlytest retired; source3→2typeddiagnostics/no newerrors. Lockcheck0/oneworktree/exactmainUI; .zed originaldiskconfig preserved. RequestedMLEfeature/fullW1/PRD/inheritedtype/bundlegates remain open. Scope released; no push/trailers.
+
 - **T-20261007-W1-CHANNEL14-EDITING-TESTS · [chisurf] native cell edits and actual calibration persistence regressions**
   - Status: ✅ landed and released2026-10-08; detector retirement unit only.
   - Scope: ONLY `test/gui/test_cell_text_editing.py`, `test/gui/fitting/test_g_factor_update.py`, `test/gui/fitting/test_auto_save_after_g_factor.py`. No production/shared source writes.
