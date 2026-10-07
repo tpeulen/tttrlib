@@ -3601,6 +3601,14 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-NATIVE-HELP · [chisurf] shared long-help body/footer root**
+  - Status: ✅ done (2026-10-07), ChiSurf `79decaea40a445ea396a506a9cfde75a0ab02218`; exact sharedHelp/source/test scope released.
+  - Owner: /root/nav; integrated and committed by parent.
+  - Touching: released only owning EmTkHelpWindow/resource-path narrowing in chisurf/emtk/help_guide.py and new test/gui/test_native_help_scrolling.py. Foreign TourTarget/place_tour_card/EmTkGuidedTour tail retains HEAD bytes exactly; no unrelated semantic/formatting adoption. Existing test-source/docs/modes and other claims preserved.
+  - Evidence: parent11 canonicalinstalled tests pass12.70s, scopedmypy0/Ruff0; actual narrow/All-scrolled/Outputs/2×DPI PNGs personally inspected. Translated category/header controls wrap by measured width; stable body identity retains reading position on drag; full body/link callback/All-back/Close/Guide and frame-derived footer reserve remain reachable. Actual native DemoPTU→worker4500photons(3000VV/1500VH), FWHM4bins/.128ns used; normalhostclose. Owning PixelPainter true-scissor root is already canonical emtk0.1.7, independentlyResolved.
+  - A2: [x] measured before/after category/body/footer/control inspection; [x] owner regression/resource invariants; [x] canonicalinstalled runtime/type/lint; [x] existing docs/concept/PRDresume/log/evidence samecommit; [x] focused plainlocalcommit; [x] exactscope released/Resolved. Committed `okf/validation/release-readiness-w1/native-help/` includes accepted source/render/dependency receipts; private source composition `/private/tmp/prd154-w1-help-stage` confirms tested AST and unchanged foreign guided-tour tail. W1/programme and separate JSON/full-reference calibration/Microtime gates remain open.
+
+
 - **T-20261007-W1-EMTK-TABLE-MODIFIERS · [emtk] actual frame table keyboard modifier forwarding**
   - Status: ✅ done (2026-10-07); owner source `dd034d76792e11e97590e6e00b7a080da3bb3fdc`, accepted canonical SDK0.1.7 `2c30fc5595f8bdeea87e8bfdcb13c47e72884618` and ChiSurf `24df62f80ef3bb34c67acc4d001cb0a695c7f5cb`; exact6source/test/docs/version scope released.
   - Owner: codex/grid-emtk-table-modifiers; integrated/committed/installed/pinned by parent.
