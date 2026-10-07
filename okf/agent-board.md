@@ -3601,6 +3601,29 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-GFACTOR-ROW11 · [chisurf] authorized native G-factor retirement and detector persistence**
+  - Status: ✅ done (2026-10-07), ChiSurf `37b95ad84c8c55cfc50fb6a0c8959f5f4fd39173`; exact source/caller/test scope released.
+  - Owner: codex/w1-gfactor-retirement; integrated and committed by parent.
+  - Touching: released18 owned source/test paths, including2 byte-verified clean legacy gui/tool.py and wizard.ui deletions; native package/factories/app/model/spec; lifetime caller; detector persistence; shared PathListView optional callbacks/Folder/form state; owned regression guards. Parent-approved test_plugin.py instruction-only delta included; seed/scientific operations/writer/output bytes unchanged. No Row12/SDK/provider/dependency/scientific algorithm ownership remains.
+  - Verified result: native standalone/lifetime/detector routes; G/actual SD/tail/reference/calibration IDs/active actor/effective resolution persist only after successful archival. Missing or nonfinite mixing preserves stored l1/l2; explicit manual0 persists. Cancel/error/read-only/empty/busy closes publish nothing; completed close publishes once. Seven batch buttons/quantities reachable, with actual Folder/Database/Remove/Clear and separated background columns; PixelMLE default behavior preserved.
+  - Evidence: committed `okf/validation/release-readiness-w1/gfactor-retirement/acceptance.json` records88 runtime cases,963 guards with16 expected skips,14 post-type-cleanup cases,11 mypy targets/zero diagnostics; all final PNGs personally inspected by parent.24 main controls/seven batch buttons/seven scientific quantities retained. Independent real PTU fit verifies9968 fitted observations across12frames and12288 total frame/y/x rows,2320 skipped; paired maps byte-identical, no seed-lifetime recovery claim. Fresh composition16contents/2clean deletions retains all tested semantics and adopts no foreign semantic baseline. No source algorithms changed.
+  - A2: [x] owning root/caller regressions; [x] headless before/after control/numeric inspection; [x] documented paired theory/workflow/catalogue; [x] same-change OKF/log/PRD resume; [x] targeted runtime/guards/type acceptance; [x] focused plain local commit; [x] exact scope released/Resolved. W1/programme remain open; RF-173 statistical estimand/uncertainty and RF-919 background assumptions remain explicit W0 scientific review in current usecase. Next row12 is independently active/released.
+
+- **T-20261007-W1-GFACTOR-DOCS · [chisurf] paired native G-factor documentation**
+  - Status: ✅ done (2026-10-07), ChiSurf `37b95ad84c8c55cfc50fb6a0c8959f5f4fd39173`; exact two-page/two-figure docs scope released.
+  - Owner: /root/w7_server; integrated and committed by parent.
+  - Touching: released owning native-workflow paragraphs in `docs/concepts/anisotropy.md`, `docs/guides/91_vv_vh_g_factor.md` and new inspected reference/batch figures. Existing scientific expressions, old figure and neighbor prose preserved; parent catalogue/OKF/usecase/log/PRD included with source unit.
+  - Evidence: committed gfactor-retirement/docs-receipt.json and final-image-hashes.json verify actual accepted native states/captions; guide documents real launcher/core examples, calculated per-bin SD, invalid mixing/prior value versus manual0, active calibration actor, close-once/busy/error/read-only behavior and all batch controls. Actual Python/csc calculations agree on synthetic G1.21871370349/corrected SD0.15505478516. Synthetic reference and noisy bundled G≈15.6 are truthfully distinct; noisy reader diagnostic is never calibration ground truth. All final figures were personally inspected by parent; source/runtime/type gates landed in same unit.
+  - A2: [x] existing paired scientific/application docs; [x] actual inspected accepted figures; [x] truthful numeric/control/close behavior; [x] same-change catalogue/OKF/log/PRD; [x] focused plain local commit; [x] exact scope released/Resolved. Current usecase retains RF-173/RF-919 for W0 review; no full W1/programme closure claimed.
+
+- **T-20261007-W1-GFACTOR-PARITY-TESTS · [chisurf] frozen legacy G-factor oracle test port**
+  - Status: ✅ done (2026-10-07), ChiSurf `37b95ad84c8c55cfc50fb6a0c8959f5f4fd39173`; exact two-file test scope released.
+  - Owner: /root/nav; integrated and committed by parent.
+  - Touching: released ONLY vv_vh_g_factor/test/test_emtk_vv_vh_g_factor_parity.py and test_widgets.py. Frozen old control/numerical capture remains the oracle; unchanged seeded make_data is only the physical-input producer, with four generated input hashes checked against capture. No scientific/core/SDK/dependency source ownership remains.
+  - Evidence: committed gfactor-retirement/test-receipt.json records52 targeted passes plus final background-header distinction guard and Ruff clean. Actual recursive Folder/scoped Database/selective Remove/Clear/Run/Save/result-cell Delete coverage preserves seven scientific quantities, G/SD/lifetime/mixing and shifted/flip/settings behavior. Parent88 runtime cases/963 guards16expected skips/11 mypy targets zero and personally inspected final before/after PNGs complete integration; exact owned delta over HEAD avoids whole foreign test-format adoption.
+  - A2: [x] immutable capture/physical-input invariance; [x] actual native control/numeric/lifecycle regressions; [x] targeted tests/lint; [x] parent visual/docs/OKF/PRD/log integration; [x] focused plain local commit; [x] exact scope released/Resolved. W1/programme and W0 scientific assumptions remain open independently.
+
+
 - **T-20261007-W1-MMFDB-CLI · [chisurf] manifest-authoritative headless curation launcher**
   - Status: ✅ done (2026-10-07), ChiSurf `618824bbb3a49f924b5e3e8c97bf559ea8045fa3`; exact source/test/docs scope released.
   - Owner: codex/grid-mmfdb-cli; integrated and committed by parent.
