@@ -3601,6 +3601,25 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-PARAMETER-UPDATE-REVIEW · [chisurf] concrete Parameter controller refresh**
+  - Status: ✅ done (2026-10-07), ChiSurf `2962b53eb1bedc3c1c79b2e5ec2d9c90f6b43c9a`; exact source/test scope released.
+  - Owner: codex/grid-parameter-update-review; parent integrated and committed.
+  - Touching: released `chisurf/core/parameter.py` existing update/abc-import root, `chisurf/core/fitting/parameter.py` duplicate update deletion, and `test/fitting/test_parameter_update_contract.py`. Base/Sticking/scientific getter/setter/GraphPort/hot loops/provider pins/runtime aliases preserved.
+  - Result: false abstract marker removed by moving the existing meaningful optional-controller finalize/error-handling behavior into concrete Parameter.update. Bare/fitting real editor update/state restore, derived graph values, group refresh, exactly-once fitting notifications and no-controller behavior verified; no no-op/ignore/suppression added. Scoped Sticking abstract constructor diagnostics cleared; broad parameter/fitting typing baseline unchanged outside owning repairs.
+  - Acceptance: combined parent105cases/zeroexpectedFailure (4.62s), Ruff/scoped mypy clean. Sixteen owning update guards and sixteen file-codec guards. Parent/child inspected four qualified before/after PNGs; before recreation qualifications/raw original failures retained, no original baseline claims fabricated.
+  - Evidence: `/private/tmp/chisurf-w1-parameter-update-review/production-receipt.json` and `/private/tmp/chisurf-w1-parameter-dict-audit/receipt.json`, own patches and original/mode-preserving after snapshots. Parent docs/reference/owning parameters concept/known issue/PRD resume/log are committed with the combined unit.
+  - A2 DoD: [x] owning meaningful root/tests; [x] qualified headless comparison inspected; [x] no new controls; [x] parent docs; [x] parent OKF/log/PRD resume; [x] scoped105acceptance; [x] plain local commit; [x] exact source scope released and Resolved.
+
+- **T-20261007-W1-PARAMETER-DICT-TEST · [chisurf] portable scalar files and obsolete expectedFailure**
+  - Status: ✅ done (2026-10-07), ChiSurf `2962b53eb1bedc3c1c79b2e5ec2d9c90f6b43c9a`; exact codec/test scope released.
+  - Owner: codex/grid-parameter-dict; parent integrated and committed.
+  - Touching: released `chisurf/core/parameter.py` Parameter-only portable file hooks/helpers, `test/fitting/test_parameter.py` public test_dict/test_save_load replacement and JSON import, and `test/fitting/test_parameter_file_serialization.py`. Base generic serialization, live in-process to_dict/from_dict ports/links, graph/science/hot-loop algorithms unchanged.
+  - Result: actual JSON/YAML save/load preserves scalar/name/UUID/public metadata/bounds/fixed/description/prior on the existing native port, including disabled stored bounds and cold-process reads/updates. Complete metadata/state validation precedes identity/scalar mutation; save and restore symmetrically reject non-JSON-native metadata. Genuine known scalar-state files recover; irrecoverable repr-port files reject clearly without guessing. Standalone linked/callable parameters explicitly require a session/project archive, never opaque representations.
+  - Acceptance: parent105cases/zeroexpectedFailure (4.62s), sixteen meaningful file guards including actual YAML integer-key rejection with unchanged native port/public state, fresh subprocess normal exit and actual editor refresh. Obsolete raw-private-Port expectedFailure removed only after the real serializer bug was fixed. Ruff/scoped mypy clean; broad source45before/45after zero new.
+  - GUI/evidence: four qualified actual before/after editor PNGs parent/child inspected; `/private/tmp/chisurf-w1-parameter-dict-audit/receipt.json`, incremental codec patch, separate old-test delta/before snapshots and mode-preserving source receipts. Parent reference/owning parameters concept/known issue/PRD resume/log committed in the combined unit.
+  - A2 DoD: [x] owning public serializer root/tests; [x] qualified headless comparison inspected; [x] no new controls; [x] parent docs; [x] parent OKF/log/PRD resume; [x] scoped105acceptance/zeroexpectedFailure; [x] plain local commit; [x] exact scope released and Resolved.
+
+
 - **T-20261007-W1-MARKER-PERF · [emtk] real FCS dense scatter renderer root**
   - Status: ✅ resolved (2026-10-07); owning SDK `d998f93f173461613fc51be6314f26b74ccd5e17`, ChiSurf publication `e80883375f6daff2436d42700718da925ef7f013`.
   - Owner: codex/w1-marker-performance; integrated by codex/prd154-w1.
