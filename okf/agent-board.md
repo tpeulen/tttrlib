@@ -3601,6 +3601,39 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-NDX-TESTS · [ndxplorer] retire the top-level test namespace**
+  - Status: ✅ done (2026-10-07)
+  - Owner: codex/w1-ndx-tests
+  - Touching: released; repository-root test/ merged into repository-root tests/ (tracked and untracked fixtures); actual test-path references only if needed. No ndxplorer app/menus/settings/package tests or other foreign source edits. Parent owns ChiSurf bootstrap/comment changes and commits/submodule pointer.
+  - Done when: path/mode/SHA manifests match after collision-safe moves; generated caches retained in private scratch; targeted before/after CSV/burst fixtures pass; old test/ namespace absent.
+
+  - A2 unit DoD: [x] owning root/source and targeted regressions; [x] inspected real GUI or no GUI change; [x] descriptions/tr where introduced, no new dependencies; [x] parent docs/OKF/log/PRD resume; [x] scoped acceptance evidence (programme retirement gates remain with main W1); [x] plain focused local commit and released ownership; [x] resolved board with durable receipts.
+  - Progress: landed and released. ndxplorer 3356d747; ChiSurf pointer/evidence f00008e2b. All 201 tracked paths preserved byte-for-byte and mode-for-mode;10 Python files (9 test modules+init),191 fixture/data files; 42 caches privately archived. CSV/burst 12 plus Gaussian/histogram 11 targeted cases passed. No old test/ namespace or sampling gap. Durable manifests: chisurf/okf/validation/release-readiness-w1/ndx-test-move/.
+
+- **T-20261007-W1-SITECUSTOMIZE · [imp-tricks] namespace-safe bootstrap**
+  - Status: ✅ done (2026-10-07)
+  - Owner: /root/nav; integrated by /root.
+  - Touching: released; own list-path guards/order in `src/sitecustomize.py`; new `tests/test_sitecustomize.py`. Foreign lazy-loader changes remain unstaged and preserved.
+  - A2 unit DoD: [x] owning root/source and targeted regressions; [x] inspected real GUI or no GUI change; [x] descriptions/tr where introduced, no new dependencies; [x] parent docs/OKF/log/PRD resume; [x] scoped acceptance evidence (programme retirement gates remain with main W1); [x] plain focused local commit and released ownership; [x] resolved board with durable receipts.
+  - Progress: landed and released. imp-tricks eb198e21b8037969a1f7b7724e66aa884c47bc03; ChiSurf evidence 82be7024b. Exact committed source passes 3 regressions (red 2 fail / 1 pass), plus required pixi namespace and arm64 regular cold imports both exit0 with source first. Foreign lazy-loader hunks remain unstaged. Receipt: chisurf/okf/validation/release-readiness-w1/environment/verification.json.
+
+- **T-20261007-W1-SDT · [chisurf] headless SDT calibration and native-view preparation**
+  - Status: ✅ done (2026-10-07); scoped prerequisite only, full retirement remains open
+  - Owner: codex/w1-sdt
+  - Touching: released; `chisurf/core/experiments/tcspc/sdt_reader.py`, committed `tcspc_sdt.view.json`, new `test/core/test_sdt_reader.py`; authorized parser root `chisurf/core/fio/fluorescence/sdtfile.py:block_measure_info` and `test/fio/test_sdtfile.py`. Snapshots and diagnostic artifacts outside the tree. Legacy SDT controller/UI, YAML and shared reader host remain untouched until parent releases row 3.
+  - Done when: real `140507p.sdt` calibration/three-curve import/preview selection/reload covered; exact core delta and full view/control parity plan handed to parent. Parent owns docs/OKF/log/commit.
+
+  - A2 unit DoD: [x] owning root/source and targeted regressions; [x] inspected real GUI or no GUI change; [x] descriptions/tr where introduced, no new dependencies; [x] parent docs/OKF/log/PRD resume; [x] scoped acceptance evidence (programme retirement gates remain with main W1); [x] plain focused local commit and released ownership; [x] resolved board with durable receipts.
+  - Progress: landed and released. ChiSurf 66f84f9de. Scientific/native-view prerequisite only: 17 child cases and 21 parent combined SDT/parser/Structure checks passed; exact 600 ns per-block calibration, real three-curve import/reload/session behavior retained. Curve 0 and curve 2 native PNGs inspected against baseline. Full row 4 YAML/controller/UI retirement remains OPEN in main W1, ordered after CSV row 3. Receipt: chisurf/okf/validation/release-readiness-w1/sdt-prerequisite/receipt.md.
+
+- **T-20261007-W1-STRUCTURE-VIEW · [chisurf] single-PDB native reader preparation**
+  - Status: ✅ done (2026-10-07); scoped prerequisite only, full retirement remains open
+  - Owner: /root/nav.
+  - Touching: released; `core/experiments/modelling/reader.py` filename/view_spec only; new `structure.view.json` and `test/test_structure_reader_view.py`. No YAML/controller/PDB/deletions until ordered rows3–5 complete. Preserve scientific read semantics and all foreign files.
+  - A2 unit DoD: [x] owning root/source and targeted regressions; [x] inspected real GUI or no GUI change; [x] descriptions/tr where introduced, no new dependencies; [x] parent docs/OKF/log/PRD resume; [x] scoped acceptance evidence (programme retirement gates remain with main W1); [x] plain focused local commit and released ownership; [x] resolved board with durable receipts.
+  - Progress: landed and released. ChiSurf 1be60a572. Single-PDB native-view prerequisite only: 4 reader tests, 27 bounded structure/schema cases and 21 parent combined checks passed. Actual 148L PNG inspected: 1300 atoms / 164 residues, original single-file/internal-coordinate controls retained. Raw folder baseline constructor failure is explicit; no folder parity claim. Full YAML/controller/folder/PDB retirement remains OPEN in main W1 after preceding rows. Receipt: chisurf/okf/validation/release-readiness-w1/structure-prerequisite/structure-148L.json.
+
+
 - **T-20261007-W1-STARTUP · [chisurf] retire startup-only UI loader**
   - Status: ✅ done (2026-10-07)
   - Owner: codex/w1-startup
