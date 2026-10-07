@@ -1,5 +1,30 @@
 # Bundle update log
 
+## 2026-10-07 — Fit24 reports the mixture used for its fitted curve
+
+`DecayFit24::fit` now returns effective A2 after the existing input correction,
+alongside its already-corrected gamma and offset. A measured BH SPC132 decay
+returned a negative raw optimizer fraction even though its model used A2=0;
+the reported vector therefore reconstructed a different curve. One writeback
+fixes the provider contract without changing optimization, objective, defaults,
+tau floor/failure sentinels or the existing coupled gamma correction. The
+touched source comment loses stale planning pointers while retaining the
+measured gradient decision.
+
+The new public-interface test and provenance-bearing numeric fixture prove
+three installed-provider failures before the repair and seven reporting cases
+after it. Targeted reporting, neighboring Fit23/24 reference and independent
+Fit24 objective/optimum gates: **15 passed, 3 subtests passed in 3.95s**. The
+actual measured 2I*=1.7064816013903084 and realized curve are byte-identical;
+reported A2 is now 0 and reconstructs that curve. Measured Fit23 parameter and
+curve hashes are unchanged. The existing ChiSurf pixi build task rebuilt and
+installed only its test environment, with no dependency or shadow-import
+change. The loaded packaged decay dylib is the compiled owner; its hash, not
+only the Python wrapper hash, identifies this fix. The module README and
+[algorithm validation register](testing/algorithm-validation.md#where-to-pick-this-up--fit24-reporting)
+record the qualified measurement and actionable verification route. Broader
+consumer UI/model-choice acceptance remains with the integrating project.
+
 ## 2026-09-24 — t-SNE and UMAP in tttrlib (T-20260924-embed)
 
 `modules/math` gains `Embedding.h` (`Tsne.cpp`, `Umap.cpp`, `Embedding.cpp`):

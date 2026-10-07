@@ -303,6 +303,26 @@ one `Fit23()` call through Python is **1.27×** faster; `fit_many` on 8000 rows
 values unchanged. See PRD-010's Phase 6 and `PERF.md`'s "Exact gradient in
 DecayFit23's general (tau/gamma) branch" for the full numbers.
 
+### `DecayFit24`: reported mixture parameters match the fitted curve
+
+The two-lifetime estimator treats `A2` as a fraction, not a signed rise
+amplitude. Its existing input correction restricts `A2` to `[0, 0.999]`,
+`gamma` to its existing allowed value and `offset` to nonnegative values.
+All three reported parameters carry the effective values used for the final
+curve and score. Previously `A2` alone retained the raw optimizer value:
+a measured decay returned `A2 = -0.0176459` although the fitted curve used
+`A2 = 0`. Reconstructing that curve from the returned vector therefore gave
+a different mixture.
+
+`test/python/decayfit/test_fit24_parameter_reporting.py` covers fixed values
+below and above the fraction bounds, gamma/offset correction, an interior
+fraction, and the recorded BH SPC132 decay. It checks forward reconstruction
+from the reported vector and the score of a fixed refit. The recorded decay
+uses estimated IRF/background and provider-derived timing; it establishes the
+reporting contract, not instrument calibration or model suitability. The
+optimizer, objective, defaults, tau soft floor/failure sentinels and existing
+coupled gamma correction are unchanged.
+
 ### `DecayFit24`: an exact gradient was tried, tested, and declined
 
 `tau1`/`tau2` moved to `soft_floor` (the same arithmetic-overflow guard as

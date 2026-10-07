@@ -115,6 +115,7 @@ BUGS.md entry. **NO-REF / not marked** — plumbing, or nothing to compare.
 | DecayConvolution.h | `add_pile_up_to_model` | Coates 1968 | exact with the *inclusive* cumsum; Coates' Σ_{j<i} differs 1.4e-4 rel | PASS (bounded) |
 | DecayFit23.h, DecayStatistics.h, DecayFit.h | objective, optimum, r/rs | NumPy Poisson likelihood on an independent convolution; scipy Nelder-Mead; closed anisotropy formulas | 1e-13 rel objective, 1e-7 optimum, 1e-10 r/rs; 2.7 ns recovered | PASS |
 | DecayFit24.h | objective, optimum | same | 1e-13 / 1e-7 | PASS |
+| DecayFit24.h | reported A2/gamma/offset and reconstructed curve | public forward prediction and fixed refit; recorded BH SPC132 input | effective A2 returned at both boundaries; measured score/realized curve unchanged; seven reporting cases | PASS (reporting contract, corrected 2026-10-07) |
 | DecayFit23.h + DecayStatistics.h | `neyman_lsq` / `gehrels_lsq` objectives | NumPy χ² on the reference model; scipy Nelder–Mead on the same statistic | **advertised but ignored until 2026-08-17 (Poisson ran regardless)**; now evaluate 1e-9, optimum = scipy's, three objectives → three optima | PASS (after fix) |
 | DecayFit25.h | `selected_index` | argmin of the NumPy Fit23 likelihood over candidates | 3/3 | PASS |
 | DecayFit26.h | objective, optimum | NumPy mixture likelihood, scipy bounded Brent | 1e-13 / 1e-8 | PASS |
@@ -129,6 +130,26 @@ BUGS.md entry. **NO-REF / not marked** — plumbing, or nothing to compare.
 | DecayFitModel/Problem/Context.h | plumbing | — | — | not marked |
 
 All decay surfaces are reachable from Python since 2026-08-17: `fconv_cs_time_axis` (missing `%apply`), `DecayPhasor.compute_phasor` (+ `compute_phasor_selection`) and `ProductPrior` (`VectorDecayFitPrior`) were bound and each has an A/B row above.
+
+#### Where to pick this up — Fit24 reporting
+
+1. `test/python/decayfit/test_fit24_parameter_reporting.py` reproduces the
+   effective-parameter contract through installed `DecayFit2`. Fixed negative
+   and excessive A2 inputs, an interior fraction, gamma/offset corrections and
+   a legal-start measured fit reconstruct the realized curve from the reported
+   vector. The recorded fixture is `test/data/fit24_parameter_reporting.npz`,
+   loaded with `allow_pickle=False`; its Unicode `provenance_json` identifies
+   the measured source and estimated IRF/background. Provider-derived timing
+   is not an independent calibration, and this is not model-validity evidence.
+2. The final kernel now writes effective `xm[3]` back to reported A2, as it
+   already did for gamma and offset. The measured report changes from
+   −0.017645886508776576 to 0 while its 2I*=1.7064816013903084 and realized curve
+   remain identical. The optimizer, objective, defaults, coupled gamma rule
+   and tau soft-floor/failure-sentinel semantics are unchanged. Do not replace
+   the root writeback with a consumer clamp. Fit23 reference cases and measured
+   parameter/model hashes remain unchanged. Consumers must rebuild the owning
+   compiled provider before validating displayed model reconstruction; the
+   wrapper extension hash alone does not identify the loaded decay dylib.
 
 ### FCS, PCH, burst-shape statistics — `test/python/correlator/test_ab_correlator_reference.py`, `fluctuation/test_ab_pch_reference.py`, `bva/test_ab_bva_2cde_recurrence_reference.py`
 

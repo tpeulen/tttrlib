@@ -58,10 +58,9 @@ void DecayFit24::correct_input(double *x, double *xm, double *corrections, int r
 // 1.08x-1.15x faster, but total CPU across worker threads -- the more
 // repeatable metric on a shared machine -- roughly flat to 6% *slower*,
 // against DecayFit23's clear 1.3x-1.7x. Declined on that measurement, the
-// same call this PRD already made for DecayFit26 at N=1 -- see PRD-010's
-// Phase 7 for the numbers and the likely cause (i_lbfgs's own per-iteration
-// overhead absorbing the gradient-level saving on this comparatively cheap
-// model). tau1/tau2's soft_floor above stays: it is a real improvement to the
+// same decision made for DecayFit26 at N=1: i_lbfgs's own per-iteration
+// overhead absorbs the gradient-level saving on this comparatively cheap
+// model. tau1/tau2's soft_floor above stays: it is a real improvement to the
 // central-difference gradient too, independent of this decision.
 
 
@@ -240,6 +239,7 @@ double DecayFit24::fit(double *x, short *fixed, DecayFitContext *p) {
     if (info == 5 || x[0] < 0.) x[0] = -1.;        // for report
     if (info == 5 || x[2] < 0.) x[2] = -1.;
     x[1] = xm[1];
+    x[3] = xm[3];
     x[4] = xm[4];
 
     return tIstar;
