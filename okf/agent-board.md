@@ -3601,6 +3601,15 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-DETECTOR-JSON · [chisurf] shared native complete-definition JSON editor prerequisite**
+  - Status: ✅ done (2026-10-07), ChiSurf `41279c8322af824b4200cfc74cb3d1531c8ed33c`; exact3source/spec/test JSON-phase scope released.
+  - Owner: codex/w1-detector-json; integrated and committed by parent.
+  - Touching: released only owning JSON-toolbar/modal/permission/atomic-load hunks in chisurf/emtk/channel_definition.py, new channel_definition_json.view.json and test/native_emtk/test_channel_definition_json.py. Core source not included; later independent archive_reference_g addition remains full-reference owner's next delta. Existing foreign widget/core source retained without resets or whole-file promotion.
+  - Verified result: canonical AutoForm code editor exposes complete portable JSON with Apply/Cancel/error; valid Apply refreshes same model identity/tables and calls once while preserving source/calibration UUIDs, unknown nested/top-level/optical/channel metadata, preview/raw-preview data, store/callback identity and last_used. Invalid/closed/busy/read-only/cancelled drafts cannot apply. Named setup saving remains separate; no implicit setup/MMFDB write.
+  - Evidence: parent8 canonicalinstalled JSON checks pass2.33s; owner20 JSON/native cases passed6.07s, scoped source/test mypy0 andRuff/diff clean. All5 actual before/control/modal/invalid/after-apply PNGs personally inspected by parent; realBH132 preview/settings/source/hash/control records retained. InstalledSDK2c30fc5595f8bdeea87e8bfdcb13c47e72884618 provides actual declared tooltip and modifier replacement. Committed `okf/validation/release-readiness-w1/detector-json/` carries accepted semantic composition/ownership/render/source receipts; existing guide87/figure and GUI concept/PRDresume/log accompany the focused plain commit.
+  - A2: [x] missing-control RED→actual native JSON interaction GREEN; [x] complete metadata/calibration/preview/store/callback invariance; [x] realheadlessbefore/after inspection; [x] canonicalinstalled owning runtime/type/lint; [x] owning docs/concept/PRDresume/log/evidence samecommit; [x] focused plainlocalcommit; [x] exactJSON scope released/Resolved. Broader parent80-case owner run retains explicit width720 gch-visibility failure for actual baseline/control-budget audit in independent full-reference phase; not waived/closed here. Full-reference calibration and Microtime source/docs/W1/programme gates remain open.
+
+
 - **T-20261007-W1-NATIVE-HELP · [chisurf] shared long-help body/footer root**
   - Status: ✅ done (2026-10-07), ChiSurf `79decaea40a445ea396a506a9cfde75a0ab02218`; exact sharedHelp/source/test scope released.
   - Owner: /root/nav; integrated and committed by parent.
