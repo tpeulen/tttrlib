@@ -3601,6 +3601,16 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-DEAD-LOADER-NAMESPACES · [chisurf] rows8/9 uncalled loader retirement**
+  - Status: ✅ done and released (2026-10-07), ChiSurf `57040381ffefa6f7d432cb2f5eeba789f50e0162`, rows8/9 scope only.
+  - Owner: codex/grid-dead-loaders; integrated by codex/prd154-w1.
+  - Touching: released; five dead files `fluorescence/av/{accessible_volume.py,av_property.ui}` and `wizard/tttr_fileformat/{__init__.py,tttr_file_format.py,tttr_file_format.ui}`; only AVProperties and TTTR-format star exports removed from surviving package namespaces; owning fresh-import regression. No row14/decorator/science/registry/dependency edits. Surviving bodies, foreign caches and modes preserved (AV package0755, wizard package0644).
+  - Verified: parent46 actual fresh-namespace/model/onboarding tests pass in7.47s, including eleven owning guards; Dye/ProteinQuenching/Sticking identities and four live neighboring wizard exports retained. Nine dead import/export/resource RED guards became GREEN. Ruff/new-test mypy clean; retained AV property override diagnostic remains in separate immediate follow-up.
+  - Visual/caller evidence: three realistic AV1/AV3/SPC before PNGs inspected; frozen `chisurf/okf/validation/release-readiness-w1/remaining-loader-inventory/` proves no external AST/config callers and zero dead registry entries. Uncalled widget retirement loses no reachable controls. Catalogue130 manifests/179 pages succeeds without a diff; no registry regeneration required.
+  - Docs/record: `chisurf/okf/validation/release-readiness-w1/dead-loader-retirement/receipt.json` contains hashes/modes/caller basis and command; `docs/development/emtk_interaction_testing.md`, owning `okf/subsystems/gui-autoform.md`, W1 evidence, PRD resume and dated log published in `57040381ffefa6f7d432cb2f5eeba789f50e0162`. Private source snapshots/patch under `/private/tmp/chisurf-w1-dead-loader-before` and `/private/tmp/chisurf-w1-dead-loader-prep/`.
+  - A2 unit DoD: [x] owning deletion/fresh-runtime regression; [x] inspected inventory/no reachable loss; [x] retained descriptions/i18n/no new dependencies; [x] docs/GUI-AutoForm concept/PRD/log/unchanged catalogue; [x]46 parent cases/scoped static evidence; [x] plain local commit/released paths/modes; [x] resolved board/durable receipt. Main W1, global communication/RMF sampling, later reader work and separate live AV property diagnostic remain open.
+
+
 - **T-20261007-W1-ROW7 · [chisurf] bounded native selector/FRET retirement**
   - Status: ✅ done and released (2026-10-07), ChiSurf `e851b77924ac722011b4e64fe3b53d2e16d6ad0c`, row7 scope only.
   - Owner: codex/w1-row7; integrated by codex/prd154-w1, paired docs by codex/w1-row7-docs.
