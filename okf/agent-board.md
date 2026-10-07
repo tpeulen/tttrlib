@@ -3601,6 +3601,16 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-REFERENCE-ACTOR · [chisurf] actual reference-calibration archival ownership**
+  - Status: ✅ landed and released2026-10-07; exact archival session/context root only.
+  - Owner: /root/grid, supervised by codex/prd154-w1.
+  - Touching: exact active-user-to-existing-session propagation in `chisurf/plugins/vv_vh_g_factor/backend/services.py::archive_g_factor_handler`; meaningful actual scratch-client/registry ownership regressions in `chisurf/plugins/vv_vh_g_factor/test/test_calib_provenance.py`; owning MMFDB `src/mmfdb/provenance/result_registry.py::register_calibration` existing SessionContext argument/forwarding/docstring only and `tests/test_calibration_provenance.py` real ownership regression. Additional proved handler-context scope: existing raw-reference metadata carries source_measurement and a complete primitive calibration_parameters snapshot (including background bounds/slow-reference timing/mixing inputs); actual scratchDB metadata regression verifies exact preservation. Existing scalar numerical payload/schema/formulas unchanged. No other source or caller edits. MMFDB before bytes/modes/clean-tree proof: `/private/tmp/prd154-w1-reference-actor-mmfdb-before/`.
+  - Measurement: parent real client/service/registry proof1failed2.35s: explicit actor test_user appears only in metadata, while raw/processed/calibration artifacts all carry fallback-registry-user as created_by_user_id. Private producer `/private/tmp/prd154_w1_reference_actor_audit.py`; before bytes/modes/foreign patch `/private/tmp/prd154-w1-reference-actor-before/`.
+  - DoD: existing MMFDB SessionContext/register_* contracts propagate resolved actor through all three artifacts, operations, ACL owners and object-store provenance; explicit/auth/fallback cases guarded; no new registry/framework, dependency or numerical changes. Scoped Ruff/type/test; parent owns docs/OKF/log/PRD/commit and closure. Preserve all foreign changes; no stage/commit.
+
+  - Acceptance: MMFDB `3eb3b129bd36a58fc597565970bd29c71d3ebf29` and ChiSurf `74db55bea8c123c5a0e86d1ae6eb3e68e2bf380d`;15 real targeted cases2.85s, parent original actor1RED→1GREEN1.89s; artifacts/operations/ACL/owner sets and complete reference/operation context/lineage verified. Four-file Ruff and new-test mypy clean;12 isolated inherited source diagnostics unchanged and explicitly registered W0. No GUI change in this backend scope. All source bytes/modes frozen; no foreign snapshot deltas.
+  - A2: [x] owning two-repo root and regressions; [x] no GUI change; [x] existing user guide/concept/PRD resume/log/evidence; [x] targeted runtime/lint/newtypes and preserved inherited type baseline; [x] focused plain local commits; [x] exactscope released/Resolved. Shared native reference UI/factories/Microtime and W1/programme acceptance remain open.
+
 - **T-20261007-W1-DETECTOR-JSON · [chisurf] shared native complete-definition JSON editor prerequisite**
   - Status: ✅ done (2026-10-07), ChiSurf `41279c8322af824b4200cfc74cb3d1531c8ed33c`; exact3source/spec/test JSON-phase scope released.
   - Owner: codex/w1-detector-json; integrated and committed by parent.
