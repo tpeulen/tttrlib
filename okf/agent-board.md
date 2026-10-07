@@ -3601,6 +3601,23 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-FCS-PEAK-TERM · [mmfdb] central FCS diffusion-time vocabulary**
+  - Status: ✅ done and released (2026-10-07), MMFDB `8a38bd1e0d62eabdd9d7ea9c917ed173c80e6220`, ChiSurf record `2b5614baf121f9319ea356a52b9fc0a591b5747e`.
+  - Owner: codex/prd154-w1
+  - Touching: released; central extension/cache/new owner regression and owner concept docs only. Canonical `_flr_analysis_feature.diffusion_time_mean` and `diffusion_time_peak` are milliseconds; optional REAL columns extend the existing category, extension1.10 per version policy. EXPORT_ONLY td_mean remains outside live-table loading; no algorithms or hand-edited DDL.
+  - Evidence:2 owning regressions moved RED→GREEN;20 targeted dictionary/generated-schema/provenance cases pass in4.26s; Ruff and targeted mypy clean. Actual editable bundled cache/hash/type/description agree, no export-only category promotion. Owner docs and ChiSurf MMFDB/W1 concepts, PRD pickup and dated log committed; no GUI/dependencies/full suite/foreign edits.
+  - A2 unit DoD: [x] owning vocabulary/cache/version/root regressions; [x] generated typed columns and category/provenance guards; [x] owner docs/OKF/log/PRD and plain local commits; [x] released board scope. Row10 YAML/guard/delivery and full W1/programme acceptance remain open.
+
+- **T-20261007-W1-QUENCHING-PROPERTIES · [chisurf] retained quenching property roots**
+  - Status: ✅ done (2026-10-07), ChiSurf `2b5614baf121f9319ea356a52b9fc0a591b5747e`; source scope fully released.
+  - Owner: codex/grid-quenching-properties; integrated and committed by parent.
+  - Touching: released exact property/constructor hunks in `chisurf/gui/widgets/fluorescence/av/__init__.py`, duplicate all-atoms/public exclusion read in `chisurf/core/structure/av/parameters.py`, and `test/gui/test_protein_quenching_properties.py`. Foreign export retirement stayed separate; no other widgets/science/dependencies changed.
+  - Result: true/false and writable exclusions fixed; cold construction uses public factory, separate editor preserves scientific Parameter identity; canonical quench_scale/default0.01 beats explicit legacy alias, descriptions translated. Actual148L atom/coordinate/rate and explicit-list semantics verified. Parent74tests pass(10.79s); twelve new cases, Ruff/scoped mypy clean. Remaining two Sticking abstract-update annotations are owned by active read-only `T-20261007-W1-PARAMETER-UPDATE-REVIEW`, not this released source claim.
+  - GUI: parent/child personally inspected qualified constructor-repaired/pre-property and final PNGs, identical17controls. Original GUI was unconstructible; raw import/type traces retained, no original complete-widget PNG claim.
+  - Evidence: `/private/tmp/chisurf-w1-quenching-properties/receipt.json`, own-delta.patch/mode-preserving before+after snapshots and PNGs; parent committed durable docs/OKF/log/PRD resume in the focused source commit.
+  - A2 unit DoD: [x] owning property/constructor root and meaningful regression; [x] qualified headless GUI comparison inspected; [x] translated changed-control descriptions; [x] parent docs; [x] parent OKF/log/PRD resume; [x] scoped74acceptance; [x] plain local commit; [x] released exact source scope and Resolved record.
+
+
 - **T-20261007-W1-DEAD-LOADER-NAMESPACES · [chisurf] rows8/9 uncalled loader retirement**
   - Status: ✅ done and released (2026-10-07), ChiSurf `57040381ffefa6f7d432cb2f5eeba789f50e0162`, rows8/9 scope only.
   - Owner: codex/grid-dead-loaders; integrated by codex/prd154-w1.
