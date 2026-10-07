@@ -3601,6 +3601,39 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-SDT-RETIRE · [chisurf] complete native SDT configuration and legacy UI retirement**
+  - Status: ✅ done (2026-10-07), ChiSurf `44741a406`.
+  - Owner: codex/w1-sdt; integrated by codex/prd154-w1.
+  - Touching: released; removed `gui/widgets/experiments/tcspc/{bh_sdt.py,tcspc_sdt.ui}`; SDT YAML row and historical decode alias only; scoped GUI package documentation, owning SDT/project tests and configured-host import regression. CSV/simulator/other foreign hunks and modes preserved.
+  - Verified: parent 15 targeted cases pass; configured null-controller SDTReader host imports the original source once and all three 1024-bin curves with preview2 selected. Historical descriptors restore without the retired Qt module or missing-source access. Scoped Ruff/format/mypy/diff checks pass.
+  - Evidence: `chisurf/okf/validation/release-readiness-w1/sdt-retirement/{receipt.md,sdt-configured-host.json,sdt-configured-host.png}`; legacy/native inventories and final host PNG inspected. Deliberate dead embedded Add retirement and readonly channel-width addition are recorded. User docs: `chisurf/docs/reference/file_formats/tcspc_files.md` and `figures/tcspc_sdt_native.png`; owning W1 concept/log/PRD updated in the commit.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected control-inventory parity; [x] descriptions/tr and no new dependencies; [x] same-change docs/OKF/log/PRD; [x] focused checks; [x] plain local commit and released paths; [x] resolved board/durable receipt. Main W1 and simulator row5 remain open.
+
+- **T-20261007-W1-CSV · [chisurf] complete native CSV reader settings and owning read roots**
+  - Status: ✅ done (2026-10-07), ChiSurf `2928b4ead`.
+  - Owner: codex/w1-csv-reader; integrated by codex/prd154-w1.
+  - Touching: released; CSV reader/spec and FWF/error read roots; native g-factor/lifecycle and header source-choice hunks; retired CSV controller/CsvWidget/UI and exact exports; two CSV YAML controller rows; trusted CSV/Structure filename fields and proven lazy fitting export root; owning tests. No simulator or other session-curve ownership remains with this claim.
+  - Verified: parent 713 targeted cases pass; available schema/prd/help/i18n guard selection 308 passed/17 expected skips. Original-owner import, FWF/error columns, calibration/state semantics and full control inventory pass; numeric before/after data are bit-identical. Scoped checks and cold-process fitting export regression pass.
+  - Evidence: `chisurf/okf/validation/release-readiness-w1/csv-retirement/` contains control/numeric parity, inspected full native/hosted and g-factor PNGs, documentation contract and visual verdict. User docs: `chisurf/docs/reference/file_formats/tcspc_files.md`, `figures/tcspc_csv_native.png`; test contract: `chisurf/docs/development/emtk_interaction_testing.md`. Owning W1 concept/log/PRD updated in the commit.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected full control/numeric parity; [x] descriptions/tr and no new dependencies; [x] same-change docs/OKF/log/PRD; [x] targeted/available guard evidence; [x] plain local commit and released paths; [x] resolved board/durable receipts. Full programme and later reader retirements remain with main W1.
+
+- **T-20261007-W1-SESSION-CURVE · [chisurf] bounded W1 native session-curve API prerequisite**
+  - Status: ✅ done (2026-10-07), scoped identity prerequisite, ChiSurf `c7f2c7707`.
+  - Owner: codex/grid-session-curve; integrated by codex/prd154-w1.
+  - Touching: released identity-only hunks in API list/get/curve-data, dataset DTO/resolvers, dataset.get/curve_data protocol/generated client, model selected-curve/IRF identity forwarding and owning tests. Overlapping API/service paths remain actively owned by the separate `T-20261007-W1-GROUP-IMPORT` claim for its new import envelope; that claim is not resolved here.
+  - Verified: parent 119 targeted tests pass, including 20 RED/GREEN regressions; explicit parent/member UIDs, strict stale-UID rejection, authoritative state, metadata parity and unchanged active-member selection. Ruff/compile/diff clean; API/service mypy clean, unchanged five pre-existing macro/action diagnostics recorded.
+  - Evidence: `chisurf/okf/validation/release-readiness-w1/session-curve-api/receipt.json`; owning W1 concept/log/PRD and `chisurf/docs/development/emtk_interaction_testing.md` updated in the commit. This backend-only prerequisite changed no GUI; no PNG parity is claimed.
+  - A2 unit DoD: [x] owning identity root/tests; [x] no GUI change; [x] no controls/dependencies introduced; [x] same-change docs/OKF/log/PRD; [x] scoped acceptance; [x] plain local commit and released identity scope; [x] resolved board/durable receipt. Native IRF picker/context wiring and cached grouped Add remain open in their ongoing claims.
+
+- **T-20261007-W1-FORM-TABS · [emtk] semantic AutoForm tabs for native reader prerequisites**
+  - Status: ✅ done (2026-10-07), scoped renderer prerequisite; emtk `309d97012`, ChiSurf pin `4e9ec9799`.
+  - Owner: codex/w1-form-tabs; integrated by codex/prd154-w1.
+  - Touching: released; emtk generic semantic tab/selected-body and pending-value commit seam in `emtk/view_form.py`, owning `tests/test_view_form_tabs.py` and `docs/porting.rst`; ChiSurf pin/evidence only. No ownership of simulator composition or a custom section's separate nested FormState lifecycle is claimed.
+  - Verified: parent canonical installed Git revision passes 81 targeted tests (16 tab regressions +65 neighbors). Scoped pointer/keyboard switches, invalid text/runtime bounds, once-only callbacks, separate bars and reopened state pass. All21 emtk references pinned to the owning revision; foreign lock hunks preserved.
+  - Evidence: `chisurf/okf/validation/release-readiness-w1/form-tabs/{receipt.json,before.png,after-decay.png,after-preview.png,after-rates.png}`; baseline and all three after PNGs inspected, visual verdict96/pass. Framework docs: `emtk/docs/porting.rst`; app test contract: `chisurf/docs/development/emtk_interaction_testing.md`; owning W1 concept/log/PRD updated with the pin.
+  - A2 unit DoD: [x] owning framework root/tests and installed pin; [x] inspected active-body control parity; [x] translations/tooltips preserved and no new dependencies; [x] same-change docs/OKF/log/PRD; [x] scoped acceptance; [x] plain local commits and released renderer scope; [x] resolved board/durable receipt. Main W1, Simulator/native context and custom edit-composition fronts remain open.
+
+
 - **T-20261007-W1-NDX-TESTS · [ndxplorer] retire the top-level test namespace**
   - Status: ✅ done (2026-10-07)
   - Owner: codex/w1-ndx-tests
