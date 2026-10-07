@@ -3601,6 +3601,79 @@ retired so nobody works the same thing twice.)*
 
 ## Resolved
 
+- **T-20261007-W1-SIMULATOR · native TCSPC simulator preparation**
+  - Status: ✅ resolved (2026-10-07), ChiSurf `c5770b603`; native tabs SDK `309d97012`, pin `4e9ec9799`.
+  - Owner: /root/nav; integrated by codex/prd154-w1.
+  - Touching: released; core simulator declaration/conversions and constructor coupling, native view JSON, frontend adapter and targeted settings tests. Scientific generator/read functions preserved; no remaining ownership over shared hosts or later reader work.
+  - Verified: Original ndarray constructor RED and native/source RED regressions became green; supplied parameters and API defaults retained, real session-member IRF identity and cached preview semantics verified. Parent final58 targeted cases and six configured-host PNGs accepted; installed-SDK combined69-case precursor passed.
+  - Evidence/docs: `chisurf/okf/validation/release-readiness-w1/simulator-retirement/`, `chisurf/docs/reference/file_formats/tcspc_files.md`, native figure; owning W1 concept/log/PRD published. Before inventories and all six after PNGs inspected.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected parity or no GUI change; [x] descriptions/tr where relevant and no new dependencies; [x] published docs/OKF/log/PRD; [x] targeted acceptance; [x] plain local commit and released scope; [x] resolved board/durable receipt. Main W1 and the two existing global communication guard failures remain open; unit completion is not whole-programme acceptance.
+
+- **T-20261007-W1-SIMULATOR-HOST · simulator shell composition**
+  - Status: ✅ resolved (2026-10-07), ChiSurf `c5770b603` (completed native simulator integration).
+  - Owner: /root/nav; integrated by codex/prd154-w1.
+  - Touching: released; exact SetupMixin reader-context resolver and native factory dispatch, simulator frontend pending-source lifecycle and owning host regressions only. Foreign startup/history/project content preserved.
+  - Verified: Injected context/API identities retained; one Main-owned context reuses installed transport and authoritative live/embedded state without connect/ping/startup. Actual ControlHost/Prompt renders inspected; local/server contexts, reader/host reuse, unchanged supplied values and explicit group-member selection pass.
+  - Evidence/docs: `chisurf/okf/validation/release-readiness-w1/simulator-retirement/` and native TCSPC documentation; exact before/own deltas retained at `/private/tmp/prd154-w1-simulator-host-before`. Parent final58 and cached Add4 accepted.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected parity or no GUI change; [x] descriptions/tr where relevant and no new dependencies; [x] published docs/OKF/log/PRD; [x] targeted acceptance; [x] plain local commit and released scope; [x] resolved board/durable receipt. Main W1 and the two existing global communication guard failures remain open; unit completion is not whole-programme acceptance.
+
+- **T-20261007-W1-SIMULATOR-HEADER · primary input import binding**
+  - Status: ✅ resolved (2026-10-07), ChiSurf `c5770b603`.
+  - Owner: /root/nav; integrated by codex/prd154-w1.
+  - Touching: released; Main.onAddDataset primary-source branch, ReaderSettingsApp primary_sources/choose_input filter, simulator auxiliary source option and exact header regressions. CSV/SDT picker/file/MMFDB lifecycle preserved.
+  - Verified: RED4 became green; generator dispatches reader+filenameNone even with stale inherited filename. Auxiliary spectrum cannot hijack + Data; actual sole primary picker delivers once, legacy controller route and asynchronous CSV source ownership retained. Primary defaults True; simulator spectrum explicitly False.
+  - Evidence/docs: `chisurf/okf/validation/release-readiness-w1/simulator-retirement/`; owned header receipt/patch `/private/tmp/prd154-w1-simulator-header-before`; same-change docs/OKF/log/PRD included by parent.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected parity or no GUI change; [x] descriptions/tr where relevant and no new dependencies; [x] published docs/OKF/log/PRD; [x] targeted acceptance; [x] plain local commit and released scope; [x] resolved board/durable receipt. Main W1 and the two existing global communication guard failures remain open; unit completion is not whole-programme acceptance.
+
+- **T-20261007-W1-SIMULATOR-IMPORT · actual cached Add gate**
+  - Status: ✅ resolved (2026-10-07), ChiSurf `c5770b603`, API root `0d8f234b4`.
+  - Owner: /root/nav; integrated by codex/prd154-w1.
+  - Touching: released; new test/gui/test_simulator_cached_import.py only. No remaining API/UI ownership from this test gate.
+  - Verified: Parent4 actual VM/VV-VH local/server Driver gates pass with real Prompt, generated client/JSON protocol/dispatcher/service. Class-level read/get_data forbidden after preview; exact arrays/dtypes/errors/masks, group/member UIDs/current/metadata/calibration/IRF, one import and untouched globals verified.
+  - Evidence/docs: Owning test committed in `c5770b603`; `chisurf/okf/validation/release-readiness-w1/cached-group-import/` plus simulator-retirement receipts. New-path delta/SHA `/private/tmp/prd154-w1-simulator-import-before`.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected parity or no GUI change; [x] descriptions/tr where relevant and no new dependencies; [x] published docs/OKF/log/PRD; [x] targeted acceptance; [x] plain local commit and released scope; [x] resolved board/durable receipt. Main W1 and the two existing global communication guard failures remain open; unit completion is not whole-programme acceptance.
+
+- **T-20261007-W1-SIMULATOR-RETIRE · configured native simulator switch**
+  - Status: ✅ resolved (2026-10-07), ChiSurf `c5770b603`.
+  - Owner: /root/nav; integrated by codex/prd154-w1.
+  - Touching: released; simulator YAML row/presets only, dedicated Qt widget/UI deletion, simulator-only exports and shrinking communication exception, configured factory/default/project tests. TTTR exports, all CSV/SDT rows and frozen scientific sources preserved.
+  - Verified: Parent58 targeted cases and six actual shipped-YAML ControlHost PNGs pass/accepted. API defaults remain empty spectra/TCSPC-Dummy/unseeded; configured GUI presets are explicit. Existing core project-reader identity roundtrips without a new alias. Committed legacy before inventory was retained, not regenerated.
+  - Evidence/docs: `chisurf/okf/validation/release-readiness-w1/simulator-retirement/`; `chisurf/docs/reference/file_formats/tcspc_files.md` and `figures/tcspc_simulator_native.png`; same-change W1 concept/log/PRD and known-issue measurement published.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected parity or no GUI change; [x] descriptions/tr where relevant and no new dependencies; [x] published docs/OKF/log/PRD; [x] targeted acceptance; [x] plain local commit and released scope; [x] resolved board/durable receipt. Main W1 and the two existing global communication guard failures remain open; unit completion is not whole-programme acceptance.
+
+- **T-20261007-W1-GROUP-IMPORT · bounded cached Simulator grouped Add root**
+  - Status: ✅ resolved (2026-10-07), ChiSurf `0d8f234b4`.
+  - Owner: codex/grid-group-import; integrated by codex/prd154-w1.
+  - Touching: released; cached dataset/group API and validation/restoration service, generated dataset.load contract, scoped bool-mask codec and owning tests. Foreign Structure restoration source preserved. No UI/Main or pending molecular-output ownership.
+  - Verified: Parent165 targeted tests pass; cached scalar/VM/VV-VH groups retain members/errors/UIDs/metadata/calibration/IRF without re-read, invalid groups fail atomically, explicit state owns imports and live aliases preserve history. Actual native Simulate/Add4 gates pass after integration.
+  - Evidence/docs: `chisurf/okf/validation/release-readiness-w1/cached-group-import/receipt.json`; developer native interaction contract and W1 concept/log/PRD updated. Snapshot/owned delta `/private/tmp/chisurf-w1-group-import-before`.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected parity or no GUI change; [x] descriptions/tr where relevant and no new dependencies; [x] published docs/OKF/log/PRD; [x] targeted acceptance; [x] plain local commit and released scope; [x] resolved board/durable receipt.
+
+- **T-20261007-W1-PACKAGE-TESTS · exclude development test trees from release artifacts**
+  - Status: ✅ resolved (2026-10-07), ChiSurf `276e35691`.
+  - Owner: codex/w1-package-tests; integrated by codex/prd154-w1.
+  - Touching: released; setuptools discovery/package-data and nested sdist test exclusions, packaging/backend guards and exact chimol checkout-test fixture injection removal. Runtime demo resources preserved; no caption or other plugin source ownership.
+  - Verified: Parent9 package/resource checks pass. Actual discovery/FileList omits142 nested test roots/2690 test-source files while selecting669 runtime namespaces,3549 sdist files and1025 wheel data files; zero test entries, legitimate shader/view/settings/demo assets retained.
+  - Evidence/docs: `chisurf/okf/validation/release-readiness-w1/package-boundary/` receipts/selection; `chisurf/docs/development/emtk_interaction_testing.md`, testing workflow and W1 concept/log/PRD published. Original snapshot `/private/tmp/prd154-w1-package-before`.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected parity or no GUI change; [x] descriptions/tr where relevant and no new dependencies; [x] published docs/OKF/log/PRD; [x] targeted acceptance; [x] plain local commit and released scope; [x] resolved board/durable receipt.
+
+- **T-20261007-W1-MMFDB-SEED · shippable synthetic table demo root**
+  - Status: ✅ resolved (2026-10-07), MMFDB `342ebe4`; ChiSurf metadata `ae87cae65`.
+  - Owner: codex/grid-mmfdb-seed; integrated by codex/prd154-w1.
+  - Touching: released backend seed slice only: src/mmfdb/admin/seed_example.py, populate_mock_data_handler, packaged synthetic CSV resources/declarations and owning tests. This releases no MMFDB caption/GUI scope; those active changes remain independently owned.
+  - Verified: Parent45 owning storage/lineage/atomicity/auth checks and7 installed wheel-only seed guards pass. Authenticated pinned DB receives truthful120-row sources/63-row selected output, real object hashes/rowcounts/lineage and idempotent references; explicit invalid overrides fail before writes. User directories/daemons untouched.
+  - Evidence/docs: `chisurf/okf/validation/release-readiness-w1/mmfdb-demo/receipt.json`; `chisurf/okf/architecture/mmfdb.md`, owning W1 concept/log/PRD published. Original before/delta receipts `/private/tmp/chisurf-w1-mmfdb-seed-before` and `...-review`.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected parity or no GUI change; [x] descriptions/tr where relevant and no new dependencies; [x] published docs/OKF/log/PRD; [x] targeted acceptance; [x] plain local commit and released scope; [x] resolved board/durable receipt.
+
+- **T-20261007-W1-IMP-TRICKS-BUILD · declare the required structural provider build**
+  - Status: ✅ resolved (2026-10-07), ChiSurf `ae87cae65`; imp-tricks `6d61c58`.
+  - Owner: codex/w1-provider; integrated by codex/prd154-w1.
+  - Touching: released build/import/resource slice only: declared build task/dependency, cold provider guards, statpot package-data line and clean-wheel resource test. Foreign sitecustomize, dependency/lock/modes and frozen Structure sources preserved. No ownership or completion claim over RMF output/sampling.
+  - Verified: Parent3 build/cold-import/clean-wheel resource cases pass after true RED missing-provider/resource failures. Installed provider exposes all four statpot JSON databases; canonical BFF e613 origin/version/hash remains unchanged. The three real ProteinMC sampling cases still reach the separate missing RMF writer gate.
+  - Evidence/docs: `chisurf/okf/validation/release-readiness-w1/provider-build/` receipt/cold probe/sampling-next-root; `chisurf/okf/references/imp-ecosystem.md`, known issues and W1 concept/log/PRD published. Original delta `/private/tmp/prd154-w1-imp-tricks-build-before`.
+  - A2 unit DoD: [x] owning root/tests; [x] inspected parity or no GUI change; [x] descriptions/tr where relevant and no new dependencies; [x] published docs/OKF/log/PRD; [x] targeted acceptance; [x] plain local commit and released scope; [x] resolved board/durable receipt. Pending RMF writer/source-free sampling is explicitly outside this completed build/import/resource unit.
+
+
 - **T-20261007-W1-SDT-RETIRE · [chisurf] complete native SDT configuration and legacy UI retirement**
   - Status: ✅ done (2026-10-07), ChiSurf `44741a406`.
   - Owner: codex/w1-sdt; integrated by codex/prd154-w1.
