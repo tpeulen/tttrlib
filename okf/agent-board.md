@@ -1943,7 +1943,7 @@ retired so nobody works the same thing twice.)*
 ## Active
 
 - **T-20261006-W6G · [chisurf + emtk] CLAIM — PRD-154 W6g: plugin-uniformity mechanics (P-F steps 1-8)**
-  - Status: 🔄 active2026-10-08; shared setup/ribbon landed; shared guards/demos/window next
+  - Status: 🔄 active2026-10-08; sharedtext/tooltipmechanisms landed;fulltooltip/imperative/demo/windowgates open
   - Owner: /root
   - Opened: 2026-10-06 · Picked: 2026-10-06 · Done: —
   - Done when: plugin inventory generator + guard landed; hub setup-as-step-0 with test; Imaging folded into Spectroscopy (ribbon PNG read); tooltip guard + shrinking allow-list; i18n static checks (+ emtk TEXT_KEYS); demo/tour contract guard; view.json `window` key.
@@ -1975,6 +1975,16 @@ retired so nobody works the same thing twice.)*
   - Ribbon documentation scope: menu-address text only in docs/guides/99_img_calibration.md, docs/guides/98_clsm_generator.md, docs/guides/89_microtime_histogram.md, docs/guides/48_regions.md, docs/guides/24_scan_images.md, docs/guides/55_pair_correlation.md, docs/guides/84_spot_finder.md, docs/guides/51_frc_resolution.md, docs/guides/18_tttr_simulation.md, docs/guides/50_particle_tracking.md, docs/guides/10_lifetime_anisotropy_fitting.md, docs/guides/86_image_browser.md, docs/guides/38_colocalization.md, docs/guides/17_filtered_fcs.md, docs/guides/93_psf_determination.md, docs/guides/91_vv_vh_g_factor.md, docs/guides/index.md, docs/guides/98_imaging_tools.md, docs/guides/43_drift_correction.md, docs/guides/16_fret_fcs.md, docs/guides/67_number_and_brightness.md; paired imaging_flim_phasor theory/navigation paragraph and98_imaging_tools guide/ribbon PNG; okf/subsystems/ribbon.md currentlayout/resume; generated owning catalogue menu-path rows and index. Original doc bytes saved under ribbon-before/source; preserve foreign prose via three-way candidate. No algorithm/preset/visibility changes.
 
   - Ribbon source753b8564ea7a2971e9fcc58a196de34688885435 landed;26targetedcases,965availableguards/16skips,6post-publication inventorychecks. Real1400/640scrolledPNG pairs andImageTools route read/tested;32button/4panel overflow preservesinventory.35address-onlymanifests, userchoicesmigration/current-keyprecedence, pairedguide/theory/catalogue/prospectiveinventory; foreignhunks unchanged. W6g remainingmechanismsactive.
+
+  - Active shared contracts2026-10-08: root owns new tooltip/declaration scanner/tests and receipts, existing i18n extractor/catalogue consistency guards and docs/OKF/publication; exact existing app spec/window writes wait measurements/before capture. /root/burst_setup_review owns only emtk/emtk/view_form.py TEXT_KEYS declaration/export plus emtk/tests/test_view_form_text_keys.py, no other SDK source/commits/pins. Toolkit qt_host window_size-only seam is root-owned; two real preferred_size consumers must be measured first. No toolkit dialog/web edits (foreigndirty). Companion tests via targeted pixi with verified local import; root owns dependency commit/pin/install after acceptance.
+
+  - Tooltip measurement/executor slice: /root/burst_setup_review owns NEW build_tools/dev_utils/ui_contract_audit.py tooltip JSON/AST walker only plus NEW test/test_tooltips.py purewalker regression/source gate with measured baseline per P-F seed rule; no production GUI/spec/allowance edits until root reviews exact findings. Root owns aggregate receipts and any seeded shrinking release baseline/publication; use committed source, separate live diagnostic, no skipped malformed sources and no blanket exclusions. Existing nonempty legacy allowances never expanded.
+
+  - Text vocabulary publication: root owns emtk/docs/widgets.rst declaration documentation and exact SDK source/test localcommit; root will bump only old canonical emtk hash in pixi.lock and install testenv. Foreign dialog/web/files remain untouched.
+
+  - Shared contract publication scope: test/test_i18n_extraction.py, extractor/read_catalog ownedhunks, German/French generatedcatalogues fromcommitted9010sources withunambiguousfinished-context transfer; initial test/tooltip_allowlist.txt baseline1143 expresslyauthorized P-F5 (neverexpandaftercreation), scanner/tests andfullcommitted/live ledgers. Rootowns docs/development/ui_contracts.md andonlyindex toctree insertion, existing OKFhelp/i18n/ribbonconcept exactnewsection, SDKpin21hashhunks, receipts/PRD/resume/log. Passing baseline isNOT emptycoverage;1143omissions/imperativewrapping/demo/windows remainopen.
+
+  - Shared contract source86a42f2e7ceb8068f108352ffe7b0d5ec1c2135a andSDK95705e20fc57383b86017b04b0ba4b67946aaabf landed;canonicalinstall/21pins/lockverified. SDK50,27focused,984availablechecks/16skips,types/Ruffclean;9010committedstrings inde/fr,0missing,finished-context policy tested;localePNGsread. Initial1143tooltipbaseline explicitlyauthorizedP-F5 isopen debt,notcoveragecompletion. Nextimperativewrapping/fulltooltipdebt/demo/window;W6gactive.
 
 - **T-20261005-FITWIN-EMTK · [chisurf+emtk] Fit window content is ONE emtk surface: plots, data table, info, code editor**
   - Status: ✅ done (emtk bb4cce6, 4bfdadf, 10de583; chisurf 794b8e27d; local, not pushed)
@@ -3625,6 +3635,13 @@ retired so nobody works the same thing twice.)*
 *(Move completed entries here. Prune entries older than 30 days.)*
 
 ## Resolved
+
+- **T-20261008-W6G-SHARED-CONTRACT-MECHANISMS · [chisurf+emtk] Authored text and tooltip audit**
+  - Status: ✅ mechanisms source complete2026-10-08; coverage1143debt andremainingW6g gates active.
+  - Owner:/root;SDK TEXT_KEYS/test andtooltipscanner fixtures implemented by/root/burst_setup_review, integrated byroot.
+  - Touching:SDKview_form TEXT_KEYS/export/test/docs;21canonicallockhashhunks;extractor/read_catalog ownhunks;de/frgeneratedcatalogues fromcommittedsource;newi18nfixtures/catalogueguard andtooltipscanner/12fixtures/sourcebaselineguard;initialtooltipbaseline1143only;docs/OKF/receipts/PRD/log.
+  - Acceptance:ChiSurf86a42f2e7ceb8068f108352ffe7b0d5ec1c2135a/SDK95705e20fc57383b86017b04b0ba4b67946aaabf;SDK50,27focused,984availablechecks/16skips;canonical testsitepackage/pin21/lock0;targetedtypes/Ruffclean.9010committedsource strings presentde/fr;unfinishednotruntime-installed,unambiguousfinished-context transfer preserved. Actuallocaleformsbefore/afterPNGsread. Malformeddeclarationsfail,bindingsnottranslated,companion/tooltitledgers committed/live separated.
+  - A2:[x] owningroot/tests/pin;[x] inspectedlocalePNGparity;[x] declaration/text contract;[x] docs;[x] durableOKF/resume/log;[x] plainlocaltpeulencommits;[x] fiveavailableguards.[ ] bundle test remainsW0.[ ] tooltipcoverageempty/imperativewrapping/demo/windowremaining. Initialbaseline isauthorizedmeasuredshrink-only debt;no fakecompletecoverageclaim. SDKforeignDialog/web andChiSurfforeignlock/i18n hunks preserved.
 
 - **T-20261008-W6G-RIBBON · [chisurf] Spectroscopy imaging fold and stored preferences**
   - Status: ✅ source complete2026-10-08; W6g remains active.
