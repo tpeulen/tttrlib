@@ -1942,6 +1942,18 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
+- **T-20261006-W6G · [chisurf + emtk] CLAIM — PRD-154 W6g: plugin-uniformity mechanics (P-F steps 1-8)**
+  - Status: 🔄 active2026-10-08; inventory slice first
+  - Owner: /root
+  - Opened: 2026-10-06 · Picked: 2026-10-06 · Done: —
+  - Done when: plugin inventory generator + guard landed; hub setup-as-step-0 with test; Imaging folded into Spectroscopy (ribbon PNG read); tooltip guard + shrinking allow-list; i18n static checks (+ emtk TEXT_KEYS); demo/tour contract guard; view.json `window` key.
+  - Touching: `build_tools/dev_utils/plugin_inventory.py` (new), `test/test_plugin_inventory_current.py` (new), `chisurf/emtk/{tool_hub.py,channel_definition.py,setup_step.py (new)}`, `chisurf/plugins/burst/burst_analysis/gui/native.py` (setup parts), `chisurf/plugins/burst/burst_analysis/gui/setup_selection_app.py`, `chisurf/plugins/tttr/tttr_toolbox/gui/panels.json`, `test/native_emtk/test_tool_hub_setup.py` (new), `chisurf/gui/widgets/ribbon/layout.py`, the `Imaging:*` / `Spectroscopy:Fluorescence*` manifests (`display_name` only), `test/plugins/{test_ribbon_layout.py,test_plugin_menu_tabs.py}`, `test/gui/test_ribbon_layout_build.py`, `test/test_tooltips.py` + `test/tooltip_allowlist.txt` (new), `test/test_i18n.py`, emtk `emtk/view_form.py` (TEXT_KEYS only) + emtk test, `test/test_plugin_demos.py` (new), `demo.py` renames in `microscopy/{img_flow,img_pixel_nb,spot_finder}`, `build_tools/dev_utils/check_plugin_guide.py`, `test/test_plugin_help_guide_seam.py`, `chisurf/plugins/emtk_layout.py` (`window_size` only), `chisurf/core/dataspec/schema.py` (`_VIEW_TOP_LEVEL["window"]` only). NOT games/acq/pto_inspector/fret_line, NOT emtk qt_host/Driver, NOT test_ui_schemas schema builder.
+  - Progress: re-owned after W1 source54ed9cb1c. Immediate writes ONLY new plugin_inventory.py/test_plugin_inventory_current.py, generated W6g inventory receipts, exact PRD AppendixA/resume and dated OKF log. Other broad Touching paths remain read-only until measured/snapshotted; foreign dirty prototypes are not adopted.
+  - Inventory publication scope2026-10-08: `docs/development/plugin_inventory.md` and only its toctree insertion in `docs/development/index.md`; new generator/freshness tests/receipts and exact AppendixA/resume/log hunks. Main W6g stays active.
+
+
+  - Inventory unit ✅93ed8c80a983ffc1daf5fdd04ab0a4f26972bc58: six source regressions + five available guards965pass/16skips; Ruff/format/mypy clean; committed129/116emtk and distinct live129/123 receipt. Main W6g remains🔄; next shared-setup baseline/callback/lazy ownership test before source changes.
+
 - **T-20261005-FITWIN-EMTK · [chisurf+emtk] Fit window content is ONE emtk surface: plots, data table, info, code editor**
   - Status: ✅ done (emtk bb4cce6, 4bfdadf, 10de583; chisurf 794b8e27d; local, not pushed)
   - Owner: claude-opus-5.5/fitwin-emtk
