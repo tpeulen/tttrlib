@@ -5005,3 +5005,12 @@ retired so nobody works the same thing twice.)*
   - [x] Realbefore/after/tabs/default/narrow/resize/reopenPNG individuallyread;batchfalseblank noSDKworkaround.1014guards14skips,meaningfulphysics/statuscasegroups and63committedfreshness19.27s green;baseline16modeltyping/coreannotationlimits exactrecorded.
   - [x] Pairedguide/theory/stubs/catalogue/reference/inventory/concept/PRD/index/assessment/log/currentjob/acceptance/finalarchives published;plainlocalcommits, no push/trailers/broadstage/discard;.zed disk-only intact.
   - Resume:independent53covered/63remaining; nextboundedcalibration/PSFdata/fitrecipes sealing, no sourcechildactive. FullW6g/PRD andW0bundle/broadtour gates remainopen.
+
+## Resolved — calibration and PSF geometry, 2026-10-08
+
+- **T-20261008-W6G-IMAGING-WINDOW · ✅ DONE** — Source49619ab6c; parentW6g/PRD active.
+  - [x] Rawprimary1100×720 readbeforestrip/slice,savedcustomgeometrywins; ownsource only, foreignformats/conftest/importremoval excluded, committedfixtureauthority retained.
+  - [x] Real159971photon12.5ns/3.0517578ps/BG4.8975/4.93/deepApply andnoisy5true/4detectedGaussianbead allfit/profile/overlay/CSV/config/control parity; actualbefore/after/narrow/resize/reopenPNG root/owners read.
+  - [x] ReadableIRFfallback andmetricpainter testrepair preservesemantics/clip/occlusion assertions;53+6Calibration/64PSFcases,1007guards14skips and72postcommit24.33s pass.
+  - [x] Paireddocs/concepts/stubs/catalogue/inventory/OKF/PRD/index/assessment/log/currentjob/acceptance/archive updated; localplaincommit,no push/trailers/broadstage/discard;.zed disk-only intact.
+  - Resume:independent55covered61remaining; Spot/Region staticmetadata gap needsactualunshimmedRED/reference first, no testshim/framepad adoption. FullW6g/PRD/W0bundle/broadtour gates remainopen.
