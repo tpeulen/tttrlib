@@ -4975,3 +4975,13 @@ retired so nobody works the same thing twice.)*
   - [x] Owner README, paired guide/theory, concept/PRD/index/assessment/log/currentjob/acceptance/finalarchive/map updated. Exact inherited Ruff/mypy diagnostics recorded, not suppressed or claimed clean.
   - [x] Focused plain local owner/root commits, no push/trailers, no broad staging/discard; .zed ignored disk-only intact.
   - Resume:46covered/70remaining window declarations; next bounded truebase Count Rate/Time Windows/optional Histogram with scratch actualLeica data. FullW6g/PRD incomplete, W0 missing bundle and broadtour gates remain.
+
+## Resolved — three TTTR window declarations, 2026-10-08
+
+- **T-20261008-W6G-TTTR-WINDOWS · ✅ DONE** — Source d5e68e983; parentW6g/FPSindependent scope remainactive.
+  - [x] Truebase CountRate/TimeWindows/Histogram1100×720 specs/readers preserve savedgeometry; foreignformatting excluded.
+  - [x] Real6714549photon44.7229kHz/16window246byteBST and4500photon128psHistogram science/config/controls exact; before/after, busyqualified, scrollG/Del/LUTactions andactualresize/reopen PNGs read.
+  - [x] Staletestpainter widthkeyword fixed inownhelper, operations/assertions retained;7own+90rate-time and43+4Histogram checks pass, staticchecks clean.
+  - [x]1007guards/14skips and74postcommit21.13s green; docs/theory/catalogues/reference/inventory/OKF/PRD/index/assessment/currentjob/log/acceptance/finalarchive updated.
+  - [x] Focusedplainlocalcommit, no push/trailers/broadstage/discard; .zed ignored intact. W0bundle/wholeprogramme gates notaccepted here.
+  - Resume: FPS cleancard actual11AV geometry/source/after evidence active and archived;49covered/67remaining by priorfullscan+3readers. FullW6g/PRD incomplete.
