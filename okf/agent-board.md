@@ -4927,3 +4927,15 @@ retired so nobody works the same thing twice.)*
   - claimed: 2026-10-06 (fit-window session). Owner: "page obj must be emtk, same for plot settings, replace settings with emtk. update images."
   - Files: `chisurf/gui/plots/**` (plotbase + every fit-window page and its controller), `chisurf/gui/widgets/fitting/{fit_subwindow,fit_plots_area}.py`, the main-window hunk that hosts the plot-settings dock, page tests under `test/gui/`, `okf/subsystems/fit-window.md`, docs images of fit-window pages. NOT touching FitInfo's analysis-form lane files beyond the controller port (will coordinate here).
   - DONE 2026-10-06 (commit follows): pages Qt-free, Plot settings one emtk surface; resume list in `okf/subsystems/fit-window.md`. Touched outside the claim: `chisurf/core/dataspec/schema.py` + `schemas/view.schema.json` (emtk layout keys; `test_ui_schemas` was already red with 71 failures on `3b4f8b6db`, other lanes' specs still fail on `name`/`dock`/`tab`/`window`), `chisurf/macros/core_fit.py` (load transaction skips widgets with `outlives_fit_windows`), `chisurf/core/fitting/fit.py` (report χ² format).
+
+- **T-20261008-W6G-DEMOS · ✅ DONE 2026-10-08** — Parent T-20261006-W6G remains active.
+  - Owner: /root; bounded children source/docs/cache/GUI scopes sealed; no live demo children.
+  - Source: ChiSurf00fad9a6e; tttrlib63f424603; SDK0f17e96c canonically pinned/installed. All eleven existing producers expose primary Path/DEMO/cache and real awaited load_example.
+  - [x] Root owners repaired with tests: simultaneous closing/opening markers preserve original APIs, all715744Flowphotons/50frames; test29passes/5skips and actual arm64ninepasses.
+  - [x] Headless real before/after PNGs and control inventories read by owners/root; title/drag collision repaired; cache inputs and scientific results preserved, Flow velocity bias qualified.
+  - [x] Declared action controls carry descriptions and renderer localization; no new tooltip/translation allowance. Remaining1082tooltip/1167bare-literal programme debt unchanged.
+  - [x] Paired docs/help/screenshot callers and isolated docs-plugins130pages/179parameters regenerated; ebFRET generated reference delta published.
+  - [x] OKF concept, dated log, PRD/index/assessment/currentjob/acceptance and exact final source/science/PNG archive published.
+  - [x] Targeted applicable guards1074passed/15skip; postcommit66passed20.05s includes shipped demo/catalogue/inventory freshness. W0's absent test_okf_bundle.py and whole-tour integration gates remain programme-level open items, not accepted here.
+  - [x] Focused local plain commits; no push/trailers; .zed/tasks.json remains ignored disk-only SHA db3215aa8f95f6d952a45fb55b7575847cc0f03e7d1d1db04278d04a85ace3cc.
+  - Resume: remaining shipped native window defaults map active, then bounded before/after families; tooltip/i18n and new calculator/FRET demos/visibility remain. No claim that W6g/PRD154 is complete.
