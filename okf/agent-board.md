@@ -5014,3 +5014,10 @@ retired so nobody works the same thing twice.)*
   - [x] ReadableIRFfallback andmetricpainter testrepair preservesemantics/clip/occlusion assertions;53+6Calibration/64PSFcases,1007guards14skips and72postcommit24.33s pass.
   - [x] Paireddocs/concepts/stubs/catalogue/inventory/OKF/PRD/index/assessment/log/currentjob/acceptance/archive updated; localplaincommit,no push/trailers/broadstage/discard;.zed disk-only intact.
   - Resume:independent55covered61remaining; Spot/Region staticmetadata gap needsactualunshimmedRED/reference first, no testshim/framepad adoption. FullW6g/PRD/W0bundle/broadtour gates remainopen.
+
+
+## Resolved — scanner, raster clocks and Python image counters, 2026-10-08
+
+- **T-20261008-W6G-RASTER-TIMING · ✅ DONE** — Source ChiSurf ac92f97f8; independent HEAD-only seven RED → seven GREEN timing cases; sample392785/IRF130141 arrays/RNG retained,64ps/0.01s/128TAC physical headers. Combined scanner/timing22 and available guards1020/14skip pass. Paired docs/OKF/archive committed; parent W6g stays active.
+- **T-20261008-W6G-CLSM-U32 · ✅ DONE** — TTTRlib2cdcf61cb owns existingu32 Python parent/channel intensity and split metadata refresh. Explicit nativeu16/ABI retained. Canonical51 and actualarm6434 targeted cases pass. Actual wide sum390384 replaces wrapped259312. Source/tests/README/ownerOKF/log committed; ChiSurf receipt/archive published. GUI consumers are rebaselining; no full-programme completion claim.
+- **T-20261008-W6G-SPOT-REGION · 🔄 CONTINUING** — ChiSurf ac92f97f8 canonical freeze sent to settings_window_contracts and viewer_window_contracts. Exact geometry paths remain per existing claims; Spot corrected uint32 recapture, Region corrected real BEFORE then edits. Root docs/guards/PNG inspection/commit; no source shims/padding or foreign formatting adoption. Current authoritative handoff: chisurf/okf/validation/release-readiness-w6g/current-job.md.
