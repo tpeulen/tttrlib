@@ -4964,3 +4964,14 @@ retired so nobody works the same thing twice.)*
   - [x]1054targeted guards/15skips;76postcommit checks21.61s. Three old parity failures fixed through two public setters, scientific assertions unchanged. W0 missing bundle guard remains open.
   - [x] Focused plain local commit; no push/trailers, broad staging/discarding; disk-only .zed tasks intact.
   - Resume: ndX cleanframe/defaultlauncher/package/tests and actualafter active; no adapter/prototype/new persistence.45covered/71remaining; refresh after owner acceptance. Full W6g/PRD incomplete.
+
+## Resolved — ndX owner window delivery, 2026-10-08
+
+- **T-20261008-W6G-NDX-WINDOW · ✅ DONE** — Parent W6g remains active.
+  - Ownera70490ec/ChiSurff8996982e; only six owner paths+README and gitlink/docs/OKF integrated, six foreign owner paths preserved.
+  - [x] Packaged1200×800 declaration, standalone Native/Tk routing, explicit size and existing saved960×640 host geometry verified; no new persistence/loader/adapter.
+  - [x]45owner measured checks no skips,993root guards/15skips,71postcommit checks; canonical editable build/source exact and prospective wheel includes spec.
+  - [x]32actualQt before/after images inspected, realCSV/BUR tables/axes/histograms/marginals/control parity; root individual images confirm batch black-display artifact, no painter workaround.
+  - [x] Owner README, paired guide/theory, concept/PRD/index/assessment/log/currentjob/acceptance/finalarchive/map updated. Exact inherited Ruff/mypy diagnostics recorded, not suppressed or claimed clean.
+  - [x] Focused plain local owner/root commits, no push/trailers, no broad staging/discard; .zed ignored disk-only intact.
+  - Resume:46covered/70remaining window declarations; next bounded truebase Count Rate/Time Windows/optional Histogram with scratch actualLeica data. FullW6g/PRD incomplete, W0 missing bundle and broadtour gates remain.
