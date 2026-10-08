@@ -4939,3 +4939,16 @@ retired so nobody works the same thing twice.)*
   - [x] Targeted applicable guards1074passed/15skip; postcommit66passed20.05s includes shipped demo/catalogue/inventory freshness. W0's absent test_okf_bundle.py and whole-tour integration gates remain programme-level open items, not accepted here.
   - [x] Focused local plain commits; no push/trailers; .zed/tasks.json remains ignored disk-only SHA db3215aa8f95f6d952a45fb55b7575847cc0f03e7d1d1db04278d04a85ace3cc.
   - Resume: remaining shipped native window defaults map active, then bounded before/after families; tooltip/i18n and new calculator/FRET demos/visibility remain. No claim that W6g/PRD154 is complete.
+
+## Resolved — ordinary window unit, 2026-10-08
+
+- **T-20261008-W6G-ORDINARY-WINDOWS · ✅ DONE** — Root owns integrated viewer/selection, settings and Intensity scopes; parent T-20261006-W6G remains active.
+  - Source eb1bba5f5; metadata/resume and exact final archive published. All children/tests terminal.
+  - [x] Root changes tested: five primary declarations read by actual factories; shared button width excludes hidden identities; saved custom dimensions retain precedence. Foreign source formatting preserved.
+  - [x] Real scratch before/after Qt PNGs read by owners/root, all relevant tabs/docks visited; exact photons/HMM/selection/configuration retained. Default/screen-clamp and empty stored-fit parameter qualifications explicit.
+  - [x] Existing result controls retain IDs/actions, wrap at narrow widths, carry localized accurate tips; FRET caption preserves ##fretdist identity/axes. No new allowance.
+  - [x] Documentation, German/French stubs and isolated docs-plugins regenerated; one obsolete planning-reference allowance removed.
+  - [x] OKF concept/log/PRD/index/assessment/currentjob/acceptance updated; reproducible full remaining-window map and next-slice recipes archived.
+  - [x] Targeted guards1060passed/15skips; postcommit82passed22.82s. W0 missing bundle guard and broader programme integration remain open.
+  - [x] Focused local plain commit, no trailers/push; disk-only .zed tasks retained.
+  - Resume:42covered,66missing,8hardcoded=74remaining; next exact Photon Table/LUT/Trace Browser or clean ndX owner scopes listed in OKF. No next source scope assigned yet; parent W6g is incomplete.
