@@ -1986,6 +1986,8 @@ retired so nobody works the same thing twice.)*
 
   - Shared contract source86a42f2e7ceb8068f108352ffe7b0d5ec1c2135a andSDK95705e20fc57383b86017b04b0ba4b67946aaabf landed;canonicalinstall/21pins/lockverified. SDK50,27focused,984availablechecks/16skips,types/Ruffclean;9010committedstrings inde/fr,0missing,finished-context policy tested;localePNGsread. Initial1143tooltipbaseline explicitlyauthorizedP-F5 isopen debt,notcoveragecompletion. Nextimperativewrapping/fulltooltipdebt/demo/window;W6gactive.
 
+  - **Window unit resolved ✅ 2026-10-08:** ChiSurf9f2b7dd76fd4dbf8b5bcb493a5679950deb898e3; emtkdffa2690126c3d4fef0a07ce6b1ae426471bcc96 committed,21pins andcanonicaltestinstall verified. Owned helper/schema, SetupStep, shared ToolHub/CalculatorHub, FRET640×480, TTTRviewer1200×800 declarations; savedgeometrywins. SDK43pass,700focusedpass, broader1080pass plus2obsolete strictXPASS fixed; calculator29pass/2separatexfails. Rootpersonallyread10real-data before/afterpairs,0lostcontrols/exactscience. Ruff/targetedtyping/lockclean. Source originals/ownedpatch/docs/captures andfactorymapdurableinChiSurfOKF release-readiness-w6g. Nativeagent exactSDKslice/review integrated; capturebaseline reconstructedfromfrozensource afteroverlappingrerun,accuratelyqualified. No Dialog/web edits, no blanketALWAYSreplacement, no actual plugins.py/state.py mutation. W6gmainclaimremainsactive:10/12hubs,1/8calculators,1/6viewers,0/90tools covered; remaining factoryfamilies,1143tooltips,imperativei18n,demos/tours open.
+
 - **T-20261005-FITWIN-EMTK · [chisurf+emtk] Fit window content is ONE emtk surface: plots, data table, info, code editor**
   - Status: ✅ done (emtk bb4cce6, 4bfdadf, 10de583; chisurf 794b8e27d; local, not pushed)
   - Owner: claude-opus-5.5/fitwin-emtk
