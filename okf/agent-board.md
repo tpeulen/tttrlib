@@ -4985,3 +4985,13 @@ retired so nobody works the same thing twice.)*
   - [x]1007guards/14skips and74postcommit21.13s green; docs/theory/catalogues/reference/inventory/OKF/PRD/index/assessment/currentjob/log/acceptance/finalarchive updated.
   - [x] Focusedplainlocalcommit, no push/trailers/broadstage/discard; .zed ignored intact. W0bundle/wholeprogramme gates notaccepted here.
   - Resume: FPS cleancard actual11AV geometry/source/after evidence active and archived;49covered/67remaining by priorfullscan+3readers. FullW6g/PRD incomplete.
+
+## Resolved — FPS card host declaration, 2026-10-08
+
+- **T-20261008-W6G-FPS-WINDOW · ✅ DONE** — Source8842fedba; parentW6g/PRD active.
+  - [x] Cleantrueowner/newcomposite hostspec/newtests only;1100×720 withsaved940×640 precedence, siblings/wrapper/tabviews unchanged.
+  - [x] Actual11AV computations, realChimol3D, point/mean/grid/color/structure/config/control parity; real1R0A+DNAfixture retained,8before/8afterPNG individuallyread/root3Dpair verified, no skips credited.
+  - [x]7meaningful realAV/MRC/renderer/scoring/FlexFit/geometry checks,1001guards14skips and66postcommit20.64s pass; Ruffclean,13exactinherited typing identities recordednot suppressed/claimedclean.
+  - [x] Pairedguide/theory,stubs,catalogue/reference/inventory,concept/PRD/index/assessment/log/currentjob/acceptance/sourcearchive published; meaningfulsource-lessproducer map confirms50covered/66remain.
+  - [x] Focusedplainlocalcommit, no push/trailers/broadstage/discard; .zed disk-only intact. W0bundle/fullprogramme gates remain open.
+  - Resume: refreshed finalmap/nextordinaryspectraltool capture recipes sealing; no sourcechildren active. Exclude foreign semantic prototypes, require realbefore/science. Full W6g/PRD incomplete.
