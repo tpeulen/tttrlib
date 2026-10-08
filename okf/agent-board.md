@@ -4952,3 +4952,15 @@ retired so nobody works the same thing twice.)*
   - [x] Targeted guards1060passed/15skips; postcommit82passed22.82s. W0 missing bundle guard and broader programme integration remain open.
   - [x] Focused local plain commit, no trailers/push; disk-only .zed tasks retained.
   - Resume:42covered,66missing,8hardcoded=74remaining; next exact Photon Table/LUT/Trace Browser or clean ndX owner scopes listed in OKF. No next source scope assigned yet; parent W6g is incomplete.
+
+## Resolved — photon tools and Trace Browser, 2026-10-08
+
+- **T-20261008-W6G-PHOTON-VIEWER · ✅ DONE** — Root integrates Photon/LUT/Trace; parent W6g and external ndX owner remain active.
+  - Sourcec641aad19; exact before/final/candidate/patch/science/PNG archive and owning docs/OKF published.
+  - [x] Three primary readers tested, saved geometry/configuration retained, foreign formatting excluded.
+  - [x] Actual183657photon rows/timing/LUT and6233×3trace/histograms/controls preserved; realistic before/after PNGs read.
+  - [x] Readable Normalize caption, accurate native/legacy threshold/masking descriptions, actual native and Qt tooltips verified. Existing algorithms/defaults unchanged; mapping changes/exact toggle-back guarded.
+  - [x] Paired guide/theory, stubs, generated reference, PRD/index/assessment/currentjob/log/acceptance/archive updated.
+  - [x]1054targeted guards/15skips;76postcommit checks21.61s. Three old parity failures fixed through two public setters, scientific assertions unchanged. W0 missing bundle guard remains open.
+  - [x] Focused plain local commit; no push/trailers, broad staging/discarding; disk-only .zed tasks intact.
+  - Resume: ndX cleanframe/defaultlauncher/package/tests and actualafter active; no adapter/prototype/new persistence.45covered/71remaining; refresh after owner acceptance. Full W6g/PRD incomplete.
