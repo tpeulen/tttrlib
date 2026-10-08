@@ -1943,7 +1943,7 @@ retired so nobody works the same thing twice.)*
 ## Active
 
 - **T-20261006-W6G · [chisurf + emtk] CLAIM — PRD-154 W6g: plugin-uniformity mechanics (P-F steps 1-8)**
-  - Status: 🔄 active2026-10-08; generic+TTTR setup landed, Burst adapter next
+  - Status: 🔄 active2026-10-08; generic/TTTR/Burst setup landed; ribbon next
   - Owner: /root
   - Opened: 2026-10-06 · Picked: 2026-10-06 · Done: —
   - Done when: plugin inventory generator + guard landed; hub setup-as-step-0 with test; Imaging folded into Spectroscopy (ribbon PNG read); tooltip guard + shrinking allow-list; i18n static checks (+ emtk TEXT_KEYS); demo/tour contract guard; view.json `window` key.
@@ -1961,6 +1961,12 @@ retired so nobody works the same thing twice.)*
   - Generic/TTTR publication scope: exact shared-definition section in `docs/concepts/tcspc_lifetime.md`, `docs/guides/101_tttr_toolbox.md`, two new figures; native-hub wording only in TTTR toolbox help/guide; generated owning catalogue page; W6g receipts/current-job/PRD/log. Generic _setup_handed avoids Burst cache collision; overlay None guard removes inherited typing error without changing exception-to-False behavior. Burst adapter remains the next dependent source slice.
 
   - Shared setup source845087480f0cca921d888b71c5ec227315313ada landed;63hosting/editor +38MLE-neighbor cases and963availableguards/16skips, clean targeted types/Ruff. Real SnapshotJob first-frame delivery race fixed; all physical before/after/setup/Qt-host PNGs personally read. Ownership source/archive at W6g/shared-setup-current-job.zip; foreign widget formatting preserved. Next Burst adapter, then ribbon/remainingmechanisms.
+
+  - Active Burst adapter2026-10-08: root owns Burst native.py setup/context paths, setup_selection_app.py superclass/reused semantic methods and declared strip, generic ToolHub restore authority and hosted pending polling seams only, Burst FCS app constructor/adoption callback only (foreign91line formatting preserved), new test/native_emtk/test_burst_hub_shared_setup.py; Background controller dynamic provider and tests delegated to /root/burst_setup_review. IRF _sync_binning hosted guard only; fresh8source/modes/foreign patch at /private/tmp/prd154-w6g-burst-before. Capture real before scenes before any production edits. Docs/OKF/staging/commits root-owned.
+
+  - Burst publication docs2026-10-08: paired `docs/concepts/smfret_bursts.md` and `docs/guides/27_alex_smfret_workflow.md`, two new figures; exact hub help/setup-help/guide wording, declared setup_selection_strip.view.json and generated owning catalogue. New workflow-context export/restore stays in owned native.py; unavailable AccurateFRET filename default uses None to clear inherited typing error with same falsy behavior. Root owns these hunks and archive/PRD/log.
+
+  - Burst sourcee8902b16d110fd43c28188d687fafc9725148252 landed:27real/newcases,965availableguards/16skips;198bursts andpooledtau2.0099473181423733 unchanged,396hosted/24standaloneFCS renderedandread. Exact source/before/after/producers preserved; delegated reader slice integrated. Native/setup/hub typingclean,11consumer inheriteddiagnostics unchanged. Next ribbon; W6g active.
 
 - **T-20261005-FITWIN-EMTK · [chisurf+emtk] Fit window content is ONE emtk surface: plots, data table, info, code editor**
   - Status: ✅ done (emtk bb4cce6, 4bfdadf, 10de583; chisurf 794b8e27d; local, not pushed)
@@ -3611,6 +3617,13 @@ retired so nobody works the same thing twice.)*
 *(Move completed entries here. Prune entries older than 30 days.)*
 
 ## Resolved
+
+- **T-20261008-W6G-BURST-SETUP · [chisurf] Burst workflow shared acquisition adapter**
+  - Status: ✅ source complete2026-10-08; W6g remains active.
+  - Owner: /root; bounded Background reader implemented by /root/burst_setup_review, integrated by root.
+  - Touching: Burst native hub/context and reused setup-step/declared strip; generic restore authority/hosted polling; FCS adoption callback; IRF hosted binningguard/unusedlocal; Background dynamicreader; two targetedtestfiles; paired docs/figures/help/guide/catalogue and exact OKF/PRD/log.
+  - Acceptance: e8902b16d110fd43c28188d687fafc9725148252;27real/newcases include198burst workflow andrestore/callback/readers/pending/state/provenance/patterns/fusion;965availableguards/16skips. Actual before/after/396hostedFCS and24standalonecurve scenes read; pooledtau unchanged. Owning hub/setup typesclean;11consumer inheriteddiagnostics unchanged; no algorithm/default change or new allowance.
+  - A2: [x] owning root/tests; [x] actual before-after control inventory/analysisPNG inspected; [x] newdescription/tr/speccontrols; [x] paired docs/catalogue; [x] durable OKF/resume/log; [x] plain local tpeulencommit; [x] fiveavailableguards. [ ] bundle test stillW0. Foreignformatting remains on disk; no wholeprogramme completion claim. Durable W6g archive carries exact source andproducer, not chat-only notes.
 
 - **T-20261008-W6G-SHARED-SETUP · [chisurf] Generic hub setup and real TTTR integration**
   - Status: ✅ source complete2026-10-08; remaining programme gates are active.
