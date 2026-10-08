@@ -1,5 +1,14 @@
 # Bundle update log
 
+## 2026-10-08 — Preserve frames at simultaneous scanner boundaries
+
+- Stop-aware CLSM frame edges preserve exact photon identities and the original
+  native/Python APIs. Four old-provider regressions become passing; targeted
+  checks: 29 passed, 5 hardware-fixture skips. The unchanged Flow PTU now
+  reconstructs 715,744 photons in 50 frames; actual Map flow retains 25/25
+  arrows. [Validation and resume point](testing/clsm-frame-marker-boundaries.md)
+  records compiled-provider identity and qualified velocity results.
+
 ## 2026-10-07 — Fit24 reports the mixture used for its fitted curve
 
 `DecayFit24::fit` now returns effective A2 after the existing input correction,

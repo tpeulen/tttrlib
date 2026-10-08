@@ -1523,6 +1523,43 @@ public:
             int expected_n_lines = 0
     );
 
+#ifndef SWIG
+    /*!
+     * \brief Retrieves frame boundaries with an explicit closing line marker.
+     *
+     * Opening line or pixel markers at the frame marker's macro time belong
+     * to that frame regardless of their event ordering. A distinct line-stop
+     * marker at the same time closes the preceding frame and must remain
+     * there. Otherwise its stop is paired with the next line's start, giving
+     * zero-duration lines and silently discarding their photons.
+     *
+     * The original overload and its binary symbol are retained for callers
+     * without a closing-marker configuration. CLSM reconstruction supplies
+     * its configured stop marker through this overload. Other arguments keep
+     * the semantics documented for the original overload.
+     *
+     * This overload is C++-only; Python reconstruction passes its settings
+     * internally while its original keyword-callable helper stays unchanged.
+     *
+     * @param marker_line_stop Closing marker routing channel. A negative value,
+     *                         CLSM_MARKER_NO_STOP, or marker_line_start has no
+     *                         distinct stop barrier (a single-channel line clock).
+     */
+    static std::vector<int> get_frame_edges(
+            TTTR* tttr,
+            int start_event,
+            int stop_event,
+            std::vector<int> marker_frame_start,
+            int marker_event_type,
+            int reading_routine,
+            bool skip_before_first_frame_marker,
+            bool skip_after_last_frame_marker,
+            int marker_line_start,
+            int expected_n_lines,
+            int marker_line_stop
+    );
+#endif
+
     /*!
      * \brief Identifies line edges by reading start and stop markers in a time-tagged
      *        time-resolved (TTTR) dataset.

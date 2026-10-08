@@ -14,6 +14,23 @@ Implements spatial reconstruction of 2D/3D images from TTTR marker streams (line
 
 - `examples/flim/plot_phasor_decay_stack.py` (+ `.ipynb`): phasors of a simulated 18 000-decay stack in one call (`DecayPhasor.compute_phasor_bincounts_batch`), IRF calibration with `DecayPhasor.g/s`, universal-semicircle plot; equals the per-decay `phasor_of_bincounts` digit for digit.
 
+## Simultaneous scan markers
+
+Frame reconstruction includes opening line and pixel markers that share the
+frame clock's macro time. A distinct line-stop marker at that same time still
+closes the preceding frame. The stop-aware `CLSMImage::get_frame_edges` overload
+takes the configured stop marker so the preceding line remains complete and
+the next frame does not begin with a zero-duration stop/start pair. Reconstruction
+passes this configuration automatically; the original overload and binary
+symbol remain available. The C++-only overload does not change the existing
+keyword-callable Python helper. Start-only clocks and a shared start/stop
+channel keep their existing marker-order behavior.
+
+`test/python/clsm/test_frame_marker_boundaries.py` checks two complete raster
+frames without pixel markers, both opening-marker orders, lazy/materialized
+counts, exact input photon indices and mean microtimes. It also checks the
+legacy positional/keyword-callable signatures and shared or start-only line clocks.
+
 ## Dependencies
 
 - Depends on `core`, `util`, `fcs`.

@@ -698,7 +698,8 @@ CLSMImage::CLSMImage(
                 auto frame_edges = get_frame_edges(tttr_data.get(), 0, -1,
                     this->settings.marker_frame_start, this->settings.marker_event_type,
                     this->settings.reading_routine, true, true,
-                    this->settings.marker_line_start, this->settings.n_lines);
+                    this->settings.marker_line_start, this->settings.n_lines,
+                    this->settings.marker_line_stop);
 
                 if (frame_edges.size() >= 2) {
                     // 1. Count line markers in first frame
@@ -1044,6 +1045,24 @@ std::vector<int> CLSMImage::get_frame_edges(
     bool skip_after_last_frame_marker,
     int marker_line_start,
     int expected_n_lines) {
+    return get_frame_edges(tttr, start_event, stop_event, marker_frame,
+                           marker_event_type, reading_routine,
+                           skip_before_first_frame_marker, skip_after_last_frame_marker,
+                           marker_line_start, expected_n_lines, CLSM_MARKER_NO_STOP);
+}
+
+std::vector<int> CLSMImage::get_frame_edges(
+    TTTR *tttr,
+    int start_event,
+    int stop_event,
+    std::vector<int> marker_frame,
+    int marker_event_type,
+    int reading_routine,
+    bool skip_before_first_frame_marker,
+    bool skip_after_last_frame_marker,
+    int marker_line_start,
+    int expected_n_lines,
+    int marker_line_stop) {
     int n_events = static_cast<int>(tttr->get_n_valid_events());
     std::vector<int> frame_edges;
     
@@ -1123,6 +1142,12 @@ std::vector<int> CLSMImage::get_frame_edges(
             while (j > start_event &&
                    event_types[j - 1] == marker_event_type &&
                    tttr->get_macro_time_at(j - 1) == t) {
+                // a distinct stop closes the preceding frame, not this one
+                if (marker_line_stop >= 0 && marker_line_stop != CLSM_MARKER_NO_STOP &&
+                    marker_line_stop != marker_line_start &&
+                    routing_channels[j - 1] == static_cast<signed char>(marker_line_stop)) {
+                    break;
+                }
                 j--;
             }
             return j;
@@ -1515,7 +1540,8 @@ void CLSMImage::create_frames(bool clear_first) {
         settings.skip_before_first_frame_marker,
         settings.skip_after_last_frame_marker,
         settings.marker_line_start,
-        settings.n_lines
+        settings.n_lines,
+        settings.marker_line_stop
     );
     if (is_verbose()) {
         std::clog << "-- CREATE_FRAMES" << std::endl;

@@ -309,7 +309,7 @@ degenerate answer that scores 100 % recall by overlap, which is why
 
 | Header | Kernel | Reference | Metric / result | Verdict |
 |---|---|---|---|---|
-| CLSMImage.h | frame/line/pixel reconstruction (default HT3 routine; SP5 routine) | independent NumPy from markers | exact, 3.36 M photons / 40 frames; 3.49 M / 230 frames | PASS |
+| CLSMImage.h | frame/line/pixel reconstruction (default HT3 routine; SP5 routine; simultaneous line-stop/frame-start boundaries) | independent NumPy from markers | exact, 3.36 M photons / 40 frames; 3.49 M / 230 frames; [boundary regression](clsm-frame-marker-boundaries.md) preserves exact photon sets and all 715,744 Flow photons / 50 frames | PASS |
 | CLSMImage.h | `get_tttr_indices`, `get_fluorescence_decay`, `get_decay_of_pixels`, `get_mean_micro_time`, `get_mean_lifetime`, `crop`, `rebin` | reference photon set; np.add.at / bincount; m1/m0; moment lifetime formula; slices/block sums | exact / 1e-12 / 1e-10 (`get_fluorescence_decay` is uint8 and saturates at 255) | PASS (bounded) |
 | CLSMImage.h | `compute_ics` / `get_fcs_image` | numpy FFT correlation; **pysimfcs `autocorr2d`** (J. Unruh, live); **Kolin & Wiseman `stics.m` / `corrfunc.m`** (MATLAB 2003, run in Octave, recorded) | pre-existing; pysimfcs identical (0.0) after its N·mean²−1 normalisation on even shapes (its `irfft2` drops a column on odd widths); STICS at lags 0–3 (frame-pair average) and the per-frame normalised ACF bit-identical to the MATLAB code | PASS |
 | ImageLocalization.h | `fit2DGaussian` (Poisson-MLE, fixed/free ellipticity) | scipy L-BFGS-B on the identical deviance from the same start | same minimum 1e-9 rel; position 1e-2 px | PASS |

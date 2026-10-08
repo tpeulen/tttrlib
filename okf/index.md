@@ -29,6 +29,8 @@ Cross-cutting first, then the JavaScript binding (PRD-016).
 
 # Testing
 
+* [Simultaneous scanner boundaries](testing/clsm-frame-marker-boundaries.md) - complete frames, exact photon identities and compiled-provider validation.
+
 * [Test workload tiers and the fast lane](testing/test-workload-tiers.md) - what the suite actually costs (29 tests are 85% of it), the `--lane` tiers and the audit that keeps them honest, and the cold-cache trap that makes a first measurement wrong by 4x
 * [Algorithm validation register](testing/algorithm-validation.md) - **every algorithm in the library** A/B-tested against an independent reference (FRETBursts, H2MM_C, the original FRET_burstML MEX and PAM's PDA compiled natively, astropy, phasorpy, ptufile/phconvert, PyBroMo, skimage/scipy/numpy transcriptions of the papers) or a known answer, per-area rows with metric and verdict, the header-mark convention, and what it found: five defects fixed the same day (PCG output, background-rate tail MLE, search-axis first/last bin, Laurence CCF unsigned wrap, `fconv_ref` dropped `dt`) and the open ones filed in BUGS.md. **A new algorithm gets a row before it is called done.**
 * [`modules/math` validation register](testing/math-kernel-validation.md) - every math kernel A/B-tested against an independent reference (sklearn, scipy, scikit-image, numpy, hmmlearn, filterpy, Random123/pcg32 known answers, ChiSurf where it is a port), the metric each agrees to, the four `test_math_ab_*.py` suites that pin it, and what the A/B found — a PCG output function that was not PCG (fixed 2026-08-17), and two "references" that are not references. **A new kernel gets a row here before it is called done.**
