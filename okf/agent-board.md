@@ -1943,7 +1943,7 @@ retired so nobody works the same thing twice.)*
 ## Active
 
 - **T-20261006-W6G · [chisurf + emtk] CLAIM — PRD-154 W6g: plugin-uniformity mechanics (P-F steps 1-8)**
-  - Status: 🔄 active2026-10-08; inventory slice first
+  - Status: 🔄 active2026-10-08; generic+TTTR setup landed, Burst adapter next
   - Owner: /root
   - Opened: 2026-10-06 · Picked: 2026-10-06 · Done: —
   - Done when: plugin inventory generator + guard landed; hub setup-as-step-0 with test; Imaging folded into Spectroscopy (ribbon PNG read); tooltip guard + shrinking allow-list; i18n static checks (+ emtk TEXT_KEYS); demo/tour contract guard; view.json `window` key.
@@ -1953,6 +1953,14 @@ retired so nobody works the same thing twice.)*
 
 
   - Inventory unit ✅93ed8c80a983ffc1daf5fdd04ab0a4f26972bc58: six source regressions + five available guards965pass/16skips; Ruff/format/mypy clean; committed129/116emtk and distinct live129/123 receipt. Main W6g remains🔄; next shared-setup baseline/callback/lazy ownership test before source changes.
+
+  - Active source slice2026-10-08: owned new hosting methods/fields/early draw-dialog-poll branches only in `chisurf/emtk/channel_definition.py`; ToolHub setup/lazy/bounded tool-controller discovery/fanout/persistence methods; new `setup_step.py` + `setup_step.view.json` and hosted-summary view; only uses_setup flags for actual Count Rate/Audifier in TTTR panels; new `test/native_emtk/test_tool_hub_setup.py`. Before source/modes/foreign diff and real production PNGs are archived in W6g hub-setup-before.zip. Burst adapter is the next dependent slice; no edit yet. Root owns docs/OKF/prospective inventory updates and focused commits; preserve foreign widget formatting/body.
+
+  - Hosting test scope extension2026-10-08: `chisurf/plugins/tttr/tttr_toolbox/test/test_native.py` only changed six-tool expectation/newsetup role, explicit fake-input test original role and real editor in fake setup-using child. Exact clean-before snapshot is /private/tmp/prd154-w6g-setup-before/source/chisurf/plugins/tttr/tttr_toolbox/test/test_native.py. Never skip actual original routes or weaken hard Qt blocker.
+
+  - Generic/TTTR publication scope: exact shared-definition section in `docs/concepts/tcspc_lifetime.md`, `docs/guides/101_tttr_toolbox.md`, two new figures; native-hub wording only in TTTR toolbox help/guide; generated owning catalogue page; W6g receipts/current-job/PRD/log. Generic _setup_handed avoids Burst cache collision; overlay None guard removes inherited typing error without changing exception-to-False behavior. Burst adapter remains the next dependent source slice.
+
+  - Shared setup source845087480f0cca921d888b71c5ec227315313ada landed;63hosting/editor +38MLE-neighbor cases and963availableguards/16skips, clean targeted types/Ruff. Real SnapshotJob first-frame delivery race fixed; all physical before/after/setup/Qt-host PNGs personally read. Ownership source/archive at W6g/shared-setup-current-job.zip; foreign widget formatting preserved. Next Burst adapter, then ribbon/remainingmechanisms.
 
 - **T-20261005-FITWIN-EMTK · [chisurf+emtk] Fit window content is ONE emtk surface: plots, data table, info, code editor**
   - Status: ✅ done (emtk bb4cce6, 4bfdadf, 10de583; chisurf 794b8e27d; local, not pushed)
@@ -3603,6 +3611,13 @@ retired so nobody works the same thing twice.)*
 *(Move completed entries here. Prune entries older than 30 days.)*
 
 ## Resolved
+
+- **T-20261008-W6G-SHARED-SETUP · [chisurf] Generic hub setup and real TTTR integration**
+  - Status: ✅ source complete2026-10-08; remaining programme gates are active.
+  - Owner: /root.
+  - Touching: emtk/tool_hub.py setup/factory/restore/overlay-None guard only; channel_definition.py new hosted fields/methods/draw-dialog-poll-drop branches; new setup_step.py andtwo declared specs; TTTR toolbox only actual Count Rate/Audifier uses_setup flags and matching tests/help/guide; pairedconcept/guide/twofigures; exact OKF receipts/PRD/log.
+  - Acceptance: ChiSurf845087480f0cca921d888b71c5ec227315313ada;63hosting/shared-editor +38MLE neighbors,963availableguards/16skips; mypy clean and original-widget before/after clean; source/Ruff andnewfileformat checks pass. Real SnapshotJob isolates original definition before firstread-onlyframe; callbacks deferlatest/boundedtoolowner/restore/fullarrayidentity verified. Actual physical BH CountRate andAudifier analysis/Qt-host images read against before inventory.
+  - A2: [x] owning-repo root/tests; [x] before/after real rendered control parity; [x] new descriptions/tr; [x] paired docs/catalogue generator; [x] durable OKF/resume/log; [x] focused plainlocal tpeulencommit; [x] fiveavailableguards. [ ] missing test_okf_bundle.py remains W0; no full-programme completion claim. Mnemosyne unavailable; durable lessons in W6g current-job.
 
 - **T-20261007-W1-MLE-MODEL-DOCS · [chisurf] explicit Burst MLE model-choice documentation and manual tour step**
   - Status: ✅ source complete2026-10-08; programme bundle-wide guard remains W0.
