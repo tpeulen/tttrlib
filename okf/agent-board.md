@@ -4995,3 +4995,13 @@ retired so nobody works the same thing twice.)*
   - [x] Pairedguide/theory,stubs,catalogue/reference/inventory,concept/PRD/index/assessment/log/currentjob/acceptance/sourcearchive published; meaningfulsource-lessproducer map confirms50covered/66remain.
   - [x] Focusedplainlocalcommit, no push/trailers/broadstage/discard; .zed disk-only intact. W0bundle/fullprogramme gates remain open.
   - Resume: refreshed finalmap/nextordinaryspectraltool capture recipes sealing; no sourcechildren active. Exclude foreign semantic prototypes, require realbefore/science. Full W6g/PRD incomplete.
+
+## Resolved — spectral windows and background caller, 2026-10-08
+
+- **T-20261008-W6G-SPECTRAL · ✅ DONE** — Core46c9e3dc/source504e2e2e; parentW6g/PRD remainactive.
+  - [x] Three1100×720primaryreaders, savedsizes/config/scientificarrays/controlparity;foreignformatting/prototypesexcluded.
+  - [x] CorrectpositiveuniformTCSPCbackground/zero-signalconfigandarrays tested;correctedLFCSnative/reference curvesrecaptured, oldpromptscatterRNGtransitionqualified; conciseSpeciesnative/legacyglyphs/actionsread.
+  - [x] ActualPCHmeasured183657photons/pairedspecies/oldphysicaltolerance and2DFLCSNNLS/MEM/correlation/kinetic arrays exact;truecompletion/failure status translated, independentMEMobjective/gradient/convergence replacesoldnoninvariant sum, nooptimizerchange.
+  - [x] Realbefore/after/tabs/default/narrow/resize/reopenPNG individuallyread;batchfalseblank noSDKworkaround.1014guards14skips,meaningfulphysics/statuscasegroups and63committedfreshness19.27s green;baseline16modeltyping/coreannotationlimits exactrecorded.
+  - [x] Pairedguide/theory/stubs/catalogue/reference/inventory/concept/PRD/index/assessment/log/currentjob/acceptance/finalarchives published;plainlocalcommits, no push/trailers/broadstage/discard;.zed disk-only intact.
+  - Resume:independent53covered/63remaining; nextboundedcalibration/PSFdata/fitrecipes sealing, no sourcechildactive. FullW6g/PRD andW0bundle/broadtour gates remainopen.
