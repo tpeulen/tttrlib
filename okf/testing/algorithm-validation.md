@@ -440,3 +440,9 @@ written for dim == 4 and read past its buffers for dim == 1 (undefined
 behaviour meeting stale heap only when other shapes had run before). Fixed;
 `test_one_channel_is_deterministic_and_dims_beyond_four_work` pins it. Lesson
 kept: a "flake" in a deterministic A/B is a defect until proven otherwise.
+
+- 2026-10-08 — Python CLSM intensity exposes existing uint32 values with exact
+  bright-pixel photon identity, preserving explicit legacy native uint16getter.
+  Deferred splitting publishes channel metadata before refill.51targetedowner
+  checks pass; [physical/layout validation](clsm-frame-marker-boundaries.md)
+  records installedbinary identity, oldRED andconsumer integration gates.

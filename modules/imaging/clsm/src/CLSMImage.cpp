@@ -1806,6 +1806,9 @@ size_t CLSMImage::split_frames_by_channel(
     for (auto of : original) {
         delete of;
     }
+
+    // publish channel blocks for deferred fills before a refill can split them again
+    compute_channel_layout();
     
     if (is_verbose()) {
         std::clog << "-- New total frames: " << n_frames << std::endl;

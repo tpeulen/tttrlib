@@ -43,3 +43,24 @@ Wheel SHA256:
 `dc944d9bb105d84cc0775f9877df6667dda09e95cc897d06ed9371247b61a20c`.
 Source builds use ChiSurf's declared test prefix without shadow imports.
 See [algorithm register](algorithm-validation.md) and the module README.
+
+# Python counts and deferred channel layout — verified2026-10-08
+
+The Python image and selected-channel intensity properties now use existing
+uint32 counters. Explicit native get_intensity remains the documented legacy
+uint16 API, with its ABI unchanged. Actual bright pixels79840/86493 no longer
+wrapminus65536 through the Python property. Parent/channel shapes and exact
+photon identities remain. Deferred channel splitting refreshes layout metadata
+when newframe blocks are final, so subsequent fills do not split them again.
+
+Oldinstalled RED:18counter cases fail/4pass;9deferredlayout casesfail/3pass.
+Canonical sourcebuild targetedwidth/layout/marker/lazy-fill checks:51passed
+0.53s. Installed0.27.0 CLSMdylibSHA
+cc08815d84a8a1b6053808910ced5b1dc2f1c0a11e823483bf5e66c7ae2fedc0;
+wheel5aae7833e1a5491681767e50a7ddafb9e43155a6fffde8961326a32ae2fe6ca3.
+Re-derive with test_python_intensity_width.py,test_deferred_split_channel_layout.py,
+test_frame_marker_boundaries.py andtest_CLSM_lazy_fill.py through integrating
+ChiSurf pixi testenvironment. Those checks preserve merged/lowcount/native
+compatibility and validate split/deferred/repeatedclear/accumulation semantics.
+Userarm64 build and actualRegion/Spot GUIrebaseline are parent integration gates;
+this sourcecheck does notclaim wholeconsumer/programme readiness.

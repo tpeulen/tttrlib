@@ -4,15 +4,19 @@ import numpy as np
 @property
 def intensity(self):
     """
-    Get the intensity array of the CLSM image.
-    
-    Returns:
-        numpy.ndarray: Intensity array with shape:
-            - If split_by_channel is False or n_channels == 1: (n_frames, n_lines, n_pixel)
-            - If split_by_channel is True with multiple channels: (n_channels, frames_per_channel, n_lines, n_pixel)
+    Return photon counts without the legacy 16-bit pixel-counter wrap.
+
+    Returns
+    -------
+    numpy.ndarray
+        Unsigned 32-bit counts. The shape is ``(n_frames, n_lines, n_pixel)``
+        for an unsplit image or one channel, and
+        ``(n_channels, frames_per_channel, n_lines, n_pixel)`` for a split image
+        with multiple channels. Explicit ``get_intensity()`` calls retain
+        their legacy unsigned 16-bit counters.
     """
-    # Get the raw intensity array from C++ (shape: n_frames, n_lines, n_pixel)
-    raw_intensity = self.get_intensity()
+    # preserve counts above 65535 before reshaping the channel blocks
+    raw_intensity = self.get_intensity_u32()
     
     n_ch = int(self.n_channels)
     if n_ch > 1:
@@ -96,8 +100,8 @@ class _ChannelSlice(object):
     
     @property
     def intensity(self):
-        """Get intensity array for this channel only."""
-        full_intensity = self._img.get_intensity()
+        """Return unsigned 32-bit counts with this channel's frames-first shape."""
+        full_intensity = self._img.get_intensity_u32()
         # Calculate offset by summing frame counts of previous channels
         offset = sum(int(self._img.get_channel_frame_count(i)) for i in range(self._ch))
         count = int(self._img.get_channel_frame_count(self._ch))

@@ -31,6 +31,37 @@ frames without pixel markers, both opening-marker orders, lazy/materialized
 counts, exact input photon indices and mean microtimes. It also checks the
 legacy positional/keyword-callable signatures and shared or start-only line clocks.
 
+## Deferred channel splitting
+
+`split_frames_by_channel()` refreshes the channel layout after constructing its
+frame blocks. An image created with `fill=False` and filled later with multiple
+channels therefore reports the same channel count, offsets and
+`(channels, frames_per_channel, lines, pixels)` shape as an image filled during
+construction. Cleared refills reuse the existing blocks rather than duplicating
+them again. The public split operation also exposes its new empty layout before
+photons are filled.
+
+`test/python/clsm/test_deferred_split_channel_layout.py` compares deferred and
+constructor filling, lazy and materialized handles, repeated cleared fills,
+explicit splitting, exact per-pixel photon indices and the unchanged unsplit
+image layout.
+
+## Python intensity counter width
+
+The Python `CLSMImage.intensity` property and a channel slice's `intensity`
+property use `get_intensity_u32()`, returning unsigned 32-bit photon counts.
+Pixels with 65,536 or more photons therefore retain their counts rather than
+wrapping at the unsigned 16-bit limit. The image keeps its existing
+`(frames, lines, pixels)` shape, or `(channels, frames_per_channel, lines, pixels)`
+when channel splitting is enabled; selecting a channel returns the frames-first
+shape. Explicit `get_intensity()` calls still return the legacy unsigned 16-bit
+array, and the native getters and their binary interfaces are unchanged.
+
+`test/python/clsm/test_python_intensity_width.py` exercises ordinary counts and
+the 65,535/65,536 boundary, bright pixels, lazy and materialized reconstruction,
+multiple frames and channels, and the exact input photon indices. It also
+checks that the explicit legacy getter retains its narrower counter behavior.
+
 ## Dependencies
 
 - Depends on `core`, `util`, `fcs`.
