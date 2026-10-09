@@ -5096,3 +5096,8 @@ retired so nobody works the same thing twice.)*
 ## Resolved — shared dock host help routing, 2026-10-09
 
 - **T-20261009-W6G-HOST-HELP · ✅ DONE** — /root. SDK7871959 and three exact consumer bindings prove translated delayed docked/floating header help, close/fold priority, unchanged geometry/control/scientific outputs.71source/6installed cases and1009guards11skip pass;21pins and14matched literal relocations preserve1155count. W6g handoff closed, family7authored gaps/aggregate debt remain. Next W6f26records; foreign source/lock/board preserved, no push.
+
+
+## Resolved — W6f game host declarations and fresh persistence, 2026-10-09
+
+- **T-20261009-W6F-GAME-WINDOWS · ✅ DONE** — /root. Six numeric declarations preserve true defaults (launcher1200x800, not generic1100x720); exact31cases/22native neighbors/1024guards11skip prove consumption, saved resize/round restore and real input/paint parity. Shared absent-settings boundary fixes5fresh-launch KeyErrors; invalid nonempty objects still fail. Six of26window records closed,20core remain; other W6f obligations open. Preserved historical engine notes outside actionable resume, removed15stale PICKUP records (2405remaining). One catalogue generation, numeric-only specs/no locale strings, no metadata captures. Foreign source/index/board preserved; no push.
