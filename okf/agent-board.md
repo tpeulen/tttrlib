@@ -5086,3 +5086,8 @@ retired so nobody works the same thing twice.)*
 ## Resolved — W0a validator prerequisite, 2026-10-09
 
 - **T-20261009-W0A-VALIDATOR · ✅ DONE** — /root. Nine-rule validator, isolated detection/fix/idempotence/content-preservation fixtures, exact no-new/no-stale baseline with W0b ownership. Source, guards, workflow and evidence integrated in focused local commits. W0b remains open until zero findings/empty baseline; four existing docs-frontmatter failures retained with owners. No broad cleanup, GUI changes, foreign staging or push.
+
+
+## Resolved — W6g production guard and family owners, 2026-10-09
+
+- **T-20261009-W6G-GUARD-OWNERS · ✅ DONE** — /root. Production literal guard enforces exact1155 accepted keys; all1077tooltip/1155literal findings assigned to finite family owners and real acceptance checks.32targeted cases/static checks pass; no new scanner exclusions, denominator growth, plugin fixes or GUI captures. Shared host-help evidence still blocks W6g handoff; aggregate W6 requires empty allowances. Focused source/evidence/OKF publication; foreign work preserved.
