@@ -5091,3 +5091,8 @@ retired so nobody works the same thing twice.)*
 ## Resolved — W6g production guard and family owners, 2026-10-09
 
 - **T-20261009-W6G-GUARD-OWNERS · ✅ DONE** — /root. Production literal guard enforces exact1155 accepted keys; all1077tooltip/1155literal findings assigned to finite family owners and real acceptance checks.32targeted cases/static checks pass; no new scanner exclusions, denominator growth, plugin fixes or GUI captures. Shared host-help evidence still blocks W6g handoff; aggregate W6 requires empty allowances. Focused source/evidence/OKF publication; foreign work preserved.
+
+
+## Resolved — shared dock host help routing, 2026-10-09
+
+- **T-20261009-W6G-HOST-HELP · ✅ DONE** — /root. SDK7871959 and three exact consumer bindings prove translated delayed docked/floating header help, close/fold priority, unchanged geometry/control/scientific outputs.71source/6installed cases and1009guards11skip pass;21pins and14matched literal relocations preserve1155count. W6g handoff closed, family7authored gaps/aggregate debt remain. Next W6f26records; foreign source/lock/board preserved, no push.
