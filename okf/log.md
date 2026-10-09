@@ -1,5 +1,18 @@
 # Bundle update log
 
+## 2026-10-09 — Preserve circular ALEX phases across signed shifts
+
+- Repair `TTTR::alex_to_microtime` for full unsigned 64-bit macro times and
+  signed integer shifts, rejecting periods outside 1..65536 before mutation.
+  Preserve the existing minus-shift convention and all non-microtime fields.
+  Independent integer tests reproduce the old provider's wrong negative
+  intermediate and unsupported-period behavior; compiled acceptance passes all 33 focused tests after rebuild/install in both
+  test and arm64 environments. The core README/API contract distinguish storage
+  from narrower or absent file microtime fields.
+  [Validation and resume point](testing/algorithm-validation.md#alex-circular-phase-folding--2026-10-09)
+  also records and repairs the separately discovered high-macrotime bulk-getter
+  defect, with independent full-range and display-offset regressions.
+
 ## 2026-10-08 — Preserve frames at simultaneous scanner boundaries
 
 - Stop-aware CLSM frame edges preserve exact photon identities and the original

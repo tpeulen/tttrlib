@@ -1125,15 +1125,24 @@ public:
     /**
      * @brief Assigns a microtime based on the alternating-laser excitation (ALEX) period.
      *
-     * This method computes a microtime for each macrotime value by taking the modulo
-     * operation of the macrotime with respect to the specified ALEX period. Optionally,
-     * a period shift can be applied to adjust the macrotime before the computation.
+     * This method replaces each microtime with a circular phase in macrotime units.
+     * It supports the complete unsigned 64-bit macrotime range and signed shifts,
+     * including a shift larger than an early photon's macrotime. Macro times,
+     * routing channels, event types and the header are unchanged.
      *
      * microtime = (macrotime - period_shift) modulo alex_period
      *
-     * @param alex_period The ALEX period in units of macrotime.
+     * @param alex_period The ALEX period in units of macrotime, from 1 through 65536.
+     *                    Phases must fit the existing unsigned 16-bit microtime storage.
      * @param period_shift An optional shift applied to the macrotime before computing
      *                     the microtime. Default is 0.
+     * @throws std::invalid_argument If the period is zero or exceeds storage capacity,
+     *                              before any microtime is changed, even for an empty stream.
+     *
+     * A valid in-memory period does not guarantee lossless file export. The target
+     * record type can have fewer microtime bits, or no microtime field at all; callers
+     * must validate that output contract separately. This method does not rescale
+     * clocks or manufacture higher-precision microtime storage.
      *
      */
     void alex_to_microtime(unsigned long alex_period, int period_shift=0);
@@ -1533,10 +1542,15 @@ public:
       *
       * This function populates the provided output array with the macro times
       * of the valid TTTR events. The number of elements in the output array
-      * is stored in the n_output parameter.
+      * is stored in the n_output parameter. Unsigned 64-bit values retain their
+      * full range, including values above the signed 64-bit maximum. The cached
+      * display offset is added without changing stored event times; negative
+      * results are clamped to zero.
       *
       * @param output Pointer to the output array to be populated.
       * @param n_output Pointer to the number of elements in the output array.
+      * @throws std::overflow_error If a positive display offset exceeds unsigned
+      *                             64-bit capacity, before output memory is allocated.
       */
      void get_macro_times(unsigned long long **output, int *n_output);
 

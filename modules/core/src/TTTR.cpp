@@ -1236,9 +1236,16 @@ bool TTTR::write_ps_file(const std::string& filename, TTTRHeader* hdr) {
 }
 
 void TTTR::alex_to_microtime(unsigned long alex_period, int period_shift) {
+    if (alex_period == 0 || alex_period > 65536UL) {
+        throw std::invalid_argument("ALEX period must be between 1 and 65536 microtime bins");
+    }
+    const int64_t period = static_cast<int64_t>(alex_period);
+    const int64_t shift = static_cast<int64_t>(period_shift) % period;
+    const uint64_t phase_shift = static_cast<uint64_t>((shift + period) % period);
     for (size_t i = 0; i < n_valid_events; ++i) {
-        int64_t m = get_macro_time_at(i) - period_shift;
-        micro_times[i] = static_cast<unsigned short>(m % alex_period);
+        // reduce before subtracting: macro times span uint64, shifts can be negative
+        const uint64_t phase = get_macro_time_at(i) % alex_period;
+        micro_times[i] = static_cast<unsigned short>((phase + alex_period - phase_shift) % alex_period);
     }
 }
 
@@ -1985,27 +1992,23 @@ void TTTR::get_macro_times(unsigned long long** output, int* n_output){
         throw std::invalid_argument("Output pointers must not be null.");
     }
 
-    // Allocate memory for the output array
+    if (macro_time_offset > 0) {
+        const auto offset = static_cast<unsigned long long>(macro_time_offset);
+        for (size_t i = 0; i < n_valid_events; ++i) {
+            if (get_macro_time_at(i) > ~0ULL - offset) {
+                throw std::overflow_error("Macrotime offset exceeds unsigned 64-bit capacity");
+            }
+        }
+    }
+    const auto negative_offset = macro_time_offset < 0
+        ? static_cast<unsigned long long>(-(macro_time_offset + 1)) + 1ULL : 0ULL;
     *n_output = static_cast<int>(n_valid_events); // Number of valid events
     *output = (unsigned long long*) malloc(*n_output * sizeof(unsigned long long));
-
-    // Compute shifted macro_times, ensuring no value is less than zero
-    // Handle both compressed and uncompressed storage transparently
-    if (macro_time_compression_enabled) {
-        // Decompress on-the-fly using keyframes
-        for (size_t i = 0; i < n_valid_events; ++i) {
-            size_t keyframe_idx = i / keyframe_interval;
-            unsigned long long keyframe = macro_time_keyframes[keyframe_idx];
-            unsigned long long decompressed_time = keyframe + (unsigned long long)macro_times_compressed[i];
-            long long shifted_time = static_cast<long long>(decompressed_time) + macro_time_offset;
-            (*output)[i] = static_cast<unsigned long long>(std::max(shifted_time, 0LL)); // Clamp to zero
-        }
-    } else {
-        // Direct access to uncompressed data
-        for (size_t i = 0; i < n_valid_events; ++i) {
-            long long shifted_time = static_cast<long long>(macro_times[i]) + macro_time_offset;
-            (*output)[i] = static_cast<unsigned long long>(std::max(shifted_time, 0LL)); // Clamp to zero
-        }
+    for (size_t i = 0; i < n_valid_events; ++i) {
+        const auto time = get_macro_time_at(i);
+        (*output)[i] = macro_time_offset < 0
+            ? (time < negative_offset ? 0ULL : time - negative_offset)
+            : time + static_cast<unsigned long long>(macro_time_offset);
     }
 }
 

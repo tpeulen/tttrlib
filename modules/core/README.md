@@ -48,6 +48,32 @@ columnar `DataStore`, and **the registry**.
   above is one user of it; imp.bff vendors this same header, pinned, for its
   own registry, so both read with the same code.
 
+## ALEX phase folding
+
+`TTTR::alex_to_microtime(period, shift)` replaces micro times with
+`(macrotime - shift) modulo period`, using circular, nonnegative phases even
+when the shift exceeds an early macrotime. It accepts the full unsigned
+64-bit macrotime domain and signed integer shifts. Macro times, routing
+channels, event types and header metadata remain unchanged.
+
+The period must be **1 through 65536**: every phase must fit the existing
+unsigned 16-bit microtime column. Zero or larger periods raise before any
+event is changed, including on empty streams. Storage capacity is distinct
+from file capacity: HydraHarp/Generic T3 uses 15 microtime bits (period at most
+32768), PicoHarp T3 and SPC-130/SPC-600_4096/QC use 12 bits (at most 4096), and
+SPC-600_256 uses 8 bits (at most 256). T2, SM and CZ records have no microtime
+field. Callers exporting an ALEX phase must validate the target record format;
+folding does not widen its fields or update physical-clock metadata.
+
+The independent integer oracle and atomic rejection checks live in
+`test/python/tttr/test_alex_microtime_folding.py`.
+
+The bulk macrotime getter retains the complete unsigned 64-bit range too.
+Cached display offsets preserve the existing lower-bound clamp at zero;
+a positive offset that exceeds unsigned capacity raises before allocating
+output, instead of overflowing. Neither a getter nor its cached display
+offset modifies stored event times.
+
 ## Dependencies
 
 - Depends on `util`, `io/base`, `plugin` and the format modules

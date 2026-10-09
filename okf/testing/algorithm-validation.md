@@ -96,6 +96,43 @@ multipletau are driven live from `benchmarks/.venvs/`.
 
 ## Register by area
 
+### ALEX circular phase folding — 2026-10-09
+
+`TTTR::alex_to_microtime` is checked against Python's arbitrary-precision
+integer `(macrotime - shift) % period`, including early photons shifted below
+zero, unsigned 64-bit endpoints, both signed integer shift endpoints and the
+1/65536 storage-period limits. The old native provider computes phase 7594
+instead of 7978 for macrotime 1, shift 23 and period 8000. Period zero can crash;
+larger-than-storage periods silently truncate. The source repair reduces both
+operands before subtraction and validates the period before any event write.
+
+The permanent regression is `test/python/tttr/test_alex_microtime_folding.py`.
+Invalid-period probes run in subprocesses so an old native zero-divisor crash
+does not terminate the pytest runner. Success checks preserve native macro
+times, routing, event types and header; rejection checks preserve micro times
+too. Compiled test and arm64 providers were rebuilt from this source; all 33 focused regressions pass (1.36 s).
+The bounded RED, source candidate and provider identity are recorded at
+`/private/tmp/prd154-alex-native-fold`.
+
+#### Where to pick this up — ALEX folding
+
+1. Native producer rebuilt and installed through ChiSurf's
+   `pixi run -e test python build_tools/build_tttrlib.py` for test and arm64.
+   Focused folding/getter test: **33 passed / 1.36 s**. Source and provider
+   receipt: `chisurf/okf/validation/release-readiness-w6g/alex-regions-source.zip`
+   (sibling repository). No rebuild needed unless native source changes.
+2. Validate output record capacity separately from the 16-bit storage limit:
+   HydraHarp/Generic/SF T3 has 15 bits, PicoHarp T3 and most SPC records 12 bits,
+   SPC-600_256 8 bits. T2/SM/CZ drop micro times. These capacities block
+   lossless ALEX phase export even when folding itself is representable.
+3. The initial diagnostic read `get_macro_time_at` because the old bulk getter
+   erased values above `2**63 - 1` by casting to signed `long long` and clamping
+   at zero. The producer repair now uses unsigned arithmetic for the bulk getter
+   too, retains its clamp only for genuinely negative shifted times, and rejects
+   positive display-offset overflow before allocation. The permanent regression
+   checks both native and bulk reads against the planted full-range input;
+   do not derive an oracle from a getter that could erase the fixture's values.
+
 Verdicts: **PASS** — agrees to the stated metric. **PASS (bounded)** — agrees
 up to a documented, understood difference. **KNOWN-ANSWER** — validated
 against an analytic or simulated truth, no second implementation exists.
