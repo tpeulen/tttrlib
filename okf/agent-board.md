@@ -5116,3 +5116,8 @@ retired so nobody works the same thing twice.)*
 ## Resolved — Number Quest canonical consolidation, 2026-10-09
 
 - **T-20261009-W6F-NUMBER-MOVE · ✅ DONE** — /root. Rich canonical app/drawing→gui withparentrootresources/unchangedlocale/defaults;69cases+staleframefixture1+modifier2, independentfinal6 andexactstate/paint/6locale/controls/resize/audio parity green. Rootbefore/default/narrowread;visual100,numericcaptionboth5turns800score. Rootdirty app/drawing index-onlyretired, originals byteexact on disk; semanticup/down/Escape/M migratedGUIworking-only, registrydescriptionsunstaged, exactbefore/foreignpatch handoff private. Noalias/newgameplay/capturebloat; P-F9bindings/state/chrome+otherW6f/aggregate debt open. No push/foreign staging.
+
+
+## Resolved — shared game binding/state contracts, 2026-10-09
+
+- **T-20261009-W6F-GAME-BIND-STATE · ✅ DONE** — /root. OrderedBINDINGS resolver +scalarFIELDS3 +explicitvalidatedprepare/leafcommit5.29independentcases/111exactneighbors/1036guards9skip;12880bindings300seededactualMinesfullboards+5state/painttraces exact.2nonJSONraisingbool partialcommit edges fixed, JSONcoercions/restorepolicies/ctor/render/advance preserved. No registry/inputrepresentation/UI/backend; privateforeignkeymapsstayunstaged. Sharedchrome/help/restart andotherW6f/aggregate obligations open; focusedsource/docs/evidence/localcommit, no push.
