@@ -96,6 +96,40 @@ multipletau are driven live from `benchmarks/.venvs/`.
 
 ## Register by area
 
+### Gamma report identification — 2026-10-09
+
+`calibration_report` distinguishes an explicitly identified data estimate,
+an explicitly unidentified retained value and unknown identification in a
+legacy payload. The SDK's `estimated.gamma` flag is the authority: a finite
+`gamma_estimates.data` alone proves neither identification nor adoption.
+In the measured 152-burst result, `estimated.gamma=False` accompanies finite
+data/posterior gamma 1.0, so the former `data (adopted)` label was false.
+Even an identified data estimate can differ from the posterior after prior
+fusion; the report now keeps those entries separate without claiming adoption.
+
+The permanent public-interface regression is
+`test/python/corrections/test_calibration_report_identification.py`.
+The installed old provider failed 8 cases and passed 4. Direct source-candidate
+verification passed all 12 new cases plus the 3 existing column/report tests;
+Actual test and arm64 wrappers were rebuilt and installed. Public report/column
+and ChiSurf provenance checks pass **31 cases / 2.04 s**; both environments
+verify unchanged measured152 and known2400 payloads with honest labels. Numeric
+factors, uncertainties,
+warnings, convergence and payload contents remain unchanged.
+
+#### Where to pick this up — Gamma report identification
+
+1. Installed public-interface acceptance is complete: 31 report/column/adapter
+   cases pass; provider identities and the two payload checks are in the paired
+   ChiSurf `gamma-report-source.zip` archive. Rebuild only after producer changes.
+2. Re-derive the measured case from the fixed 152-burst SDK result and the
+   identified 2400-burst fixture in the paired ChiSurf provenance work. Compare
+   factor/result payloads exactly; only the data-gamma provenance label changes.
+   Evidence and exact candidates are in `/private/tmp/prd154-gamma-report-owner`.
+3. Keep absent metadata unknown. Do not infer identification from value 1,
+   finite candidate/prior/uncertainty, convergence or human messages, and do
+   not move this owning report correction into a consumer string patch.
+
 ### ALEX circular phase folding — 2026-10-09
 
 `TTTR::alex_to_microtime` is checked against Python's arbitrary-precision

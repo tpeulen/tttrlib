@@ -1,5 +1,17 @@
 # Bundle update log
 
+## 2026-10-09 — Report gamma identification without inferring adoption
+
+- The owning `calibration_report` labels finite data gamma using explicit
+  SDK identification metadata: identified estimate, unidentified retained
+  value or unknown legacy identification. An identified candidate is not
+  labelled adopted because its posterior can include prior fusion. Factors,
+  uncertainties, estimator math and other report lines are unchanged.
+  The old installed report fails 8 focused cases; the source candidate passes
+  all 15 new/existing report-column cases. Actual providers rebuilt/installed in
+  test and arm64; public report/column/adapter checks pass31 and both measured152
+  and known2400 payloads are unchanged. Available ChiSurf guards1009pass/11skip. [Contract and resume point](testing/algorithm-validation.md#gamma-report-identification--2026-10-09).
+
 ## 2026-10-09 — Preserve circular ALEX phases across signed shifts
 
 - Repair `TTTR::alex_to_microtime` for full unsigned 64-bit macro times and

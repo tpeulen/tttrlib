@@ -112,7 +112,12 @@ def guess_burst_columns(names, extra_hints=None):
 
 
 def calibration_report(result, messages_before=()):
-    """The printable summary of an :func:`auto_calibrate` result."""
+    """Summarize an :func:`auto_calibrate` result without inferring identification.
+
+    A finite data gamma is identified only when ``estimated.gamma`` explicitly
+    says so. False marks a retained value; absent metadata remains unknown.
+    Data candidates and posterior values are reported separately.
+    """
     import math
     finite = lambda v: v is not None and math.isfinite(float(v))
     lines = ["Automatic FRET calibration", "=========================="]
@@ -127,8 +132,12 @@ def calibration_report(result, messages_before=()):
                      f"{c['fret']} FRET in {c['fret_populations']} population(s)")
         lines.append(f"  stoichiometry cuts ({split['method']}): "
                      f"{split['thresholds'][0]:.3f} / {split['thresholds'][1]:.3f}")
+    identified = (result.get("estimated") or {}).get("gamma")
+    data_status = ("identified estimate" if identified is True else
+                   "not identified; retained value" if identified is False else
+                   "identification unknown")
     labels = {"prior": "light path", "es": "E-S population fit", "lifetime": "static FRET line",
-              "data": "data (adopted)", "posterior": "posterior"}
+              "data": f"data ({data_status})", "posterior": "posterior"}
     for key, label in labels.items():
         value = result["gamma_estimates"].get(key)
         if finite(value):
