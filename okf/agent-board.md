@@ -5121,3 +5121,26 @@ retired so nobody works the same thing twice.)*
 ## Resolved — shared game binding/state contracts, 2026-10-09
 
 - **T-20261009-W6F-GAME-BIND-STATE · ✅ DONE** — /root. OrderedBINDINGS resolver +scalarFIELDS3 +explicitvalidatedprepare/leafcommit5.29independentcases/111exactneighbors/1036guards9skip;12880bindings300seededactualMinesfullboards+5state/painttraces exact.2nonJSONraisingbool partialcommit edges fixed, JSONcoercions/restorepolicies/ctor/render/advance preserved. No registry/inputrepresentation/UI/backend; privateforeignkeymapsstayunstaged. Sharedchrome/help/restart andotherW6f/aggregate obligations open; focusedsource/docs/evidence/localcommit, no push.
+
+## Resolved — shared native game chrome, 2026-10-09
+
+- **T-20261009-W6F-GAME-CHROME · ✅ DONE** — /root. Five shared declared
+  Help/Restart/Guide rows; actual three awaited steps, modal input and six-locale
+  help verified. Source65 cases, affected tour15, final-guide5, corrected modifier10
+  and owned affected guards9 pass. Ten old canvas prefixes and rounds exact;
+  root inspected default/narrow before/after,95pass. Toolkit3416806a and consumer
+  4f0dd2ad2 are local; one source/evidence archive. Four literal allowances and
+  two stale help entries removed. Foreign edits preserved; aggregate gates open.
+
+## Active — committed UI guard integration prerequisite, 2026-10-09
+
+- **T-20261009-UI-GUARD-INTEGRATION · 🔄 in progress** — /root.
+  Touching: typed_field.py and focused tooltip test; core/acq/gui/app.py and
+  core/about/gui/app.py metadata; burst/{bid_to_analysis,burst_selection,
+  burst_analysis,h2mm}/gui/app.py new literal routing; focused translation tests.
+  Root owns exact source-backed shrinking allowance/ownership reconciliation,
+  affected locale/catalog generation, relevant concepts/log/resume and evidence.
+  Scope is the 16 new tooltip/124 new literal findings at committed d63187b6,
+  proven relocated keys and 3 H2MM literals hidden by tuple indirection. No new
+  controls, changed scientific behavior, baseline growth or captures. Missing
+  About/menu_switch/BID help contracts remain a separate owner front.
