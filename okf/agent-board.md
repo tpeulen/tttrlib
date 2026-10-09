@@ -5075,3 +5075,9 @@ retired so nobody works the same thing twice.)*
 ## Resolved — actual burst IPC verification, 2026-10-09
 
 - **T-20261009-W6G-IPC-VERIFICATION · ✅ DONE7b95c99ae** — All58target cases covered successfully, actual workflow loopback and MLESharedMemory/batch/models/photon/state/numericcompanions verified. Two stale test fixtures repaired, scientific assertions unchanged, foreignformat excluded;1009available guards/11skip pass. No production changes or GUIrecapture. One final archive/OKFresume/log committed. Next bounded W6g debt measurement read-only.
+
+## Resolved — frozen help batch and paused programme handoff, 2026-10-09
+
+- **T-20261009-W6G-EMTK-SECTION-HELP · ✅ DONE** — emtk e73a68973/ChiSurf daff09ec7. Existing captions expose authored help; table fallback preserves specific header/row/elided-cell help. Accepted source68 reused, installed22 and affected schema/i18n697 pass; actual test/arm64 hashes/21 lock URLs exact. No controls/layout/algorithm changes or metadata recaptures. Authorized A0/execution prompt/index, one archive, owning concept/log and exact paused handoff committed; foreign edits preserved.
+- **T-20261009-W6G-ALEX-BATCH-HELP · ✅ DONE30409aea4** — actual localized option help, unchanged IDs/settings/default-narrow rectangles;15accepted cases and postcommittooltip1green. Existing French label clipping remains owned follow-up, not waived.
+- **PRD154 owner /root · ⏸ PAUSED by user after frozen handoff** — no next batch started. On explicit resume, W0a guard prerequisite only, then A0 finite family batches and W6g handoff. Exact open acceptance IDs in chisurf/okf/validation/release-readiness-w6g/current-job.md. No source child/test/build jobs remain.
