@@ -5106,3 +5106,8 @@ retired so nobody works the same thing twice.)*
 ## Resolved — W6f core host declarations, 2026-10-09
 
 - **T-20261009-W6F-CORE-WINDOWS · ✅ DONE** — /root.20exact source/primary readers preserve1200x800 exceptHelp800x600;60owned factory/metadata/saved-preference cases and25exact existing regressions pass. All116reader records covered; scientific/account and otherW6fbase/input/audio/metadata obligations remain.281same-text literal relocations preserve1155count; numeric-only specs add no strings. One catalogue regeneration and final archive; foreign source/spec/board/index preserved, no push.
+
+
+## Resolved — shared game lifecycle extraction, 2026-10-09
+
+- **T-20261009-W6F-GAME-LIFECYCLE · ✅ DONE** — /root. RequiredGameApp shares lifecycle/frame/objectaudio for5apps;41independent exactcases +69neighbors green andall5fullstate/paint/window snapshots exact.20preservation baseline,14intentional redcase repairs (pendingframe/closedkey+pointer/p2edges/idempotent+postcloseaudio). Algorithms/render/binding/statevalidator/constructionorder preserved; no newbackend/defaultplayback/chrome. Separateplanreview/testwriter under ai-slop-cleaner, focused local source/docs/onearchive; foreign preserved. P-F9binding/state/chrome/NumberQuestmove andotherW6f debts remain.
