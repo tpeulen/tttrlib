@@ -1942,7 +1942,6 @@ retired so nobody works the same thing twice.)*
 
 ## Active
 
-- **T-20261009-W6G-IPC-VERIFICATION · 🔄 CLAIM** — /root read-only targeted test/plugins/burst/test_irf_background.py, burst_mle_analysis/tests/test_emtk_mle_native.py/test_mle_gui_end_to_end.py/test_burst_photon_slice.py/test_state_split.py; actual workflow loopback and MLE batch SharedMemory now permitted. No production edits yet. Any failing repair requires exact owner path claim; no fake IPC, full suite or unchanged-GUI recapture. Root current-job/PRD/log/known-issue/evidence records only.
 
 - **T-20261006-W6G · [chisurf + emtk] CLAIM — PRD-154 W6g: plugin-uniformity mechanics (P-F steps 1-8)**
   - Status: 🔄 active2026-10-08; sharedtext/tooltipmechanisms landed;fulltooltip/imperative/demo/windowgates open
@@ -5072,3 +5071,7 @@ retired so nobody works the same thing twice.)*
 ## Resolved — shared calibration report identification, 2026-10-09
 
 - **T-20261009-W6G-GAMMA-REPORT · ✅ DONE** — TTTRlib3023f892f, ChiSurf docs/evidence d77f710c5. Test/arm64 installed public providers,31targeted report/column/adapter checks and1009available guards/11skip pass. Actual152/known2400 numeric payloads unchanged. Explicit identified/unidentified/unknown labels replace false adoption claims. Paired docs, exact native candidates and one final archive committed; no GUI recapture for metadata-only text. Two inherited E731 remain qualified.
+
+## Resolved — actual burst IPC verification, 2026-10-09
+
+- **T-20261009-W6G-IPC-VERIFICATION · ✅ DONE7b95c99ae** — All58target cases covered successfully, actual workflow loopback and MLESharedMemory/batch/models/photon/state/numericcompanions verified. Two stale test fixtures repaired, scientific assertions unchanged, foreignformat excluded;1009available guards/11skip pass. No production changes or GUIrecapture. One final archive/OKFresume/log committed. Next bounded W6g debt measurement read-only.
