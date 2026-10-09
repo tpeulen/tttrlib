@@ -5111,3 +5111,8 @@ retired so nobody works the same thing twice.)*
 ## Resolved — shared game lifecycle extraction, 2026-10-09
 
 - **T-20261009-W6F-GAME-LIFECYCLE · ✅ DONE** — /root. RequiredGameApp shares lifecycle/frame/objectaudio for5apps;41independent exactcases +69neighbors green andall5fullstate/paint/window snapshots exact.20preservation baseline,14intentional redcase repairs (pendingframe/closedkey+pointer/p2edges/idempotent+postcloseaudio). Algorithms/render/binding/statevalidator/constructionorder preserved; no newbackend/defaultplayback/chrome. Separateplanreview/testwriter under ai-slop-cleaner, focused local source/docs/onearchive; foreign preserved. P-F9binding/state/chrome/NumberQuestmove andotherW6f debts remain.
+
+
+## Resolved — Number Quest canonical consolidation, 2026-10-09
+
+- **T-20261009-W6F-NUMBER-MOVE · ✅ DONE** — /root. Rich canonical app/drawing→gui withparentrootresources/unchangedlocale/defaults;69cases+staleframefixture1+modifier2, independentfinal6 andexactstate/paint/6locale/controls/resize/audio parity green. Rootbefore/default/narrowread;visual100,numericcaptionboth5turns800score. Rootdirty app/drawing index-onlyretired, originals byteexact on disk; semanticup/down/Escape/M migratedGUIworking-only, registrydescriptionsunstaged, exactbefore/foreignpatch handoff private. Noalias/newgameplay/capturebloat; P-F9bindings/state/chrome+otherW6f/aggregate debt open. No push/foreign staging.
