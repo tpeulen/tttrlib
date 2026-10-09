@@ -5062,3 +5062,7 @@ retired so nobody works the same thing twice.)*
 - Nextrootunit unclaimed BurstBrowser semantic15/5gatingisolation; fullmap65covered51remaining, parentT-20261006-W6G active.
 
 - **T-20261008-W6G-BURST-BROWSER · 🔄 CLAIM** — /root owns ONLY chisurf/plugins/burst/burst_browser/gui/app.py,gui/burst_browser.view.json,new test/native_emtk/test_burst_browser_window_contract.py,1200x800/savedprefs. Original/HEAD snapshot /private/tmp/prd154-burst-browser-window-contract;no production editsyet. Foreign15/5typedgating constructor/GUIcontrolsSEMANTIC preserve/exclude; isolatedHEADbefore/owncandidateafter mustverify actualBUR-BGS/photon/sizes/E-S/hist/table/gates/CSV/settings/control/arm64PNG parity. No gatealgorithmadoption/metadata-onlyphysics. Rootdocs/catalogue/guards/commits/OKF, boundedsubdelegationforthcoming. [ ] ownerregressions [ ] actualscience/PNG [ ] descriptions/tr [ ] docs [ ] OKF/resume/log [ ] guards [ ] sourcecommit [ ] boardresolve.
+
+## Resolved — ALEX automatic regions, 2026-10-09
+
+- **T-20261009-W6G-ALEX-REGIONS · ✅ DONE** — ChiSurf02b204ad0 + TTTRlibc783fe00a. All-channel 2–5+ phases, circular bounds and honest transition warnings; original conversion controls retained. Native33, GUI67, affected58, output28 and1059available guards/11skip pass, actual four captures inspected. Paired docs/catalogue/locales/OKF/one archive committed. W0 missing bundle guard and programme remain open; current job owns next SDK gamma report metadata repair. No foreign hunks staged or pushed.
