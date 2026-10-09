@@ -5081,3 +5081,8 @@ retired so nobody works the same thing twice.)*
 - **T-20261009-W6G-EMTK-SECTION-HELP · ✅ DONE** — emtk e73a68973/ChiSurf daff09ec7. Existing captions expose authored help; table fallback preserves specific header/row/elided-cell help. Accepted source68 reused, installed22 and affected schema/i18n697 pass; actual test/arm64 hashes/21 lock URLs exact. No controls/layout/algorithm changes or metadata recaptures. Authorized A0/execution prompt/index, one archive, owning concept/log and exact paused handoff committed; foreign edits preserved.
 - **T-20261009-W6G-ALEX-BATCH-HELP · ✅ DONE30409aea4** — actual localized option help, unchanged IDs/settings/default-narrow rectangles;15accepted cases and postcommittooltip1green. Existing French label clipping remains owned follow-up, not waived.
 - **PRD154 owner /root · ⏸ PAUSED by user after frozen handoff** — no next batch started. On explicit resume, W0a guard prerequisite only, then A0 finite family batches and W6g handoff. Exact open acceptance IDs in chisurf/okf/validation/release-readiness-w6g/current-job.md. No source child/test/build jobs remain.
+
+
+## Resolved — W0a validator prerequisite, 2026-10-09
+
+- **T-20261009-W0A-VALIDATOR · ✅ DONE** — /root. Nine-rule validator, isolated detection/fix/idempotence/content-preservation fixtures, exact no-new/no-stale baseline with W0b ownership. Source, guards, workflow and evidence integrated in focused local commits. W0b remains open until zero findings/empty baseline; four existing docs-frontmatter failures retained with owners. No broad cleanup, GUI changes, foreign staging or push.
