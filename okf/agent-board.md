@@ -5101,3 +5101,8 @@ retired so nobody works the same thing twice.)*
 ## Resolved — W6f game host declarations and fresh persistence, 2026-10-09
 
 - **T-20261009-W6F-GAME-WINDOWS · ✅ DONE** — /root. Six numeric declarations preserve true defaults (launcher1200x800, not generic1100x720); exact31cases/22native neighbors/1024guards11skip prove consumption, saved resize/round restore and real input/paint parity. Shared absent-settings boundary fixes5fresh-launch KeyErrors; invalid nonempty objects still fail. Six of26window records closed,20core remain; other W6f obligations open. Preserved historical engine notes outside actionable resume, removed15stale PICKUP records (2405remaining). One catalogue generation, numeric-only specs/no locale strings, no metadata captures. Foreign source/index/board preserved; no push.
+
+
+## Resolved — W6f core host declarations, 2026-10-09
+
+- **T-20261009-W6F-CORE-WINDOWS · ✅ DONE** — /root.20exact source/primary readers preserve1200x800 exceptHelp800x600;60owned factory/metadata/saved-preference cases and25exact existing regressions pass. All116reader records covered; scientific/account and otherW6fbase/input/audio/metadata obligations remain.281same-text literal relocations preserve1155count; numeric-only specs add no strings. One catalogue regeneration and final archive; foreign source/spec/board/index preserved, no push.
