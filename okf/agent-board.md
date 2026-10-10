@@ -2811,7 +2811,7 @@ retired so nobody works the same thing twice.)*
   - Owner: claude/lightpath-port (picked up straight from
     `okf/handover/lightpath-cmtk-editor.md`, no prior board ticket existed)
   - Opened: 2026-09-02 · Picked: 2026-09-02 · Done: 2026-09-02
-  - Why: [lightpath-cmtk-editor](handover/lightpath-cmtk-editor.md) — the
+  - Why: `okf/handover/lightpath-cmtk-editor.md` (retired) — the
     last consumer of the old Qt node scene besides `mmfdb_admin`'s
     interactive editor.
   - Done when: `lightpath_simulator/gui/tool.py` builds `NodeGraphWidget` +
