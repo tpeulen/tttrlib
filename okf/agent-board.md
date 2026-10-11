@@ -5164,14 +5164,6 @@ retired so nobody works the same thing twice.)*
   - Touching: chisurf/core/plugin/emtk_preview.json, chisurf/plugins/*, okf/plugins/emtk-ports/*
   - Progress: (started)
 
-- **T-20261003-IMPBFF-WINLINK · [imp.bff] Windows CI red: /WHOLEARCHIVE ptolib vs imp_kinematics import thunks (LNK2005/LNK1169 on _IMP_bff.pyd)**
-  - Touching: imp.bff `CMakeLists.txt` (ptolib link scope), `bld.bat`, `okf/log.md` hunk
-  - Status: 🔄 link fix verified (run 37138839825: Windows BUILT+LINKED+PACKAGED, 3455/3458 tests passed; the 3 Windows-only failures fixed in 535f3121f: XDG_CONFIG_HOME order, native separators in resolve(), ptolib reader FILE_SHARE_WRITE — ptolib d70b0ad pushed upstream + re-vendored). Final verdict: CI run 37143223506.
-  - Root cause: keyword-less (PUBLIC) `target_link_libraries(IMP.bff-lib "$<LINK_LIBRARY:WHOLE_ARCHIVE,ptolib::ptolib>")` propagated the feature onto the swig pyd's link line, AFTER imp_kinematics.lib whose import thunks already define std::vector<double> members (PtoTag::floats) → LNK2005 when whole-archive ptolib.cpp.obj redefines them. Fix: PRIVATE (verified on SHARED-lib scratch repro: ptolib drops off the consumer's LINK_LIBRARIES). bld.bat additionally asserts the pyds exist (ninja failure was swallowed; a pyd-less 29 MiB package got cached).
-  - Owner: hermes (continuation of claude 63fef032, which hit its weekly limit waiting on IMP.bff CI run 37124027581)
-  - Scope: imp.bff CMakeLists.txt (ptolib link scope) only + okf/log.md hunk. Not touching chisurf, tttrlib, emtk, labelizer, smfret-web.
-  - Facts: run 37124027581 windows job fails linking _IMP_bff.pyd — /WHOLEARCHIVE:lib\ptolib.lib forces ptolib.cpp.obj into the pyd's link; its std::vector<double> COMDATs collide with strong import thunks of the same symbols in imp_kinematics.lib (IMP DLLs export them). Landed with 45670ac90 (Sep 29, WHOLE_ARCHIVE for tttrlib-defense); every windows run since was cancelled mid-build until 37124027581, so first full windows link since. Ubuntu/macOS-14 green (no import thunks). tttrlib NOT found in this CI build. Also: bld.bat's `ninja install` failure did NOT abort the batch (echo on swallows errorlevel after cmd /c blocks?) — partial imp-2.25.0 conda package (no pyds) got packaged AND saved to the actions cache; test step then failed "No module named IMP".
-
 - **T-20261003-NN-CPU-OPT · [imp.bff] Optimize NN CPU kernels (portable arm64/x86-64/generic, GPU optional)**
   - Status: ✅ done (imp.bff b36108a1e; hermes verified tests + quiet-machine numbers, committed on codex's behalf — its sandbox blocks .git writes)
   - Owner: codex (launched by hermes; brief at /Users/tpeulen/.hermes/cache/scratch/bff-gpu/CODEX_NN_CPU_OPT.md)
