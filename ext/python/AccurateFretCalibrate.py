@@ -94,7 +94,7 @@ def _afret_calibration_dict(st):
                           "beta": st.sigma_beta, "r0": st.sigma_r0},
         "gamma_estimates": {k: float(v) for k, v in estimates.items()},
         "estimated": {"alpha": bool(st.estimated_alpha), "delta": bool(st.estimated_delta),
-                      "gamma": bool(st.estimated_gamma)},
+                      "gamma": bool(st.estimated_gamma), "beta": bool(st.estimated_beta)},
         "split": _afret_split_dict(st.split) if st.has_split else None,
         "outliers": _afret_outliers_dict(st.split) if st.has_split else None,
         "tau_d0": float(st.tau_d0),

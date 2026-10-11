@@ -135,6 +135,19 @@ def test_auto_calibrate_recovers_the_true_factors():
     assert got["converged"]
 
 
+def test_auto_calibrate_reports_whether_the_data_identified_beta():
+    # beta has three origins and a caller cannot tell them apart from the value:
+    # the 1/S line over >= 2 FRET populations (data), the 1:1-labelling assumption
+    # (one population) and no ALEX at all (kept). Only the first is "estimated".
+    dd, da, aa = _alex_bursts(3, n_do=600, n_ao=500, fret=((0.25, 1500), (0.7, 1500)))
+    assert tttrlib.auto_calibrate({"i_dd": dd, "i_da": da, "i_aa": aa})["estimated"]["beta"] is True
+    dd, da, aa = _alex_bursts(0, fret=((0.45, 400),))
+    one = tttrlib.auto_calibrate({"i_dd": dd, "i_da": da, "i_aa": aa})
+    assert one["estimated"]["beta"] is False
+    assert any("1:1 labelling assumed" in m for m in one["messages"])
+    assert tttrlib.auto_calibrate({"i_dd": dd, "i_da": da})["estimated"]["beta"] is False
+
+
 def test_auto_calibrate_progress_can_cancel():
     dd, da, aa = _alex_bursts(0)
     seen = []

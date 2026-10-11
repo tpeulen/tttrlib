@@ -244,6 +244,9 @@ struct AutoCalibration {
            gamma_data = 0.0, gamma_prior = 0.0, gamma_posterior = 0.0;
     bool has_lifetime_gamma = false;
     bool estimated_alpha = false, estimated_delta = false, estimated_gamma = false;
+    /// beta came from the 1/S = Omega + Sigma*E fit over >= 2 FRET populations (false when it
+    /// was kept, or set by the 1:1-labelling assumption from a single population)
+    bool estimated_beta = false;
     PopulationSplit split;
     bool has_split = false;
     int iterations = 0;

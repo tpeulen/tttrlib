@@ -344,7 +344,8 @@ bool auto_calibrate_iterate(AutoCalibration& s, const AutoCalibrateOptions& o) {
     const double gamma = select_gamma(o.gamma_source, s.gamma_es, s.gamma_lifetime, msg);
     s.estimated_gamma = std::isfinite(gamma) && gamma > 0;
     if (s.estimated_gamma) set_gamma(s, o, std::min(std::max(gamma, 0.01), 100.0));
-    if (std::isfinite(beta_es) && beta_es > 0) {
+    s.estimated_beta = std::isfinite(beta_es) && beta_es > 0;
+    if (s.estimated_beta) {
         set_beta(s, o, beta_es);
     } else if (alex && o.assume_one_to_one && any(sp.fret)) {
         set_beta(s, o, beta_from_stoichiometry(pick(dd, sp.fret), pick(da, sp.fret),

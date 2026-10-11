@@ -103,7 +103,8 @@ def auto_calibrate(i_dd, i_da, i_aa=None, *, calib=None, tau_f=None, line=None,
         estimated["gamma"] = bool(np.isfinite(gamma) and gamma > 0)
         if estimated["gamma"]:
             calib.gamma = float(np.clip(gamma, 0.01, 100.0))
-        if np.isfinite(beta_es) and beta_es > 0:
+        estimated["beta"] = bool(np.isfinite(beta_es) and beta_es > 0)
+        if estimated["beta"]:
             calib.beta = float(beta_es)
         elif aa is not None and assume_one_to_one and np.any(split["fret"]):
             m = split["fret"]
