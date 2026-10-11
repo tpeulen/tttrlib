@@ -1371,6 +1371,16 @@ int tttrlib::cli::cmd_sm(int argc, char** argv) {
         }
         std::vector<std::vector<double>> wd_rate(
                 win_names.size() * n_det, std::vector<double>(n_bursts, kSentinel));
+        // The same streams as counts and as the span each rate is taken over.
+        // A rate is photons over *its own* first-to-last span, so two streams'
+        // rates have different denominators and a ratio of them is not a ratio
+        // of photon numbers (one photon has no span at all and is NaN). E and S
+        // are count ratios; the count, with 0 for "no photon", is what they
+        // are computed from.
+        std::vector<std::vector<std::int64_t>> wd_n(
+                win_names.size() * n_det, std::vector<std::int64_t>(n_bursts, 0));
+        std::vector<std::vector<double>> wd_dur(
+                win_names.size() * n_det, std::vector<double>(n_bursts, kSentinel));
 
         for (std::size_t b = 0; b < n_bursts; ++b) {
             const long long start = bursts[b].first;
@@ -1434,6 +1444,8 @@ int tttrlib::cli::cmd_sm(int argc, char** argv) {
                     const double m1 = macro_ptr != nullptr ? (double) macro_ptr[i1] : 0.0;
                     const double d_ms = (m1 - m0) * macro_res * 1e3;
                     wd_rate[w * n_det + d][b] = d_ms > 0.0 ? (double) cnt / d_ms : kNaN;
+                    wd_n[w * n_det + d][b] = cnt;
+                    wd_dur[w * n_det + d][b] = d_ms;
                 }
             }
         }
@@ -1466,11 +1478,12 @@ int tttrlib::cli::cmd_sm(int argc, char** argv) {
         }
         for (std::size_t w = 0; w < win_names.size(); ++w) {
             for (std::size_t d = 0; d < n_det; ++d) {
-                add_f64(store,
-                        "S " + win_names[w] + " " + masks[d].name + " (kHz) | " +
-                                std::to_string(win_ranges[w].first) + "-" +
-                                std::to_string(win_ranges[w].second),
-                        wd_rate[w * n_det + d]);
+                const std::string stream = "S " + win_names[w] + " " + masks[d].name;
+                const std::string range = " | " + std::to_string(win_ranges[w].first) +
+                                          "-" + std::to_string(win_ranges[w].second);
+                add_f64(store, stream + " (kHz)" + range, wd_rate[w * n_det + d]);
+                add_i64(store, stream + " (photons)" + range, wd_n[w * n_det + d]);
+                add_f64(store, stream + " (ms)" + range, wd_dur[w * n_det + d]);
             }
         }
         // Appended last, as in the .bur layout.

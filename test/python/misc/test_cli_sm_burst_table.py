@@ -428,6 +428,56 @@ def _columns_and_units(pto_path):
     return out
 
 
+def test_window_streams_carry_photon_counts_not_only_rates(sim_file, tmp_path):
+    """E and S are count ratios, so a window stream is written as a count.
+
+    A rate is photons over the stream's *own* first-to-last span: a stream with
+    one photon has no span (NaN) and two streams' rates have different
+    denominators, so a ratio of rates is not a ratio of photon numbers. The
+    count beside the rate (0 for "no photon") and the span it was taken over
+    make the table self-sufficient: rate == count / span, and the counts agree
+    with the photons actually in the burst's window.
+    """
+    setup = tmp_path / "pie.json"
+    setup.write_text(json.dumps({
+        "last_used": "PIE",
+        "setups": {"PIE": {
+            "detectors": {"green": {"chs": [8, 0]}, "red": {"chs": [1, 9]}},
+            "windows": {"prompt": [0, 2048], "delayed": [2048, 4096]},
+        }},
+    }))
+    tsv = tmp_path / "pie.tsv"
+    pto = tmp_path / "pie.mmfdb.pto"
+    _run("sm", str(sim_file), "--setup", str(setup), *_SEARCH,
+         "--output", str(pto), "--csv", str(tsv))
+    table, header = _read_tsv(tsv)
+    units = _columns_and_units(pto)
+
+    import tttrlib
+    full = tttrlib.TTTR(str(sim_file))
+    data = full.get_tttr_by_channel(np.array([0, 1, 8, 9], dtype=np.int8))
+    micro = np.asarray(data.micro_times)
+    rout = np.asarray(data.routing_channel)
+    first = np.asarray(table["First Photon"], dtype=np.int64)
+    last = np.asarray(table["Last Photon"], dtype=np.int64)
+    for w, (lo, hi) in (("prompt", (0, 2048)), ("delayed", (2048, 4096))):
+        for d, chs in (("green", [8, 0]), ("red", [1, 9])):
+            tag = f" | {lo}-{hi}"
+            count = np.asarray(table[f"S {w} {d} (photons){tag}"], dtype=np.int64)
+            span = np.asarray(table[f"S {w} {d} (ms){tag}"], dtype=float)
+            rate = np.asarray(table[f"S {w} {d} (kHz){tag}"], dtype=float)
+            assert units[f"S {w} {d} (photons){tag}"] == "photons"
+            expected = np.array([
+                np.count_nonzero(np.isin(rout[a:b + 1], chs)
+                                 & (micro[a:b + 1] >= lo) & (micro[a:b + 1] < hi))
+                for a, b in zip(first, last)])
+            np.testing.assert_array_equal(count, expected)
+            ok = span > 0
+            np.testing.assert_allclose(rate[ok], count[ok] / span[ok], rtol=1e-9)
+            # a stream with no photon has a count of 0, never a sentinel
+            assert np.all(count >= 0)
+
+
 def test_columns_carry_their_unit(two_detector):
     """A name and a dtype are enough to read a column, not to understand it.
 
