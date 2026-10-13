@@ -5896,3 +5896,6 @@ retired so nobody works the same thing twice.)*
   - Status: 🔄 in progress
   - Owner: opus-5.5/photon-table-kinds
   - Touching: tttrlib `modules/imaging/clsm/{include/CLSMImage.h,src/CLSMImage.cpp}` (record-kind classifier only), `ext/python/CLSM*.i` if needed, new `test/python/clsm/test_clsm_record_kinds.py`, new `examples/imaging/plot_clsm_record_kinds.py`. chisurf `chisurf/plugins/tttr/photon_table/**`, `docs/guides/108_photon_table.md` (+ figure), `docs/reference/plugins/*photon_table*`, i18n de/fr catalogue entries for the new strings, owning OKF concept, `okf/log.md` (one bullet). Not `chisurf/emtk/**`, not burst/fio. No pixi.lock bump.
+- **T-20261013-MYPY-RATCHET · [chisurf] PRD-154 pickup 4: shrink test/mypy_baseline.json**
+  - Status: ✅ done 2026-10-13 (chisurf a7dd5a137, 2da6e912d, not pushed). Baseline 3900 -> 3068. Resume: `okf/prds/prd-154.md` item 4 (largest remaining files listed). Left raised on purpose: emtk `main_app`/`model_editor`, burst `transformer`, `fcs_channel_preset` view model. Files released.
+  - Owner: sonnet-5.5/mypy-ratchet
