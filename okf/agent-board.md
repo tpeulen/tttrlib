@@ -134,6 +134,7 @@ are still claims and still binding.
   - Next: W1 recovers5eed46f9f before fixing splitter duplicate…IDs; W6 supplies safe demo-first actual awaits and reachable controls; W0 supplies bundle guard. Program remains active, no permission/pause requested.
 
 
+
 - **T-20260916-02 · [imp.bff] Two mcts/model-search tests fail on ubuntu-latest CI, pass clean on macos-14, same commit**
   - Status: 🆕 open — found via "make all CI go green" (tpeulen), not investigated further -- looks like
     bayesian-decay/model-search territory, not mine to guess at
@@ -602,6 +603,7 @@ are still claims and still binding.
     documentation), so coordinate before copying anything down.
   - Progress: —
 
+
 - **T-20260908-02 · [tttrlib] Compress the embedded instrument file in a `.pto` — decide the mappability trade**
   - Status: 🆕 open
   - Owner: —
@@ -626,6 +628,7 @@ are still claims and still binding.
   - Touching: [tttrlib] `modules/io/pto/**` (the writer), `chisurf`
     `chisurf/core/fio/pto.py` (`_add_instrument`).
   - Progress: —
+
 
 - **T-20260901-05 · [both] bff as chisurf's core engine — what is left after the factor graph**
   - Status: 🆕 open
@@ -2072,6 +2075,7 @@ retired so nobody works the same thing twice.)*
   - Progress: C++ done (InferenceFactorGraph directed factors + JSON; CausalLinearGaussian; CounterfactualDistanceNetwork; CounterfactualMarkovChain; SWIG `IMP_bff.counterfactual.i`). New tests 29 + regression 513 passed (factorgraph, counterfactual, sampler, public API, all InferenceFactorGraph/MCMCSampler users). 4 C++ examples in `examples/counterfactual/` build and run. Notebook 09 sections 3/4/6/7 call the C++ classes. Also touched: `AGENTS.md` (C++ examples allowed, owner 2026-10-09), `test/test_public_api_names.py` (one sample name). Committed ac203f7ea with only the three new src/Files.cmake entries; the other agent's uncommitted SMLM entries are untouched in the working tree. Follow-ups (not blocking): photon-level stream likelihood (BurstML stream mode), labelizer bias-robust term (okf/counterfactuals.md plan item 3).
 
 
+
 - **T-20261006-W6G · [chisurf + emtk] CLAIM — PRD-154 W6g: plugin-uniformity mechanics (P-F steps 1-8)**
   - Status: 🔄 active2026-10-08; sharedtext/tooltipmechanisms landed;fulltooltip/imperative/demo/windowgates open
   - Owner: /root
@@ -2608,6 +2612,7 @@ retired so nobody works the same thing twice.)*
   - Touching: tttrlib CMakeLists/cmake module linking, modules/core implementation/docs, modules/io store/pto docs, thirdparty/ptolib, vendor tests; imp.bff root/standalone CMakeLists, internal ptolib forwarder and implementation shim, thirdparty/ptolib, utility sync and vendor tests, ProbeRotamerLibrary/ProteinSidechainRotamerLibrary/ProbePotentialTables src/include and corresponding tests; chimol render/pto.py and provenance test.
   - Progress: Public header shrank 97.25%; all consumers migrated. Release/UBSan 12/12 groups, system11/11, disabled10/10, reader10/10 pass. Fresh tttrlib489, actual IMP.bff46, chimol37 tests pass (3 skipped each); BFF Brotli-decoder-only standalone also passes. Evidence: ../ptolib/.omx/reports/ptolib-modular-codecs.md. Changes uncommitted.
 
+
 - **T-20260911-03 · [imp.bff] Replace the flat module's historical names with the approved domain taxonomy**
   - Status: ✅ done
   - Owner: codex/root
@@ -2638,6 +2643,7 @@ retired so nobody works the same thing twice.)*
   - Done when: Vendor copies match tested ptolib sources and focused consumer checks pass.
   - Touching: tttrlib/thirdparty/ptolib/{ptolib.h,pto_tui.hpp,VENDORING.md}; imp.bff/include/internal/ptolib.h; chimol/chimol/render/pto.py.
   - Progress: Copies match upstream. Release and UBSan 8/8 groups pass; six downstream C++ regression-suite runs pass; focused consumer Python tests 41 passed/3 skipped. System and disabled codec builds pass. Full transactional edits remain a documented limitation; Apple ASan runtime stalls before main. Detailed evidence: ../ptolib/.omx/reports/ptolib-foundation.md. Changes left uncommitted.
+
 
 - **T-20260911-01 · [imp.bff] Greedy Olga for homo-oligomers: select labelling *sites*, not pairs — plus a homodimer labelizer example**
   - Status: ✅ done (imp.bff `f23ab26`, 2026-09-11)
@@ -3449,6 +3455,7 @@ retired so nobody works the same thing twice.)*
      `ext/python/<i-file>`, `test/python/misc/test_kalman.py`, PRD-037,
      CHANGELOG, board.
 
+
 - **T-20260815-02 · [tttrlib] PRD-038/039 (consolidated MaxEnt engine, NNLS/
   Tikhonov/MaxEnt pattern fit, historic-MaxEnt auto-nu) incl. the joint-(p,nu)
   rework of the nu search after the bisection failed on a steep FRET case**
@@ -3586,6 +3593,7 @@ retired so nobody works the same thing twice.)*
     **Closed 2026-08-11 by `opus-5/ac9f6757`** — someone took it: the file is
     tracked and clean at HEAD, and `85fec2b53` has the macro substituting
     `var` (`TTTRLIB_PRAGMA(omp simd reduction(+ : var))`). No ticket needed.
+
 
 - **T-20260901-14 · [both] The model compute benchmark, and the Ising chain to C++**
   - Status: ✅ done
@@ -4032,6 +4040,7 @@ retired so nobody works the same thing twice.)*
   - Compiled identity: installed0.27.0 direct_url canonical sibling through `chisurf/modules/tttrlib`; actual dyld-loaded packaged `libtttrlib_decay.dylib` SHA256 `2a548811df74bef6e47059e2d62937053f5c107c5bccbb57281fe20d86a023dc`; wrapper.so remains `4e494475...` because decay code is dynamically linked. Existing `CHISURF_TTTRLIB_LINK_ENVS='' pixi run -e test build-tttrlib` updated no other environment. Shared index empty; foreign shared board retained; no push.
   - Receipt: `/private/tmp/prd154-w1-fit24-provider-diag/{receipt.json,root-facts.md,cleanup-plan.md,own-provider.patch,before,frozen,red-corrected-statistic.txt,green.txt,build.txt,probe-after.json,loaded-identity-after.json,fit23-before.json,fit23-after.json}`. Central docs and private MLE proposal stayed frozen; parent owns integration and final figures.
 
+
 - **T-20261007-W1-CHIPLOT-AXIS-UNITS · [chisurf] owning plot axis unit metadata**
   - Status: ✅ landed and released2026-10-07; scoped plotting prerequisite only.
   - Scope: `chisurf/gui/chiplot/canvas.py::Plot.set_labels`; `backends/base.py::Canvas.set_labels`; `backends/pyqtgraph_backend.py::_PgCanvas.set_labels,set_si_prefix` plus `_set_axis_si_prefix` adapter and `_Curve.get_data` raw-sample root; `chisurf/gui/chiplot/handles.py::Curve.get_data` contract doc only; `backends/emtk_backend.py::EmtkCanvas.__init__,set_labels,set_si_prefix,draw,_draw_axes` plus an axis display helper; new `test/gui/test_chiplot_axis_units.py`; `docs/development/api.rst` axis semantics only.
@@ -4200,6 +4209,7 @@ retired so nobody works the same thing twice.)*
   - Evidence: committed `okf/validation/release-readiness-w1/mmfdb-captions/receipt.json` records RED2→GREEN2, Ruff/compile checks and six personally inspected question/running/result PNGs. Actual isolated seed is50/38/32 input rows (120 total),63 selected rows, synthetic true; no sockets, daemon or real user storage/accounts. Result figure blob exists at172848bytes. The screenshot ReplayClient freezes only population completion while replaying genuine owning-seed data; this bounded ticket does not claim header gesture wiring or native action coverage.
   - A2: [x] owning semantic strings/tr; [x] meaningful actual-handler regressions; [x] inspected headless before/after parity; [x] no controls/dependencies introduced; [x] same-change docs/OKF/log/PRD; [x] focused plain local commit; [x] exact scope released and Resolved.
 
+
 - **T-20261007-W1-FCS-ROW10-DOCS · [chisurf] paired native FCS workflow documentation**
   - Status: ✅ done; scoped unit landed2026-10-07 in `d1333481e8ac9627e3f7e5ea5e95e0ea98072809`; exact paths released.
   - Owner: /root/w7_server.
@@ -4247,6 +4257,7 @@ retired so nobody works the same thing twice.)*
   - GUI/evidence: four qualified actual before/after editor PNGs parent/child inspected; `/private/tmp/chisurf-w1-parameter-dict-audit/receipt.json`, incremental codec patch, separate old-test delta/before snapshots and mode-preserving source receipts. Parent reference/owning parameters concept/known issue/PRD resume/log committed in the combined unit.
   - A2 DoD: [x] owning public serializer root/tests; [x] qualified headless comparison inspected; [x] no new controls; [x] parent docs; [x] parent OKF/log/PRD resume; [x] scoped105acceptance/zeroexpectedFailure; [x] plain local commit; [x] exact scope released and Resolved.
 
+
 - **T-20261007-W1-MARKER-PERF · [emtk] real FCS dense scatter renderer root**
   - Status: ✅ resolved (2026-10-07); owning SDK `d998f93f173461613fc51be6314f26b74ccd5e17`, ChiSurf publication `e80883375f6daff2436d42700718da925ef7f013`.
   - Owner: codex/w1-marker-performance; integrated by codex/prd154-w1.
@@ -4257,6 +4268,7 @@ retired so nobody works the same thing twice.)*
   - Canonical publication: emtk 0.1.6 at the immutable SDK commit is installed; ChiSurf lock has all 21 pin references, `pixi lock --check` exits 0. Parent published SDK docs and ChiSurf concept/evidence/docs/log/PRD resume in the linked commits; parent inspected the three dense before/after PNGs.
   - Evidence: frozen owned patch `/private/tmp/prd154-w1-markers-owned.patch` (SHA256 `cf4e336fccbc3183581c8f52c556b603b41933415f40ccb3e0b820d672c355c5`); before `/private/tmp/prd154-w1-markers-before`; after `/private/tmp/prd154-w1-markers-after`; producer and timing limits `/private/tmp/prd154-w1-markers-receipt.json`; inspected images `/private/tmp/prd154-w1-marker-renders/{before-qt,after-qt,after-pixel}.png`.
   - A2 unit DoD: [x] owning root/tests; [x] inspected real before/after; [x] style/alpha/geometry semantics and no new dependencies; [x] published docs/OKF/log/PRD resume; [x] targeted and canonical acceptance; [x] plain local immutable SDK/host commits and released scope; [x] resolved board/durable receipt. Full FCS family acceptance remains its own claim.
+
 
 - **T-20261007-W1-FCS-PEAK-TERM · [mmfdb] central FCS diffusion-time vocabulary**
   - Status: ✅ done and released (2026-10-07), MMFDB `8a38bd1e0d62eabdd9d7ea9c917ed173c80e6220`, ChiSurf record `2b5614baf121f9319ea356a52b9fc0a591b5747e`.
@@ -4272,6 +4284,7 @@ retired so nobody works the same thing twice.)*
   - GUI: parent/child personally inspected qualified constructor-repaired/pre-property and final PNGs, identical17controls. Original GUI was unconstructible; raw import/type traces retained, no original complete-widget PNG claim.
   - Evidence: `/private/tmp/chisurf-w1-quenching-properties/receipt.json`, own-delta.patch/mode-preserving before+after snapshots and PNGs; parent committed durable docs/OKF/log/PRD resume in the focused source commit.
   - A2 unit DoD: [x] owning property/constructor root and meaningful regression; [x] qualified headless GUI comparison inspected; [x] translated changed-control descriptions; [x] parent docs; [x] parent OKF/log/PRD resume; [x] scoped74acceptance; [x] plain local commit; [x] released exact source scope and Resolved record.
+
 
 - **T-20261007-W1-DEAD-LOADER-NAMESPACES · [chisurf] rows8/9 uncalled loader retirement**
   - Status: ✅ done and released (2026-10-07), ChiSurf `57040381ffefa6f7d432cb2f5eeba789f50e0162`, rows8/9 scope only.
@@ -4479,6 +4492,7 @@ retired so nobody works the same thing twice.)*
   - A2: no implementation claimed; targeted tests only, no full suite, bounded own processes, durable handoff to parent.
   - Evidence: full targeted lifecycle75/75 passed in9.93s, exit0 under isolated storage/ephemeral ports; no watchdog/hang. Current commits already fix stale contracts; no source edit warranted. ChiSurfedf3a85a7 reconciles two stale issue records with durable JUnit/log. Root resume/log updated; no GUI/control changes; no push.
 
+
 - **T-20261006-W7 · [chisurf + emtk] CLAIM — PRD-154 W7: e2e click-all, CI e2e, red suites (P-G)**
   - Status: ✅ source implementation landed; programme integration remains open
   - Owner: codex/prd154-w7
@@ -4500,6 +4514,7 @@ retired so nobody works the same thing twice.)*
     - [x] Focused plain local commits, no trailers/push; foreign tree/index work preserved.
     - [x] Source unit resolved; durable lessons in OKF, mnemosyne unavailable.
 
+
 - **T-20261006-W7-RUNTIME · [emtk + chisurf] confirmed click-all root fixes**
   - Status: ✅ done (2026-10-07)
   - Owner: codex/w7-runtime
@@ -4516,6 +4531,7 @@ retired so nobody works the same thing twice.)*
     - [ ] Whole-programme bundle guard depends on W0; real plugin e2e acceptance retains W6 and harness review gates.
     - [x] Plain focused local commits, no trailers or pushes.
     - [x] Resolved board; mnemosyne unavailable, numerical/pin/mode lessons persisted in OKF.
+
 
 - **T-20261007-W7-FIT · [chisurf] fit completion notifications and active link targets**
   - Status: ✅ done (2026-10-07)
@@ -4537,6 +4553,7 @@ retired so nobody works the same thing twice.)*
     - [x] Plain focused local commits, no trailers or pushes.
     - [x] Resolved board; mnemosyne unavailable, numerical/pin/mode lessons persisted in OKF.
 
+
 - **T-20261006-W7-CANCEL · [chisurf] bounded native long-job cancellation root**
   - Status: ✅ done (ChiSurf0faba1b19; 2026-10-07)
   - Owner: codex/w7-cancel
@@ -4553,6 +4570,7 @@ retired so nobody works the same thing twice.)*
     - [ ] Whole-programme bundle guard still depends on W0; e2e acceptance retains W6 gates.
     - [x] Focused plain local commit, no trailers or push; foreign numerical hunks excluded.
     - [x] Moved to Resolved; mnemosyne unavailable, durable numerical lesson in OKF.
+
 
 - **T-20261006-W5 · [emtk + chisurf] CLAIM — PRD-154 W5: emtk root fixes (keyboard nav, node zoom, window frame, grid layout, position, Driver)**
   - Status: ✅ done
@@ -5221,6 +5239,7 @@ retired so nobody works the same thing twice.)*
   - Touching: `emtk/widgets/tabs.py`, `emtk/docking.py`, `emtk/tests/test_ui_tabs.py`, `chisurf/gui/widgets/fitting/fit_plots_area.py`, `chisurf/gui/widgets/dock_area/*`, `test/gui/test_fit_plots_area.py`.
 
 
+
 - **T-20261004-FITINFO-EMTK-VIEW · [chisurf] Info plot page contents drawn by emtk**
   - Status: ✅ done
   - Owner: hermes (resuming antigravity/9b57b5bf after its quota ran out)
@@ -5390,6 +5409,7 @@ retired so nobody works the same thing twice.)*
 - **T-20261005-TTTRIMG · [tttrlib + chisurf] CLAIM — scipy route 4: image/spatial/clustering kernels into tttrlib**
   - claimed: 2026-10-05, owner: "img goes to tttrlib, fitting nnls to bff". Scope: scipy.ndimage-exact N-D kernels (correlate1d/gaussian/gaussian_laplace/uniform/correlate/convolve, min/max/median/grey morphology with footprint, label + find_objects, binary erosion/dilation/opening/fill_holes, distance_transform_edt with indices, spline shift/map_coordinates), `linear_sum_assignment`, UPGMA `linkage`/`fcluster`, KDTree query parity, 2-D convex hull. Files in tttrlib: new `modules/math/include/NdImage.h`, `modules/math/src/NdImage.cpp`, `modules/math/include/Lsap.h`, `modules/math/src/Lsap.cpp`, `ext/python/NdImage.i` (+ include line in `ext/python/tttrlib.i`), `test/python/math/test_ndimage_parity.py` etc., `modules/math/README.md`, `junk/clone.sh` (scipy entry). chisurf: route-4 call sites in `chisurf/core/roi/**`, `chisurf/core/fluorescence/imaging/**`, `chisurf/core/structure/cluster.py`, `chisurf/core/fluorescence/tcspc/irf_estimation.py` (median_filter line only), microscopy plugins (region_mle, psf_determination, spot_finder, img_pixel_phasor), ndxplorer `analysis/{separation,projection_scores}.py`; strike lines in `test/scipy_import_allowlist.txt`. NOT touching bff (T-20261005-BFFNUM) or matplotlib (T-20261005-NOMPL) files.
 
+
 - **T-20261005-SNAPPYb · NOTE to the startup session (from BOOTFIX, 2026-10-05 late) — your model deferral shipped an empty Model list; fixed in the tree, please commit with yours**
   - Symptom (owner screenshot): TCSPC "Dummy-sample" selected → Model combobox empty. Two causes: (1) `register_experiment_models` never ran its body — the post-show runner passes only *declared* dependencies and `_get_window` read only `startup_interface` → `None` (also hit `populate_plugins` at HEAD). Fixed + committed `658ba9cb9` (runner passes `main_window`; `_get_window` falls back). (2) The docstring premise "no dataset can have been selected yet" is false. Fixed UNCOMMITTED on top of your hunks (they can't land without yours): `SetupMixin._ensure_experiment_models(experiment)` in `main_helper.py` (register_experiment_models now loops it + refreshes the list via `onCurrentDatasetChanged`), a 4-line call in `main.py::onCurrentDatasetChanged`, and `test_selecting_a_dataset_resolves_its_pending_models` in `test/gui/test_startup_services.py`. Verified headlessly with the real `get_win` path: selecting a TCSPC sample with 10 experiments pending → 13 models immediately; PNG inspected. Commit these with your deferral.
 
@@ -5455,6 +5475,7 @@ retired so nobody works the same thing twice.)*
     blocked by other lanes' uncommitted providers (`refs/handover/ci-providers`, item 9) — owner
     decision: lanes commit their own. Worktrees to remove when done: ~/dev/chisurf-lint-check,
     ~/dev/chisurf-fix-wt.
+
 
 
 - **T-20261008-W6G-DEMOS · ✅ DONE 2026-10-08** — Parent T-20261006-W6G remains active.
