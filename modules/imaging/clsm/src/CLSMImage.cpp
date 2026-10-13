@@ -1364,6 +1364,87 @@ static int count_line_markers_in_range(
 }
 
 
+void CLSMImage::classify_records_events(
+        signed char** output, int* n_output,
+        signed char* event_types, int n_event_types,
+        signed char* routing_channels, int n_routing_channels,
+        unsigned short* micro_times, int n_microtimes,
+        CLSMSettings settings) {
+    int n = std::min(n_event_types, std::min(n_routing_channels, n_microtimes));
+    if (n < 0) n = 0;
+    *n_output = n;
+    *output = static_cast<signed char*>(malloc(sizeof(signed char) * std::max(n, 1)));
+    if (n == 0) return;
+
+    // Match markers the way the frame/line/pixel edge searches do: the
+    // Leica SP8 routine keeps all markers on routing channel
+    // marker_event_type and tells them apart by the micro-time bits; every
+    // other routine keeps them on event type marker_event_type and tells
+    // them apart by the routing channel.
+    const bool sp8 = settings.reading_routine == CLSM_SP8;
+    const int line_start = settings.marker_line_start;
+    const int line_stop = settings.marker_line_stop;
+    const bool has_stop = line_stop >= 0 && line_stop != CLSM_MARKER_NO_STOP
+                          && line_stop != line_start;
+    const bool has_pixel = settings.use_pixel_markers;
+    const int pixel = settings.marker_pixel;
+    const std::vector<int>& frames = settings.marker_frame_start;
+
+    signed char* out = *output;
+    for (int i = 0; i < n; ++i) {
+        if (event_types[i] == RECORD_PHOTON) {
+            out[i] = CLSM_RECORD_PHOTON;
+            continue;
+        }
+        int code;
+        if (sp8) {
+            if (routing_channels[i] != settings.marker_event_type) {
+                out[i] = CLSM_RECORD_OTHER_MARKER;
+                continue;
+            }
+            code = micro_times[i];
+        } else {
+            if (event_types[i] != settings.marker_event_type) {
+                out[i] = CLSM_RECORD_OTHER_MARKER;
+                continue;
+            }
+            code = routing_channels[i];
+        }
+        if (std::find(frames.begin(), frames.end(), code) != frames.end())
+            out[i] = CLSM_RECORD_FRAME_MARKER;
+        else if (code == line_start)
+            out[i] = CLSM_RECORD_LINE_START_MARKER;
+        else if (has_stop && code == line_stop)
+            out[i] = CLSM_RECORD_LINE_STOP_MARKER;
+        else if (has_pixel && code == pixel)
+            out[i] = CLSM_RECORD_PIXEL_MARKER;
+        else
+            out[i] = CLSM_RECORD_OTHER_MARKER;
+    }
+}
+
+void CLSMImage::classify_records(
+        signed char** output, int* n_output,
+        TTTR* tttr, CLSMSettings settings) {
+    if (tttr == nullptr) {
+        *n_output = 0;
+        *output = static_cast<signed char*>(malloc(sizeof(signed char)));
+        return;
+    }
+    int n = static_cast<int>(tttr->get_n_valid_events());
+    classify_records_events(
+            output, n_output,
+            tttr->event_types, n,
+            tttr->routing_channels, n,
+            tttr->micro_times, n,
+            std::move(settings));
+}
+
+void CLSMImage::get_record_kinds(signed char** output, int* n_output) {
+    classify_records(output, n_output, tttr.get(), settings);
+}
+
+
 bool CLSMImage::detect_bh_frame1_extra_line(
     TTTR* tttr,
     int frame_marker,

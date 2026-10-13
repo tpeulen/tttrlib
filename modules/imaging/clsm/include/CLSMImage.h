@@ -44,6 +44,20 @@ typedef enum{
 } ReadingRoutine;
 
 
+/// What a TTTR record is in a scanning measurement: a photon, or which of the
+/// scanner's markers. Returned per record by CLSMImage::classify_records.
+/// Overflow records are not listed: tttrlib folds them into the macro times
+/// while reading, so they never appear as records.
+typedef enum{
+    CLSM_RECORD_PHOTON = 0,             /// A detected photon
+    CLSM_RECORD_PIXEL_MARKER = 1,       /// Pixel clock (BH pixel-marker binning)
+    CLSM_RECORD_LINE_START_MARKER = 2,  /// Line start
+    CLSM_RECORD_LINE_STOP_MARKER = 3,   /// Line stop
+    CLSM_RECORD_FRAME_MARKER = 4,       /// Frame start
+    CLSM_RECORD_OTHER_MARKER = 5        /// A marker the scan settings do not name
+} CLSMRecordKind;
+
+
 template<typename TS, typename TE>
 static std::pair<int, int> find_clsm_start_stop(
         int &i_event,
@@ -636,6 +650,54 @@ public:
     CLSMImageInfo get_image_info() const {
         return image_info_;
     }
+
+    /*!
+     * \brief The kind of every record of this image's TTTR data (CLSMRecordKind).
+     *
+     * Uses the marker settings this image resolved from the file header and
+     * its reading routine, so a record is called a line marker exactly when
+     * the image reconstruction treats it as one.
+     *
+     * @param output   Per-record kinds (CLSMRecordKind), one per TTTR record.
+     * @param n_output Number of records.
+     */
+    void get_record_kinds(signed char** output, int* n_output);
+
+    /*!
+     * \brief Classify every record of a TTTR object as photon or marker kind.
+     *
+     * A record whose event type is RECORD_PHOTON is a photon. A marker is a
+     * frame, line-start, line-stop or pixel marker when it matches the
+     * corresponding setting the way the frame/line/pixel edge search matches
+     * it (routing channel; micro-time bits on channel marker_event_type for
+     * CLSM_SP8), and an "other" marker otherwise. Pass the settings of a
+     * CLSMImage built on the same data (CLSMImage::get_settings) to classify
+     * by the conventions the file header implies.
+     *
+     * @param output   Per-record kinds (CLSMRecordKind).
+     * @param n_output Number of records.
+     * @param tttr     The TTTR data.
+     * @param settings The marker settings (reading routine, marker channels).
+     */
+    static void classify_records(
+            signed char** output, int* n_output,
+            TTTR* tttr, CLSMSettings settings
+    );
+
+    /*!
+     * \brief classify_records on raw record arrays (the ``*_events`` form).
+     *
+     * The three arrays are the per-record event types, routing channels and
+     * micro times (TTTR::get_event_type, get_routing_channel, get_micro_times)
+     * and must have the same length; the shortest length is used otherwise.
+     */
+    static void classify_records_events(
+            signed char** output, int* n_output,
+            signed char* event_types, int n_event_types,
+            signed char* routing_channels, int n_routing_channels,
+            unsigned short* micro_times, int n_microtimes,
+            CLSMSettings settings
+    );
 
     /// Get the number of frames in the CLSMImage
     size_t size(){
