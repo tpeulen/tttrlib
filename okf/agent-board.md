@@ -5852,3 +5852,8 @@ retired so nobody works the same thing twice.)*
 ## Resolved — MenuSwitch typed host action, 2026-10-10
 
 - **T-20261010-W6F-MENUSWITCH-ACTION · ✅ DONE** — /root. Exclusive `entrypoints.action` contract, `execute_plugin_action` dispatch from menu/ribbon/registry, native window + legacy Qt widget deleted; real main-window toggle/preference/no-window test, log-relay teardown fix. Literal 1148→1144, tooltip 1023, OKF 2338 no new/stale. Commit 97755accb. A0 amended: i18n deferred to one queued Haiku job (current-job). Next W6f: TTTR Header/Splitter real awaits, BID.
+  - Touching: `test/mypy_baseline.json`, `chisurf/emtk/*` (not main_app/shell_session/status_strip), `chisurf/core/api/__init__.py`, `chisurf/core/structure/av/__init__.py`, then high-count files under `chisurf/core/**` (type fixes only), `okf/prds/prd-154.md` item 4, `okf/log.md`.
+- **T-20261013-W9-S5-STARTUP · [chisurf+emtk] W9 phase 2: S3 gaps check, rest of S5 (startup post-show stages on the emtk surface), S6 default-window guard**
+  - Status: in progress 2026-10-13
+  - Owner: opus-5.5/w9-s5-startup
+  - Touching: `chisurf/emtk/{main_app,shell_session,status_strip,shell_ribbon,splash}.py`, `chisurf/__main__.py`, `chisurf/startup/services.d/*` (emtk stage set only), `test/native_emtk/test_emtk_shell*.py`, `okf/subsystems/qt-retirement.md`, `okf/prds/prd-154.md` item 1, `okf/log.md` (one bullet). Not `chisurf/plugins/**`. No pixi.lock bump, no arm64 emtk reinstall.
