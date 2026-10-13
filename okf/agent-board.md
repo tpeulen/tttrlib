@@ -5865,7 +5865,7 @@ retired so nobody works the same thing twice.)*
 ## Claimed — PRD-154 W4 remainder: batch rows carry their burst run, 2026-10-13
 
 - **T-20261013-W4-BATCHRUN · [chisurf] every batch row names the burst run it came from, so `.pto` lineage reaches the right search when several coexist**
-  - Status: 🔄 in progress
+  - Status: ✅ done 2026-10-13 — chisurf 2ac575763 (local, not pushed). `Burst Run` on every container-read burst row; BVA/2CDE/MLE/H2MM/FCS batch writers route by it; guard `test/fio/test_batch_run_lineage.py` (5 fail at the previous HEAD). Resume: `okf/subsystems/burst-companions.md` item 1. Files released.
   - Owner: opus-5.5/w4-batch-run
   - Touching: `chisurf/core/fio/{analysis_path,pto}.py`, `chisurf/core/fio/fluorescence/{burst,burst_tree,burst_container}.py`, `chisurf/plugins/burst/burst_mle_analysis/engine.py`, `chisurf/plugins/burst/burst_mle_analysis/core/export.py`, `chisurf/plugins/burst/burst_h2mm/core/export.py`, `chisurf/plugins/burst/burst_fcs_correlator/{core/export.py,gui/controller.py}`, `chisurf/plugins/burst/{burst_2cde,burst_bva}/core/computation.py`, new `test/fio/test_batch_run_lineage.py`, OKF `photon-container.md`, `burst-companions.md`, `prd-154.md` (W4 + Part D gate 3 only), `okf/log.md`. NOT chisurf/emtk/**, NOT test/plugin_qt_allowlist.txt.
 
