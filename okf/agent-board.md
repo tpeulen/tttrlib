@@ -5991,3 +5991,11 @@ retired so nobody works the same thing twice.)*
   - Status: ✅ done 2026-10-13 — chisurf fa6f18819 (acq dialogs), 7e0514d95 (lightpath host + Easy Mode), 3b978b173 (batch Qt run; DOCX fit pictures restored), 5d6b6bf8b (number_quest), 89a74df47 (plugins root + cookiecutter emtk template), 1ce8543f2 (okf). Allow-list −14 (64 → 30 with parallel lanes; only mmfdb_admin left). No emtk change, no pixi.lock, not pushed. Leftovers: chisurf okf/references/known-issues.md "acq / lightpath Qt retirement". Files released.
   - Owner: opus-5.5/w9-qt-acq-lp
   - Touching: the files above + their tests/manifests/view.json/help/guide, `okf/plugins/emtk-ports/{acq_devices,lightpath_simulator,batch_analysis,number_quest}/`, `test/plugin_qt_allowlist.txt` (shrink only, own lines), `okf/subsystems/qt-retirement.md` item 1, one `okf/log.md` bullet, known-issues for leftovers. NOT number_quest's untracked app.py/drawing.py (other lane), NOT mmfdb_admin, NOT pixi.lock. emtk only new widgets + tests if a gap (rebased onto emtk HEAD).
+
+## Done — W9 Qt allow-list: mmfdb_admin, 2026-10-13
+
+- **T-20261013-W9-QT-MMFDB · [chisurf(+emtk if a gap)] retire the mmfdb_admin Qt tool + Qt views (emtk twin at parity since 432eed4da), port the Qt widget tests to the emtk Driver, strike the 30 allow-list lines**
+  - Status: ✅ done 2026-10-13 — allow-list 30 → 0 (empty). chisurf a9cc56754 (Qt window + Qt-only modules deleted, 12 Qt test files ported to the emtk app/Driver, nine missing interactions added + Open in ndX + Demo data), da620cd64 / d25cd3f67 (OKF item 1, retire_* evidence: 459 → 1030 controls, lost [], known issues, log). emtk 2eeec85 (0.1.11 enter_call/live), 5bd6a82 (0.1.12 form-scoped widget ids) — not pushed, arm64 reinstalled at 0.1.12, EMTK_MIN_VERSION unchanged. mmfdb 2180b1a (spectra bytes broke export validation). No pixi.lock. Open: Open in ndX in the emtk shell attaches no burst-ID recorder (ndX's open_path hand-off; known issues). Files released.
+  - Owner: opus-5.5/w9-qt-mmfdb
+  - Touching: `chisurf/plugins/core/mmfdb_admin/**`, `test/plugin_qt_allowlist.txt` (mmfdb_admin lines only), `test/mypy_baseline.json` (mmfdb_admin, lower only), `okf/plugins/emtk-ports/mmfdb_admin/`, mmfdb admin docs/guide, `okf/subsystems/qt-retirement.md` item 1, one `okf/log.md` bullet, known-issues. NOT chimol, NOT other plugins, NOT pixi.lock.
+
