@@ -5882,3 +5882,10 @@ retired so nobody works the same thing twice.)*
   - Status: 🔄 in progress
   - Owner: opus-5.5/ptable-collapse
   - Touching: emtk `emtk/widgets/data_table.py`, new `tests/test_ui_data_table_collapse.py`. chisurf `chisurf/emtk/model_editor.py` (column declarations + `_paired` only), `chisurf/emtk/model_sections.py` (`GLOBAL_COLUMNS` only), new `test/native_emtk/test_parameter_table_collapse.py`, `okf/subsystems/gui-autoform.md`, `okf/log.md` (one bullet). Not main_app/shell_session/status_strip/shell_ribbon/splash. No pixi.lock, no arm64 reinstall.
+
+## Done — PRD-154 Part D gate 2: Qt allow-list shrink (non-test entries), 2026-10-13
+
+- **T-20261013-QT-ALLOWLIST · [chisurf] `test/plugin_qt_allowlist.txt` 221 → 211**
+  - Status: done 2026-10-13
+  - Owner: sonnet-5.5/qt-allowlist
+  - Touched: `chisurf/plugins/core/acq/tcspc_devices/{abc,device_factory}.py` + two wrappers (Qt-free Signal), `chisurf/plugins/fret_line/__main__.py`, `chisurf/plugins/microscopy/imaging_emtk/pixel_checks.py` + five parity tests, `chisurf/plugins/spectra_downloader/**` (4 legacy Qt widgets deleted, tests ported, `qt_reference.json`), `test/gui/test_spectra_browser.py`, `docs/guides/screenshots/spectra_mfd.py`, `test/plugin_qt_allowlist.txt`, `okf/subsystems/qt-retirement.md` item 1, `okf/log.md`. Remaining entries and reasons: qt-retirement.md item 1.
