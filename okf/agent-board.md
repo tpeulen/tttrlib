@@ -5956,3 +5956,10 @@ retired so nobody works the same thing twice.)*
   - Status: 🔨 in progress
   - Owner: opus-5.5/import-cycles
   - Touching: new `test/test_import_cycles.py`, `test/import_cycle_allowlist.txt`, `test/import_side_effect_allowlist.txt`; the chisurf modules that close a cycle (lazy imports / leaf modules; skipped where another lane has uncommitted hunks); `okf/subsystems/qt-retirement.md` item 5; one `okf/log.md` bullet. NOT the gate, NOT frame_modules.py, NOT the Qt-retirement lane's plugins (code_editor, help, mmfdb_admin, project_browser, lightpath_simulator), NOT chimol.
+
+## Claimed — W9 Qt allow-list: core/games/modelling leftovers whose "cannot" is challenged, 2026-10-13
+
+- **T-20261013-W9-QT-LEFTOVERS · [chisurf(+emtk if a gap)] freeze live-Qt parity facts (switch_user LoginDialog cases, help home links, project_browser rows) as recorded references; retire the games' Qt widgets + capture scripts (Qt before-renders already committed), project_browser / f_test / globalview Qt tools where the emtk twin is at parity; strike allow-list lines**
+  - Status: in progress
+  - Owner: opus-5.5/w9-qt-leftovers
+  - Touching: `chisurf/plugins/core/{switch_user,help,project_browser,f_test,globalview}/**` (tests + Qt tool modules + manifests), `chisurf/plugins/misc/games/{__init__.py,gui/,breakout,pong,tetris,minesweeper}/**` and `number_quest/test/capture_qt.py` only (NOT number_quest's untracked app.py/drawing.py), `test/plugin_qt_allowlist.txt` (shrink only), `okf/subsystems/qt-retirement.md` item 1, docs of changed UIs, one `okf/log.md` bullet. NOT chimol, NOT the import-cycle guard's files, NOT pixi.lock.
