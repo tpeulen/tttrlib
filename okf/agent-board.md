@@ -5893,7 +5893,7 @@ retired so nobody works the same thing twice.)*
 ## Claimed — photon table shows every record, markers coloured by kind, 2026-10-13
 
 - **T-20261013-PHOTON-TABLE-KINDS · [tttrlib+chisurf] the Photon Table lists marker records too (pixel / line / frame / other), each kind tinted, with a kind filter and per-kind counts**
-  - Status: 🔄 in progress
+  - Status: done 2026-10-13. tttrlib 54422de06 (CLSMImage.get_record_kinds / classify_records(_events), CLSMRecordKind), chisurf 8558eaf2d (Photon Table Kind column/filter/counts, record_kinds.yaml). Resume: okf/plugins/tttr.md "Photon Table lists every record". Files released.
   - Owner: opus-5.5/photon-table-kinds
   - Touching: tttrlib `modules/imaging/clsm/{include/CLSMImage.h,src/CLSMImage.cpp}` (record-kind classifier only), `ext/python/CLSM*.i` if needed, new `test/python/clsm/test_clsm_record_kinds.py`, new `examples/imaging/plot_clsm_record_kinds.py`. chisurf `chisurf/plugins/tttr/photon_table/**`, `docs/guides/108_photon_table.md` (+ figure), `docs/reference/plugins/*photon_table*`, i18n de/fr catalogue entries for the new strings, owning OKF concept, `okf/log.md` (one bullet). Not `chisurf/emtk/**`, not burst/fio. No pixi.lock bump.
 - **T-20261013-MYPY-RATCHET · [chisurf] PRD-154 pickup 4: shrink test/mypy_baseline.json**
