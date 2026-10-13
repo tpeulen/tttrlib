@@ -5899,3 +5899,10 @@ retired so nobody works the same thing twice.)*
 - **T-20261013-MYPY-RATCHET · [chisurf] PRD-154 pickup 4: shrink test/mypy_baseline.json**
   - Status: ✅ done 2026-10-13 (chisurf a7dd5a137, 2da6e912d, not pushed). Baseline 3900 -> 3068. Resume: `okf/prds/prd-154.md` item 4 (largest remaining files listed). Left raised on purpose: emtk `main_app`/`model_editor`, burst `transformer`, `fcs_channel_preset` view model. Files released.
   - Owner: sonnet-5.5/mypy-ratchet
+
+## Claimed — W9 ledger item 6: Qt-free chiplot core, fit pages out of chisurf.gui, 2026-10-13
+
+- **T-20261013-W9-CHIPLOT-CORE · [chisurf(+emtk if needed)] chiplot canvas API/handles/style/emtk backend import without qtpy; Qt widgets a thin host layer; fit-window page modules reachable without Qt; strict xfail `test_opening_a_fit_window_imports_no_qt` flips**
+  - Status: 🔄 in progress
+  - Owner: opus-5.5/w9-chiplot-core
+  - Touching: `chisurf/gui/chiplot/**` (adopts the released mypy lane's uncommitted `canvas.py` typing hunks), new Qt-free chiplot core package, `chisurf/gui/plots/**` (moved beside `chisurf/emtk/fit_pages/`), `chisurf/emtk/fit_pages/plots.py`, `chisurf/gui/autoform/sections/state_scheme_section.py`, importers of moved modules, `test/native_emtk/test_fit_window_is_qt_free.py`, chiplot/plot tests (import paths), `test/plugin_qt_allowlist.txt` (shrink only), allow-lists in `test/` that name moved paths, `okf/subsystems/{qt-retirement,chiplot}.md`, `okf/prds/prd-154.md` item 1, `okf/log.md` (one bullet). Not `chisurf/plugins/tttr/photon_table/**`. No pixi.lock bump.
