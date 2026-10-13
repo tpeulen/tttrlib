@@ -5857,3 +5857,7 @@ retired so nobody works the same thing twice.)*
   - Status: in progress 2026-10-13
   - Owner: opus-5.5/w9-s5-startup
   - Touching: `chisurf/emtk/{main_app,shell_session,status_strip,shell_ribbon,splash}.py`, `chisurf/__main__.py`, `chisurf/startup/services.d/*` (emtk stage set only), `test/native_emtk/test_emtk_shell*.py`, `okf/subsystems/qt-retirement.md`, `okf/prds/prd-154.md` item 1, `okf/log.md` (one bullet). Not `chisurf/plugins/**`. No pixi.lock bump, no arm64 emtk reinstall.
+- **T-20261013-W14-PLUGIN-DOCS · [chisurf] PRD-154 W14: theory/workflow links for the 45 hidden plugin reference pages**
+  - Status: in progress 2026-10-13
+  - Owner: sonnet-5.5/w14-plugin-docs
+  - Touching: `docs/concepts/*.md`, `docs/guides/*.md` (path mentions + new pages), `docs/reference/plugins/*.md` (regenerated), `docs/concepts/index.md`, `docs/guides/index.md`, `okf/prds/prd-154.md` (W14 row, item 3), `okf/log.md` (one bullet). Not `chisurf/plugins/**` except `help.md` links.
