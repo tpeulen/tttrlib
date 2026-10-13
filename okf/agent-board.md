@@ -5950,6 +5950,13 @@ retired so nobody works the same thing twice.)*
   - Owner: opus-5.5/k2-static-spectrum
   - Touching: imp.bff `include/fret/FRETSpectrumNode.h`, `src/fret/FRETSpectrumNode.cpp`, `src/search/ModelSearchSpec.cpp` (declared port default only), `data/model_search/tcspc_fret_*.json` + `tcspc_pddem.json` (fret node orientation + `kappa2_distribution` port), `test/decay/test_fret_orientation.py`, own `okf/log.md` hunk. chisurf `chisurf/core/models/tcspc/{kappa2_controls,classic_editor}.py`, `chisurf/gui/widgets/models/tcspc/kappa2_helpers.py` (read path only), `test/test_kappa2_regime.py`, `docs/concepts/kappa2_orientation.md`, FRET-lines guide note, `okf/references/known-issues.md` (this entry), one `okf/log.md` bullet. Builds -j4 serialised. No pixi.lock.
 
+## Claimed — shell plugin hand-off (open plugin X with payload P), Trace Browser Qt host retired, 2026-10-13
+
+- **T-20261013-SHELL-HANDOFF · [chisurf(+emtk if a gap)] general hand-off in the emtk shell: a plugin asks "open plugin X with payload P", the shell opens X as a dock and delivers P through X's declared receive hook (manifest `accepts`); Trace Browser HMM/TW/NDX + the other ndX hand-offs routed through it; Trace Browser Qt host + T5 test retired (test ported to the emtk Driver)**
+  - Status: 🔨 in progress
+  - Owner: opus-5.5/shell-handoff
+  - Touching: chisurf `chisurf/emtk/main_app.py` (hand-off method only), new `chisurf/emtk/handoff.py`, `chisurf/core/plugin/manifest.py` + `schemas/manifest.schema.json` (`accepts` field), manifests + receive hooks of `intensity_trace`, `tttr_time_windows`, `ndxplorer`; `chisurf/plugins/tttr/trace_browser/gui/{app,host,host_lookup}.py` + tests, `burst_h2mm/gui/native.py`, `burst_selection/gui/native.py`, `ndxplorer/gui/app.py` (`open_in_ndx`), `test/plugin_qt_allowlist.txt` (trace_browser lines only), `okf/subsystems/qt-retirement.md` item 1, `okf/plugins/emtk-ports/trace_browser/`, Trace Browser guide, one `okf/log.md` bullet. NOT chimol, code_editor, help, HydroPro, mmfdb_admin; NOT emtk dialog_window.py/web/boot.js/dialog tests. No pixi.lock.
+
 ## Resolved — import cycles + module-level import side effects: guard tests, break at the root, 2026-10-13
 
 - **T-20261013-IMPORT-CYCLES · [chisurf] static guard on chisurf's module-level import cycles and on module-level calls that import or block (shrinking allow-lists); break as many as possible at the root; exit criterion for retiring `chisurf/_import_gate.py` + `chisurf/emtk/frame_modules.py`**
