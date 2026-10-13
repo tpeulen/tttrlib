@@ -1094,9 +1094,9 @@ are still claims and still binding.
 ## Active
 
 - **T-20261013-FRETLINE-K2 · [chisurf] FRET-line editor lost the static/dynamic κ² switch**
-  - Status: 🔄 in-progress
+  - Status: ✅ done
   - Owner: opus-5.5/fretline-k2
-  - Opened/Picked: 2026-10-13
+  - Opened/Picked: 2026-10-13 · Done: 2026-10-13 (chisurf dae17a65b)
   - Why: the Qt-retirement compare.json recorded `static κ²` / `dynamic κ²` as "no effect on a FRET line"; measured, the mode moves E by up to 0.17 at κ²=2/3 (Gaussian, R0 52 Å).
   - Done when: the emtk FRET-line editor draws the κ² controls (reusing the shell's `kappa2_controls` drawer + server section ops), a test asserts the two modes give different lines, compare.json/REPORT/parity test record the control as present, docs + OKF updated.
   - Touching: `chisurf/plugins/fret_line/**`, `chisurf/server/services/model_sections.py` (a public local section-call helper only), `okf/plugins/emtk-ports/fret_line/{compare.json,REPORT.md}`, `okf/subsystems/qt-retirement.md` item 1 only, FRET-line docs (`docs/concepts`/`docs/guides` fret line pages), own `okf/log.md` bullet. Read-only: `chisurf/emtk/model_sections.py` (import-gate lane owns chisurf/emtk/**).
