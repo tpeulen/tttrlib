@@ -5868,3 +5868,10 @@ retired so nobody works the same thing twice.)*
   - Status: 🔄 in progress
   - Owner: opus-5.5/w4-batch-run
   - Touching: `chisurf/core/fio/{analysis_path,pto}.py`, `chisurf/core/fio/fluorescence/{burst,burst_tree,burst_container}.py`, `chisurf/plugins/burst/burst_mle_analysis/engine.py`, `chisurf/plugins/burst/burst_mle_analysis/core/export.py`, `chisurf/plugins/burst/burst_h2mm/core/export.py`, `chisurf/plugins/burst/burst_fcs_correlator/{core/export.py,gui/controller.py}`, `chisurf/plugins/burst/{burst_2cde,burst_bva}/core/computation.py`, new `test/fio/test_batch_run_lineage.py`, OKF `photon-container.md`, `burst-companions.md`, `prd-154.md` (W4 + Part D gate 3 only), `okf/log.md`. NOT chisurf/emtk/**, NOT test/plugin_qt_allowlist.txt.
+
+## Claimed — PRD-154 W12 remainder: imp.bff headers split into theme folders, 2026-10-13
+
+- **T-20261013-W12-HEADERS · [imp.bff+chisurf] `include/` split into the 12 src theme folders (+ `imp/`), every include site rewritten, no shim headers**
+  - Status: 🔄 in progress
+  - Owner: opus-5.5/w12-headers
+  - Touching: imp.bff `include/**` (moves), `src/**` (include lines, `Headers.cmake` retired), `pyext/**` (`%include`/`#include` lines), `test/**` include lines + `test/test_theme_headers.py`, `bin/`, `gpu/`, `examples/` include lines, `CMakeLists.txt`, `standalone/CMakeLists.txt`, new `cmake/ThemeHeaders.cmake`, `tools/dev/move_sources.py`, theme READMEs, `okf/themes/**`, own `okf/log.md` hunk. chisurf: docstring header paths in `chisurf/core/{fitting/factorgraph,fluorescence/crosstalk,math/special}.py`, `okf/prds/prd-154.md` W12 line, `okf/log.md` (one bullet). Builds -j4, serialised. No pixi.lock, no arm64 reinstall.
