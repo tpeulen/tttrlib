@@ -1093,20 +1093,6 @@ are still claims and still binding.
 
 ## Active
 
-- **T-20261013-IMPORT-GATE · [chisurf] No two threads first-import at once (emtk shell workers)**
-  - Status: ✅ done 2026-10-13. chisurf 941cb73a8 (not pushed). `chisurf/_import_gate.py` is installed first in `chisurf/__init__.py` and gates `_find_and_load`, so one thread at a time first-imports a module. `chisurf/emtk/frame_modules.py` imports what frames import lazily before any worker starts, which brings the frame-time *gate wait* to 0 for 119 plugins. Guard sweep `test/startup/test_startup_import_race.py` passed 10 runs out of 10. Resume: `okf/subsystems/qt-retirement.md` item 5. Files released.
-  - Owner: opus-5.5/import-gate
-  - Opened/Picked: 2026-10-13
-  - Touching (released): `chisurf/_import_gate.py`, `chisurf/__init__.py`, `chisurf/emtk/{frame_modules,background_build,main_app,plugins,session}.py`, `fcs_saturation_calc/gui/app.py`, `build_tools/dev_utils/plugin_frame_times.py`, `test/startup/*`, benchmarks doc, qt-retirement item 5, log.
-
-- **T-20261013-FRETLINE-K2 · [chisurf] FRET-line editor lost the static/dynamic κ² switch**
-  - Status: ✅ done
-  - Owner: opus-5.5/fretline-k2
-  - Opened/Picked: 2026-10-13 · Done: 2026-10-13 (chisurf dae17a65b)
-  - Why: the Qt-retirement compare.json recorded `static κ²` / `dynamic κ²` as "no effect on a FRET line"; measured, the mode moves E by up to 0.17 at κ²=2/3 (Gaussian, R0 52 Å).
-  - Done when: the emtk FRET-line editor draws the κ² controls (reusing the shell's `kappa2_controls` drawer + server section ops), a test asserts the two modes give different lines, compare.json/REPORT/parity test record the control as present, docs + OKF updated.
-  - Touching: `chisurf/plugins/fret_line/**`, `chisurf/server/services/model_sections.py` (a public local section-call helper only), `okf/plugins/emtk-ports/fret_line/{compare.json,REPORT.md}`, `okf/subsystems/qt-retirement.md` item 1 only, FRET-line docs (`docs/concepts`/`docs/guides` fret line pages), own `okf/log.md` bullet. Read-only: `chisurf/emtk/model_sections.py` (import-gate lane owns chisurf/emtk/**).
-
 - **T-20261004-PROJECT-INTEGRATION · [chisurf] Close native/public Main/optional-plot integration blockers**
   - Status: 🔄 in-progress
   - Owner: hermes/20261003_195530_419bbd, continuation of the project-persistence owner
@@ -1209,6 +1195,20 @@ are still claims and still binding.
   - Progress: chimol `db07093` (reference-viewer arg binding, Python escape, alias, load/fetch); probe 45→22 failing. 12 reference pages + ~140 junk headers in `~/dev/chimol/okf/references/pymol/`. Stopped early (user saving credits). Next: `index.md` "Where to pick this up" there (setting levels first).
 
 ## Resolved
+
+- **T-20261013-IMPORT-GATE · [chisurf] No two threads first-import at once (emtk shell workers)**
+  - Status: ✅ done 2026-10-13. chisurf 941cb73a8 (not pushed). `chisurf/_import_gate.py` is installed first in `chisurf/__init__.py` and gates `_find_and_load`, so one thread at a time first-imports a module. `chisurf/emtk/frame_modules.py` imports what frames import lazily before any worker starts, which brings the frame-time *gate wait* to 0 for 119 plugins. Guard sweep `test/startup/test_startup_import_race.py` passed 10 runs out of 10. Resume: `okf/subsystems/qt-retirement.md` item 5. Files released.
+  - Owner: opus-5.5/import-gate
+  - Opened/Picked: 2026-10-13
+  - Touching (released): `chisurf/_import_gate.py`, `chisurf/__init__.py`, `chisurf/emtk/{frame_modules,background_build,main_app,plugins,session}.py`, `fcs_saturation_calc/gui/app.py`, `build_tools/dev_utils/plugin_frame_times.py`, `test/startup/*`, benchmarks doc, qt-retirement item 5, log.
+
+- **T-20261013-FRETLINE-K2 · [chisurf] FRET-line editor lost the static/dynamic κ² switch**
+  - Status: ✅ done
+  - Owner: opus-5.5/fretline-k2
+  - Opened/Picked: 2026-10-13 · Done: 2026-10-13 (chisurf dae17a65b)
+  - Why: the Qt-retirement compare.json recorded `static κ²` / `dynamic κ²` as "no effect on a FRET line"; measured, the mode moves E by up to 0.17 at κ²=2/3 (Gaussian, R0 52 Å).
+  - Done when: the emtk FRET-line editor draws the κ² controls (reusing the shell's `kappa2_controls` drawer + server section ops), a test asserts the two modes give different lines, compare.json/REPORT/parity test record the control as present, docs + OKF updated.
+  - Touching: `chisurf/plugins/fret_line/**`, `chisurf/server/services/model_sections.py` (a public local section-call helper only), `okf/plugins/emtk-ports/fret_line/{compare.json,REPORT.md}`, `okf/subsystems/qt-retirement.md` item 1 only, FRET-line docs (`docs/concepts`/`docs/guides` fret line pages), own `okf/log.md` bullet. Read-only: `chisurf/emtk/model_sections.py` (import-gate lane owns chisurf/emtk/**).
 
 - **T-20261013-SAFE-EDIT · [chisurf] Shared-file edits (okf/log.md, .ts catalogues) go through one atomic helper**
   - Status: ✅ done 2026-10-13 — chisurf `45a026f70`
