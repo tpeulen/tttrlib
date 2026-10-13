@@ -5889,3 +5889,10 @@ retired so nobody works the same thing twice.)*
   - Status: done 2026-10-13
   - Owner: sonnet-5.5/qt-allowlist
   - Touched: `chisurf/plugins/core/acq/tcspc_devices/{abc,device_factory}.py` + two wrappers (Qt-free Signal), `chisurf/plugins/fret_line/__main__.py`, `chisurf/plugins/microscopy/imaging_emtk/pixel_checks.py` + five parity tests, `chisurf/plugins/spectra_downloader/**` (4 legacy Qt widgets deleted, tests ported, `qt_reference.json`), `test/gui/test_spectra_browser.py`, `docs/guides/screenshots/spectra_mfd.py`, `test/plugin_qt_allowlist.txt`, `okf/subsystems/qt-retirement.md` item 1, `okf/log.md`. Remaining entries and reasons: qt-retirement.md item 1.
+
+## Claimed — photon table shows every record, markers coloured by kind, 2026-10-13
+
+- **T-20261013-PHOTON-TABLE-KINDS · [tttrlib+chisurf] the Photon Table lists marker records too (pixel / line / frame / other), each kind tinted, with a kind filter and per-kind counts**
+  - Status: 🔄 in progress
+  - Owner: opus-5.5/photon-table-kinds
+  - Touching: tttrlib `modules/imaging/clsm/{include/CLSMImage.h,src/CLSMImage.cpp}` (record-kind classifier only), `ext/python/CLSM*.i` if needed, new `test/python/clsm/test_clsm_record_kinds.py`, new `examples/imaging/plot_clsm_record_kinds.py`. chisurf `chisurf/plugins/tttr/photon_table/**`, `docs/guides/108_photon_table.md` (+ figure), `docs/reference/plugins/*photon_table*`, i18n de/fr catalogue entries for the new strings, owning OKF concept, `okf/log.md` (one bullet). Not `chisurf/emtk/**`, not burst/fio. No pixi.lock bump.
