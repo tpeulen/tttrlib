@@ -5950,10 +5950,10 @@ retired so nobody works the same thing twice.)*
   - Owner: opus-5.5/k2-static-spectrum
   - Touching: imp.bff `include/fret/FRETSpectrumNode.h`, `src/fret/FRETSpectrumNode.cpp`, `src/search/ModelSearchSpec.cpp` (declared port default only), `data/model_search/tcspc_fret_*.json` + `tcspc_pddem.json` (fret node orientation + `kappa2_distribution` port), `test/decay/test_fret_orientation.py`, own `okf/log.md` hunk. chisurf `chisurf/core/models/tcspc/{kappa2_controls,classic_editor}.py`, `chisurf/gui/widgets/models/tcspc/kappa2_helpers.py` (read path only), `test/test_kappa2_regime.py`, `docs/concepts/kappa2_orientation.md`, FRET-lines guide note, `okf/references/known-issues.md` (this entry), one `okf/log.md` bullet. Builds -j4 serialised. No pixi.lock.
 
-## Claimed — import cycles + module-level import side effects: guard tests, break at the root, 2026-10-13
+## Resolved — import cycles + module-level import side effects: guard tests, break at the root, 2026-10-13
 
 - **T-20261013-IMPORT-CYCLES · [chisurf] static guard on chisurf's module-level import cycles and on module-level calls that import or block (shrinking allow-lists); break as many as possible at the root; exit criterion for retiring `chisurf/_import_gate.py` + `chisurf/emtk/frame_modules.py`**
-  - Status: 🔨 in progress
+  - Status: ✅ done 2026-10-13 — chisurf 1f97946c2, not pushed. `test/test_import_cycles.py` bans both outright (no allow-list): 17 cyclic components / 56 cycle edges and 11 side effects at 0a6e81d8c → 0 / 0; runtime probe of 2381 modules agrees. Lesson: on 3.12 `import pkg.sub as s` waits on pkg's lock like `from . import sub`; only `from pkg.sub import name` does not (pinned by a test). Gate + frame_modules.py NOT removed; exit criterion (one residual parent-lookup race) and the frame-module derivation in `okf/subsystems/qt-retirement.md` item 5. Files released.
   - Owner: opus-5.5/import-cycles
   - Touching: new `test/test_import_cycles.py`, `test/import_cycle_allowlist.txt`, `test/import_side_effect_allowlist.txt`; the chisurf modules that close a cycle (lazy imports / leaf modules; skipped where another lane has uncommitted hunks); `okf/subsystems/qt-retirement.md` item 5; one `okf/log.md` bullet. NOT the gate, NOT frame_modules.py, NOT the Qt-retirement lane's plugins (code_editor, help, mmfdb_admin, project_browser, lightpath_simulator), NOT chimol.
 
