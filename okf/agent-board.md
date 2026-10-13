@@ -1211,6 +1211,14 @@ are still claims and still binding.
 
 ## Resolved
 
+- **T-20261013-SAFE-EDIT · [chisurf] Shared-file edits (okf/log.md, .ts catalogues) go through one atomic helper**
+  - Status: ✅ done 2026-10-13 — chisurf `45a026f70`
+  - Owner: sonnet-5.5/safe-edit
+  - Opened/Picked: 2026-10-13
+  - Why: two agents destroyed `chisurf_de.ts` and `okf/log.md` with write-before-read scripts.
+  - Touching: NEW `build_tools/dev_utils/safe_edit.py`, `test/dev_utils/`, `okf/workflows/change-tracking.md`, `okf/log.md` (duplicate heading only), CLAUDE.md (local, gitignored).
+  - Progress: use `python -m build_tools.dev_utils.safe_edit log "bullet"` / `ts <lang> --json f`; also edit this board with `edit_file`.
+
 - **T-20261003-IMPBFF-WINLINK · [imp.bff] Windows CI `/WHOLEARCHIVE` link failure and follow-on settings regressions — DONE**
   - Status: ✅ done — 2026-10-04
   - Owner: hermes, continuing Claude session `63fef032-5a30-4635-b393-0a8f9ae81488`
