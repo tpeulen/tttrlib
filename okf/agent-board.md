@@ -5879,9 +5879,9 @@ retired so nobody works the same thing twice.)*
 ## Claimed — emtk parameter tables collapse like Qt when short of width, 2026-10-13
 
 - **T-20261013-PTABLE-COLLAPSE · [emtk+chisurf] priority column collapse (bounds, then error/link, then fixed; name and value never) in emtk data tables**
-  - Status: 🔄 in progress
+  - Status: ✅ done 2026-10-13 — emtk 9bdd67a (+6fd1cde lint) committed, not pushed, pin NOT moved (coordinator moves it); chisurf e20cb4c6e. Drop order = Qt's (bounds, error/link, fixed; name+value never); thresholds differ by tens of px because emtk decides on natural widths. Resume: `okf/subsystems/gui-autoform.md` (bounds-toggle paragraph). Files released.
   - Owner: opus-5.5/ptable-collapse
-  - Touching: emtk `emtk/widgets/data_table.py`, new `tests/test_ui_data_table_collapse.py`. chisurf `chisurf/emtk/model_editor.py` (column declarations + `_paired` only), `chisurf/emtk/model_sections.py` (`GLOBAL_COLUMNS` only), new `test/native_emtk/test_parameter_table_collapse.py`, `okf/subsystems/gui-autoform.md`, `okf/log.md` (one bullet). Not main_app/shell_session/status_strip/shell_ribbon/splash. No pixi.lock, no arm64 reinstall.
+  - Touching: emtk `emtk/widgets/data_table.py`, new `tests/test_ui_data_table_collapse.py`. chisurf `chisurf/emtk/model_editor.py` (column declarations + `_paired` only), `chisurf/emtk/model_sections.py` (`GLOBAL_COLUMNS` only), `chisurf/gui/plots/table_plot_emtk.py` (parameter editor columns), new `test/gui/test_parameter_table_collapse_parity.py`, `test/gui/test_table_plot_emtk.py`, `docs/guides/10_lifetime_anisotropy_fitting.md`, `okf/subsystems/gui-autoform.md`, `okf/log.md` (one bullet). Not main_app/shell_session/status_strip/shell_ribbon/splash. No pixi.lock, no arm64 reinstall.
 
 ## Done — PRD-154 Part D gate 2: Qt allow-list shrink (non-test entries), 2026-10-13
 
