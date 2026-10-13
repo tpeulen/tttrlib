@@ -5875,3 +5875,10 @@ retired so nobody works the same thing twice.)*
   - Status: 🔄 in progress
   - Owner: opus-5.5/w12-headers
   - Touching: imp.bff `include/**` (moves), `src/**` (include lines, `Headers.cmake` retired), `pyext/**` (`%include`/`#include` lines), `test/**` include lines + `test/test_theme_headers.py`, `bin/`, `gpu/`, `examples/` include lines, `CMakeLists.txt`, `standalone/CMakeLists.txt`, new `cmake/ThemeHeaders.cmake`, `tools/dev/move_sources.py`, theme READMEs, `okf/themes/**`, own `okf/log.md` hunk. chisurf: docstring header paths in `chisurf/core/{fitting/factorgraph,fluorescence/crosstalk,math/special}.py`, `okf/prds/prd-154.md` W12 line, `okf/log.md` (one bullet). Builds -j4, serialised. No pixi.lock, no arm64 reinstall.
+
+## Claimed — emtk parameter tables collapse like Qt when short of width, 2026-10-13
+
+- **T-20261013-PTABLE-COLLAPSE · [emtk+chisurf] priority column collapse (bounds, then error/link, then fixed; name and value never) in emtk data tables**
+  - Status: 🔄 in progress
+  - Owner: opus-5.5/ptable-collapse
+  - Touching: emtk `emtk/widgets/data_table.py`, new `tests/test_ui_data_table_collapse.py`. chisurf `chisurf/emtk/model_editor.py` (column declarations + `_paired` only), `chisurf/emtk/model_sections.py` (`GLOBAL_COLUMNS` only), new `test/native_emtk/test_parameter_table_collapse.py`, `okf/subsystems/gui-autoform.md`, `okf/log.md` (one bullet). Not main_app/shell_session/status_strip/shell_ribbon/splash. No pixi.lock, no arm64 reinstall.
