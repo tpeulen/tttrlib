@@ -1201,6 +1201,11 @@ are still claims and still binding.
   - Owner: opus-5.5/import-gate
   - Opened/Picked: 2026-10-13
   - Touching (released): `chisurf/_import_gate.py`, `chisurf/__init__.py`, `chisurf/emtk/{frame_modules,background_build,main_app,plugins,session}.py`, `fcs_saturation_calc/gui/app.py`, `build_tools/dev_utils/plugin_frame_times.py`, `test/startup/*`, benchmarks doc, qt-retirement item 5, log.
+- **T-20261014-W9-S6 · [chisurf] S6 prepared on branch s6-retire-qt-shell (not merged)**
+  - Status: ✅ done 2026-10-14, files released. The Qt shell, `--qt`, every Qt module under `chisurf/` and the qtpy/pyqt/pytest-qt dependencies are removed on branch `s6-retire-qt-shell` (merge of 90756afe5; `pixi.lock` not regenerated). Merging waits for the owner. Resume: `okf/subsystems/qt-retirement.md` item 9.
+  - Owner: opus-5.5/s6-branch
+  - Opened/Picked: 2026-10-14
+
 
 - **T-20261013-FRETLINE-K2 · [chisurf] FRET-line editor lost the static/dynamic κ² switch**
   - Status: ✅ done
