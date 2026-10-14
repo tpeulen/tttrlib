@@ -1093,6 +1093,17 @@ are still claims and still binding.
 
 ## Active
 
+
+- **T-20261014-FINAL-PARITY-PLUGINS · [chisurf(+emtk if a gap)] last Qt-vs-emtk parity pass for every plugin GUI before `s6-retire-qt-shell` lands: each plugin opened in the `--qt` host (ControlHost) and as an emtk shell dock in the same realistic state, pairs read, Qt-era `retire_qt_before*` inventories re-checked**
+  - Status: 🔄 in-progress 2026-10-14
+  - Owner: opus-5.5/final-parity-plugins
+  - Touching: NEW `test/gui/final_parity_plugins.py`, `okf/plugins/emtk-ports/final-parity/plugins/**` (PNGs, report.json, README.md, index.html), one `okf/log.md` bullet, `okf/subsystems/qt-retirement.md` resume item; blocker fixes only inside the affected plugin's emtk app (claimed here per plugin before editing). Claimed fixes: `chisurf/plugins/burst/burst_ebfret/gui/app.py` (App.close: closing the tool never released the backend session) + `burst_ebfret/tests/test_gui.py`. NOT chisurf/emtk shell files (shell-parity lane), NOT docs/** (docs review lanes), NOT pixi.lock. One capture process at a time, single test files only.
+
+- **T-20261013-W9-QT-NDX-CHIMOL · [chisurf+chimol(+ndxplorer/emtk if a gap)] retire ChiSurf's Qt ndX window (`--qt` hosts the emtk app generically, like chimol e411fbcfc); chimol display-defaults prompt as an in-viewport choice dialog; chimol screenshot/baseline helpers on the offscreen canvas; then hosts/qt deletion if feasible**
+  - Status: ✅ done 2026-10-13 — plugin_qt_allowlist ndX 4 → 0, chimol 4 → 0 (52 → 33 overall with the parallel lanes). chisurf e84199fe5 (ndX Qt NdxWindow retired; --qt hosts make_app; open_in_ndx/show_table_in_ndx/record_burst_ids_against_product; find_ndx_windows fixed), 9a3b2b3f4 (chimol prompt test Qt-free), a68f2a244 (screenshot/chrome_baseline/benchmarks on the offscreen canvas), 96d3b6f1d (core_fit project restore opens emtk ChiMOL), 3a3dbe2a0 (OKF). chimol 19444d1 + 087d4fb (in-viewport choice window + display-defaults question, de/fr), 07a9b28 (okf item 0). No emtk change, nothing pushed, no pixi.lock. chimol hosts/qt NOT deleted: exact remaining importers + order in qt-retirement item 9. **mmfdb lane:** the Qt tool's *Open in ndX* now calls `open_in_ndx` + `selection_provenance.record_burst_ids_against_product`; the emtk admin twin has no such action yet (known-issues). Files released.
+  - Owner: opus-5.5/w9-qt-ndx-chimol
+  - Touching: chisurf `chisurf/plugins/ndxplorer/{__init__,window,calibration_bridge,mmfdb_launcher,manifest.json,gui/app}.py` + `tests/test_window_routes.py`, ndX callers (`burst_h2mm/gui/native.py`, `accurate_fret/gui/view_model.py`, `docs/guides/make_screenshots.py`, `test/fio/test_ndxplorer_rpc_bridge.py`; ONE hunk in `mmfdb_admin/gui/tool.py` only if that file still exists — mmfdb lane please note), `chisurf/plugins/chimol/test/{test_display_config_prompt,chrome_baseline,screenshot,test_screenshot_helper,test_occlusion_switch,test_chrome_painter}.py`, `test/benchmarks/benchmark_chimol_*.py`, `test/plugin_qt_allowlist.txt` (shrink only), `okf/plugins/emtk-ports/{ndxplorer,chimol}/retire_*`, qt-retirement items 1+9, one log bullet, known-issues; chimol new `chimol/ui/dialogs/choice.py` + `display_defaults.py`, `hosts/native/app.py`. NOT chimol's uncommitted notebook-host files.
+
 - **T-20261004-PROJECT-INTEGRATION · [chisurf] Close native/public Main/optional-plot integration blockers**
   - Status: 🔄 in-progress
   - Owner: hermes/20261003_195530_419bbd, continuation of the project-persistence owner
@@ -1196,16 +1207,21 @@ are still claims and still binding.
 
 ## Resolved
 
-- **T-20261013-IMPORT-GATE · [chisurf] No two threads first-import at once (emtk shell workers)**
-  - Status: ✅ done 2026-10-13. chisurf 941cb73a8 (not pushed). `chisurf/_import_gate.py` is installed first in `chisurf/__init__.py` and gates `_find_and_load`, so one thread at a time first-imports a module. `chisurf/emtk/frame_modules.py` imports what frames import lazily before any worker starts, which brings the frame-time *gate wait* to 0 for 119 plugins. Guard sweep `test/startup/test_startup_import_race.py` passed 10 runs out of 10. Resume: `okf/subsystems/qt-retirement.md` item 5. Files released.
-  - Owner: opus-5.5/import-gate
-  - Opened/Picked: 2026-10-13
-  - Touching (released): `chisurf/_import_gate.py`, `chisurf/__init__.py`, `chisurf/emtk/{frame_modules,background_build,main_app,plugins,session}.py`, `fcs_saturation_calc/gui/app.py`, `build_tools/dev_utils/plugin_frame_times.py`, `test/startup/*`, benchmarks doc, qt-retirement item 5, log.
+- **T-20261014-WORKSPACE-DOCK · [chisurf] Workspace as a dock window, tools land in docks, fit windows land in workspace**
+  - Status: ✅ done 2026-10-14, files released. Workspace is a special dock window (docked in center by default, closable=False, core=True) containing self.workspace_docks where fit windows live; tools open in docks (center by default) taking full dock width without auto-floating; tests pass in test_emtk_shell_workspace.py, test_emtk_shell_fit_windows.py, and test_emtk_shell_final_parity.py; headless screenshots inspected. Resume: `okf/subsystems/qt-retirement.md` item 10.
+  - Owner: gemini-3.8-flash/workspace-dock
+  - Opened/Picked: 2026-10-14
+
 - **T-20261014-W9-S6 · [chisurf] S6 prepared on branch s6-retire-qt-shell (not merged)**
   - Status: ✅ done 2026-10-14, files released. The Qt shell, `--qt`, every Qt module under `chisurf/` and the qtpy/pyqt/pytest-qt dependencies are removed on branch `s6-retire-qt-shell` (merge of 90756afe5; `pixi.lock` not regenerated). Merging waits for the owner. Resume: `okf/subsystems/qt-retirement.md` item 9.
   - Owner: opus-5.5/s6-branch
   - Opened/Picked: 2026-10-14
 
+- **T-20261013-IMPORT-GATE · [chisurf] No two threads first-import at once (emtk shell workers)**
+  - Status: ✅ done 2026-10-13. chisurf 941cb73a8 (not pushed). `chisurf/_import_gate.py` is installed first in `chisurf/__init__.py` and gates `_find_and_load`, so one thread at a time first-imports a module. `chisurf/emtk/frame_modules.py` imports what frames import lazily before any worker starts, which brings the frame-time *gate wait* to 0 for 119 plugins. Guard sweep `test/startup/test_startup_import_race.py` passed 10 runs out of 10. Resume: `okf/subsystems/qt-retirement.md` item 5. Files released.
+  - Owner: opus-5.5/import-gate
+  - Opened/Picked: 2026-10-13
+  - Touching (released): `chisurf/_import_gate.py`, `chisurf/__init__.py`, `chisurf/emtk/{frame_modules,background_build,main_app,plugins,session}.py`, `fcs_saturation_calc/gui/app.py`, `build_tools/dev_utils/plugin_frame_times.py`, `test/startup/*`, benchmarks doc, qt-retirement item 5, log.
 
 - **T-20261013-FRETLINE-K2 · [chisurf] FRET-line editor lost the static/dynamic κ² switch**
   - Status: ✅ done
@@ -1222,6 +1238,29 @@ are still claims and still binding.
   - Why: two agents destroyed `chisurf_de.ts` and `okf/log.md` with write-before-read scripts.
   - Touching: NEW `build_tools/dev_utils/safe_edit.py`, `test/dev_utils/`, `okf/workflows/change-tracking.md`, `okf/log.md` (duplicate heading only), CLAUDE.md (local, gitignored).
   - Progress: use `python -m build_tools.dev_utils.safe_edit log "bullet"` / `ts <lang> --json f`; also edit this board with `edit_file`.
+
+- **T-20261012-AV-ATTACH-SPHERE · [imp.bff+chimol+chisurf] AV: attachment atom excluded + allowed sphere enabled by default**
+  - Status: ✅ done 2026-10-12 — imp.bff `8ce0dcc28` (fork/dev), chimol `b250441` (development) pushed; chisurf changes + pixi.lock uncommitted by instruction. Finding: both rules were already in force; no volume moved at W 4.5 (empties = radii + off-node seed). Files released.
+  - Owner: opus-5.5/av-attach-sphere
+  - Opened/Picked: 2026-10-12
+  - Why: owner 2026-10-12: "the attachment site must be excluded, also allowed sphere radius must be enabled by default." Keep the fixed lattice; radii unchanged.
+  - Touching: imp.bff `include/{ProbeAccessibleVolumeDefaults,ProbeAccessibleVolumeDecorator,ProbeAccessibleVolumeBuilder}.h`, `src/probe/{FPS,ProbeAccessibleVolumeBuilder}.cpp`, `src/imp/ProbeAccessibleVolumeDecorator.cpp`, schema/template, AV tests, `okf/validation/fps_screening_ab.md`; chimol labelling AV door + goldens; chisurf `chisurf/core/structure/av/`, `plugins/modelling/{structure_tools/cards,fps_json_editor,fret/core}`, `plugins/quenching_estimator/**`, `test/fitting/data/fret_structure_reference.json`, known-issues AV entry, `pixi.lock`. Serialised `ninja` in ~/dev/imp/cmake-build-arm64. No chisurf commit.
+
+- **T-20261012-AV-FPS-HOP · [imp.bff+chimol+chisurf] AV search default = FPS's every-node 3-voxel cube hop**
+  - Status: ✅ done 2026-10-12 — imp.bff `e4a3e2b9d` (fork/dev), chimol `fa173b0` (development) pushed; chisurf changes + pixi.lock uncommitted by instruction. Finding: the empty sites are the radii (IMP united-atom), not the search; T4L-132@0.5 empty = off-node anchor (next item in imp.bff `okf/validation/fps_screening_ab.md`). Files released.
+  - Owner: opus-5.5/av-fps-hop
+  - Opened/Picked: 2026-10-12
+  - Why: owner 2026-10-12 reverses "av go fast by default": seed-only hop leaves 51/151 T4L 148L Cβ sites empty at W 4.5; FPS labels them.
+  - Done when: FPS cube search default (seed-only "fast" selectable), optimised + identity-tested, 3GUN/T4L validation in fps_screening_ab.md, goldens re-pinned in imp.bff/chimol/chisurf, imp.bff + chimol pushed.
+  - Touching: imp.bff `include/{PathMap,ProbeAccessibleVolumeDefaults,ProbeAccessibleVolumeDecorator,ProbeAccessibleVolumeBuilder}.h`, `src/probe/{PathMap,FPS,ProbeAccessibleVolumeBuilder}.cpp`, `src/imp/ProbeAccessibleVolumeDecorator.cpp`, schema, AV tests, `okf/validation/fps_screening_ab.md`; chimol labelling goldens; chisurf AV settings/goldens, `chisurf/plugins/quenching_estimator/test/**`, known-issues AV entry. Serialised `ninja` in ~/dev/imp/cmake-build-arm64.
+  - Progress: done; see status.
+
+- **T-20261011-AV-FPS-DEFAULTS · [imp.bff+chisurf] AV defaults taken from FPS/Olga**
+  - Status: ✅ done 2026-10-11 — imp.bff `51a31f831` pushed (fork/dev); chisurf changes + pixi.lock left uncommitted by instruction. Open: FPS's every-node 3-voxel hop (T4L-132 CB empty at 0.5 Å) — resume imp.bff `okf/validation/fps_screening_ab.md`. Files released.
+  - Owner: opus-5.5/av-defaults
+  - Opened/Picked: 2026-10-11
+  - Why: owner 2026-10-11: "av defaults should be fps/olga defaults, take from there." (closes the hop-radius question left by imp.bff f2c272dc7).
+  - Touching: imp.bff `include/ProbeAccessibleVolumeDecorator.h`, `src/imp/ProbeAccessibleVolumeDecorator.cpp`, `src/probe/{FPS,ProbeAccessibleVolumeBuilder}.cpp`, CLI AV defaults, new defaults header, AV tests that pin the old defaults, `okf/validation/fps_screening_ab.md`, own `okf/log.md` hunk. chisurf: AV default sites (`chisurf/core/structure/av/`, `core/settings/{settings_chisurf.yaml,dye_definition.json}`, `core/models/tcspc/fret_structure.py`, `plugins/modelling/{fret/core,structure_tools/cards}`), `pixi.lock`, known-issues entry. junk/fps + junk/olga headers. Serialised `ninja IMP.bff` in ~/dev/imp/cmake-build-arm64. No chisurf commit.
 
 - **T-20261003-IMPBFF-WINLINK · [imp.bff] Windows CI `/WHOLEARCHIVE` link failure and follow-on settings regressions — DONE**
   - Status: ✅ done — 2026-10-04
@@ -5880,6 +5919,199 @@ retired so nobody works the same thing twice.)*
 
 - **T-20261010-W6F-MENUSWITCH-ACTION · ✅ DONE** — /root. Exclusive `entrypoints.action` contract, `execute_plugin_action` dispatch from menu/ribbon/registry, native window + legacy Qt widget deleted; real main-window toggle/preference/no-window test, log-relay teardown fix. Literal 1148→1144, tooltip 1023, OKF 2338 no new/stale. Commit 97755accb. A0 amended: i18n deferred to one queued Haiku job (current-job). Next W6f: TTTR Header/Splitter real awaits, BID.
   - Touching: `test/mypy_baseline.json`, `chisurf/emtk/*` (not main_app/shell_session/status_strip), `chisurf/core/api/__init__.py`, `chisurf/core/structure/av/__init__.py`, then high-count files under `chisurf/core/**` (type fixes only), `okf/prds/prd-154.md` item 4, `okf/log.md`.
+
+- **T-20261010-W11-FIRST-FRAME · ✅ DONE (uncommitted in chisurf, by request)** — all 122 emtk plugins first frame < 100 ms (worst ndxplorer 85), next5 <= 31, settle <= 42, steady <= 13.8. Hubs/chimol build in a worker (`chisurf/emtk/background_build.py`), store/registry reads threaded, caches. emtk commits 4132e91, 63ce707, b3400cd (reinstalled both envs). NOTE: 51b6c0fac (another lane) committed `structure_tools/app.py` WITH my hunk importing the still-uncommitted `chisurf/emtk/background_build.py` -- HEAD needs that file committed. Resume: `okf/architecture/gui-startup.md` item 0.
+
+## Resolved — W9 phase 2 shell ledger, S1 and S2, 2026-10-11
+
+- **T-20261011-W9-P2-LEDGER · ✅ DONE (uncommitted in chisurf, by request)** — ledger `okf/subsystems/qt-retirement.md` (shell capability table, allow-list by area → slice, S1–S7); S1 `chisurf/emtk/main_app.py` behind `python -m chisurf --emtk-shell` (`chisurf/__main__.py` dispatch), test `test/native_emtk/test_emtk_shell.py` (8 pass); emtk `adee696` (menu separators/captions in popups + leaked test monkeypatch). PRD-154 W9 status + resume item 1 updated. Next: ledger resume item 2 (S2 data/fit docks). Note: `test_i18n_extraction::test_committed_authored_ui_text_has_german_and_french_catalogue_sources` is red at HEAD from other lanes' strings (i18n queued job).
+- **T-20261011-W9-S2 · ✅ DONE (partial, continued and finished by S2b and S2c)** — emtk shell now has Read data / Datasets / Analysis / Plot settings docks + one dock per fit (`chisurf/emtk/fit_docks.py`, `fit_window.py`, `session.py`, `views/*.view.json`), Qt-free event subscriber `chisurf/core/server_events.py`, `ChiSurfAPI.set_fit_range`, `fit.get` gains `fit_range`/`chi2r_current`, FCS demo `chisurf/core/experiments/fcs/demo.py`, native `fcs_columns`. Tests: `test/core/test_server_events.py`, `test/native_emtk/test_emtk_shell_fits.py` (load→fit→edit→run, events, drop, parity vs `shell_s2_qt_inventory.json`). Open (ledger items 2–7): native model editor, MCTS/Sample/fit settings/Code face, global dataset, 10/24 readers without native settings. Files released.
+- **T-20261011-W9-S2b · ✅ DONE (uncommitted in chisurf, by request)** — S2 at control parity: `KNOWN_GAPS` of `test/native_emtk/test_emtk_shell_fits.py` empty. Native model editor (`chisurf/emtk/model_editor.py` over new `model.editor`; writes via `model.state.set`/`model.component.*`/`model.action`/uid `parameter.*`), full fit controller + ⚙/… dialogs (`chisurf/emtk/fit_controls.py`; RPCs `fit.model_search(.available)`, `fit.set_grid_range`, `fit.run(local_first)`), Code face (`model.code.files/apply`), Global Dataset in the session, dataset drag onto a fit, 23/24 reader forms (`chisurf/emtk/detector_cascade.py`, new reader specs) + sample question (`chisurf/emtk/sample_picker.py`). emtk `95da067` (script labels, `fit_rows`, `drag_call`). Fixed on the way: Qt *Local first* dead control, `fit.set_dataset` length change, `dataset.group` RPC, global fit Remove/self-candidate/`cs.fits`, log-axis infinite region, stale PDA test, 4 docs `sources:` frontmatters. Open: ledger items 2 (curve_input + 9 custom model sections), 3 (PDA reader). Files released.
+- **T-20261011-W9-S2c · ✅ DONE (uncommitted in chisurf, by request)** — S2 finished: model editor's `curve_input` pickers and the nine `custom` sections + `lifetime_amplitude_options` drawn natively (`chisurf/emtk/model_sections.py`) over `chisurf/server/services/model_sections.py` (RPCs `model.curve.set/unload`, `model.section.call`, spec-checked); paired component tables, link menu, *New…* sample (`chisurf/emtk/sample_picker.py`); PDA PTU/HT3/SPC reader form (`chisurf/emtk/pda_sections.py`, logic Qt-free in `chisurf/core/experiments/pda2c/inputs.py`/`settings.py`); native *calc R0* (`chisurf/emtk/forster_calculator.py`); parity vs 10 Qt model editors (`test/native_emtk/test_emtk_shell_model_sections.py`, `shell_s2_models_qt_inventory.json`), KNOWN_GAPS empty. emtk `ca13478`, `84ce461`. Ledger items 2–4 rewritten; known issues recorded. Files released.
+
+## Resolved — W9 S3 session menus in the emtk shell, 2026-10-11
+
+- **T-20261011-W9-S3 · ✅ DONE (uncommitted in chisurf, by request)** — S3 at control parity for the session menus: `chisurf/emtk/shell_session.py` (File/View/Settings, Qt shortcuts, `.cs.pto` save/reopen over `project.*` RPCs on a second connection, undo/redo via a shell-owned `OperationHistory`, autosave on the frame clock, close guard that asks once, fit-window × asks then removes), `main_app.py` wiring, specs `views/save_project.view.json`, `views/fret_rda_axis.view.json`; Qt-free `core/project/recent.py`, `storage.database_client/import_preview/import_database`, `core/fio/staging_settings.py`, `settings_utils.apply_fret_rda_axis`, `OperationHistory.step_target`; dead `Ctrl+L` action removed from `gui.ui`. Tests `test/native_emtk/test_emtk_shell_session.py` (13), before-half `capture_shell_s3_qt_before.py` + `shell_s3_qt_inventory.json`. emtk `5e8223c` (`emtk.message_dialog`, native close veto) committed locally, installed in both envs, not pushed. KNOWN_GAPS: fit export/import, Macro ▸ Record (ledger resume item 7). Files released.
+
+
+## Resolved — W9 S4 console + IME in the emtk shell, 2026-10-11
+
+- **T-20261011-W9-S4 · ✅ DONE (uncommitted in chisurf, by request)** — S4 at parity with the Qt console: `chisurf/emtk/console.py` (Console dock on emtk `TextEditor` over `chisurf.core.console`; history/search, completion list, calltip, pager, kill ring, session log, `chisurf.run`/`log`/`console` routed to it, `api` on its own session connection), *Macro ▸ Record / Run Macro…* in `main_app.py`, `ShellProject.note_command` + `open_file_dialog(filters=)`; console settings moved Qt-free to `chisurf/core/console/settings.py`; Qt chinsole history-prefix bug fixed (+test). Tests `test/native_emtk/test_emtk_shell_console.py` (10, KNOWN_GAPS empty vs 25 behaviours in `shell_s4_qt_inventory.json`, capture `capture_shell_s4_qt_before.py`); S3 KNOWN_GAPS macro/record struck. emtk `3e61af1` (`emtk.ime`), `afb4e40` (host_control Tab/compose), `aceb942` (rasterised glyphs inside their advance) committed locally, installed in both envs, not pushed. Catalogues re-extracted + compiled. Open: ledger resume item 12. Seen red, not mine: `test_emtk_shell_fits.py::test_the_model_editor_is_the_models_view_json_written_through_the_api` ("parameter count changed (44 != 46)" on adding a bunching term; S2 lane's uncommitted model_svc/model_editor). Files released.
+
+## Resolved — W10 MCTS modality and games, 2026-10-10
+
+- **T-20261010-W10 · [both] PRD-154 W10: MCTS modality token, request_information, smFRET/PIE games, retrain, fit-settings action space**
+  - Status: ✅ done
+  - Owner: opus-5.5/w10
+  - Opened: 2026-10-10 · Picked: 2026-10-10 · Done: 2026-10-10 (imp.bff b7a7049c1, 13a19829d; chisurf a1088821c). Resume: chisurf okf/prds/prd-152 "Where to pick this up".
+  - Touching (imp.bff): `include/ModelSearch*.h`, `src/search/ModelSearch*.cpp`, `src/search/Headers.cmake`, `pyext/include/IMP_bff.core.i` (ModelSearch block), `test/mcts/**`, `data/model_search/**`. (chisurf): `chisurf/core/fitting/mcts/**`, `fit_controller.py:onRunMCTS`, `fitting_controls.view.json`, `test/fitting/test_mcts_*.py`, `okf/prds/prd-152-native-experiment-self-play.md`.
+
+## Resolved — smFRET guide QA walk, 2026-10-11
+
+- **T-20261011-QA-SMFRET · ✅ DONE (uncommitted, by request)** — walked guides 01, 02, 08, 13, 19, 21, 30–32, 41, 66
+  in the native apps, the emtk shell and the Qt-hosted windows. 10 defects fixed with tests (accurate-fret
+  `--simulate` crash, dropped Calibrate press + doubled report, blank `""` burst column, H2MM arrow offset and
+  per-state line styles, missing `>>` on the burst hubs, ALEX "Demo"/"Load example", titration markdown table,
+  alternation phase tag), 12 guides corrected, 16 figures regenerated natively (H2MM figures had donor/acceptor
+  channels wrong). Guard `test/test_guide_screenshot_imports.py` + shrinking allow-list (15 left). Record:
+  known issue "smFRET guide walk (found 2026-10-11)"; resume: `okf/plugins/burst.md` "Where to pick this up".
+  Files released.
+
+## Resolved — task colours, 2026-10-11
+
+- **T-20261011-DOCK-COLORS · ✅ DONE (uncommitted in chisurf, by request)** — task colours in the emtk shell.
+  emtk `0ec0daf` pushed (`emtk/accents.py`, `Accent`/`ThemedAccent`/contrast/`ambient_colours` in `emtk/style.py`,
+  `ImApp.draw` ambient, `DockWindow.accent`/`header_tint`, `RibbonGroup`/`RibbonButton.accent`, tests
+  `tests/test_accents.py`); `pixi.lock` pin moved; arm64 reinstalled. chisurf: NEW `chisurf/emtk/task_colors.{yaml,py}`,
+  `main_app.py`, `shell_ribbon.py`, NEW `test/native_emtk/test_task_colors.py`, `docs/getting_started/index.md`
+  + `docs/images/native_window_task_colors.png`, `okf/subsystems/ribbon.md` (resume item 7), own `okf/log.md` bullet.
+  Files released.
+
+## Resolved — real-use QA matrix, 2026-10-11
+
+- **T-20261011-QA-REALUSE · ✅ DONE (uncommitted in chisurf, by request)** — real-use QA matrix. emtk (local, installed
+  in both envs at 77036d1): `emtk/testing_realistic.py` (RealisticDriver / HostedDriver offscreen + hidden glfw,
+  clipped_texts) 5fa6ef8, 6f5fb04, 77036d1; fixes found by the matrix: plot title/axis tr e443eed, padded captions
+  571952a, placeholders + isolated() builtin catalogue 2c55a95, wrap memo/no longer quadratic 3e1ebae. chisurf:
+  matrix axis in `test/e2e/test_click_all_plugins.py` (`test_emtk_plugin_real_use`, `CHISURF_E2E_MATRIX`),
+  whole-app parity `test/native_emtk/{capture_shell_whole_qt_before.py,shell_whole_qt_inventory.json,test_emtk_shell_whole_parity.py}`
+  (23 KNOWN_GAPS), guards `test/test_measured_text_is_translated.py`, `test/native_emtk/test_padded_captions_translated.py`;
+  fixes in `emtk_layout.py` (LabelColumn, button_row ids), `emtk_wizard.py`, tr_anisotropy, help_app (ids),
+  count_rate, user_editor, mmfdb_admin, fcs_correlator. Docs: testing.md "Real-use QA matrix" (resume list),
+  known-issues 6 headings. Files released.
+
+## Resolved — smFRET guide QA walk part 2, 2026-10-11
+
+- **T-20261011-QA-SMFRET2 · ✅ DONE (uncommitted, by request)** — continue the smFRET guide walk (guides 14, 27–29, 33–35, 46, 52, 58,
+  11), port the guide grabbers in `test/guide_screenshot_dead_import_allowlist.txt`, H2MM floor rates shown as 0.0,
+  MMFDB "Authentication required" per added file. Touching: `docs/guides/**` (those guides + `screenshots/*`),
+  `chisurf/plugins/burst/**` (burst_h2mm result view, burst_analysis/gui/data_selection_app.py, defects found),
+  `test/guide_screenshot_dead_import_allowlist.txt`, `okf/plugins/burst.md`, `okf/references/known-issues.md`
+  (smFRET walk entry). Not: `chisurf/emtk/{main_app,fit_docks,model_editor,reader_settings}.py`, console code.
+  No commit. Result: guides 11–65 smFRET set walked, ~25 defects fixed with tests, allow-list empty, H2MM bounds,
+  MMFDB no-login skip. Record: known issue "smFRET guide walk" part 2; resume `okf/plugins/burst.md`. Files released.
+
+## Resolved — FCS/lifetime QA hand-overs, 2026-10-11
+
+- **T-20261011-QA-FCS-HANDOVER · ✅ done 2026-10-11** (uncommitted in chisurf; emtk `551acd8` pushed) — seven hand-overs from the FCS/lifetime walk: anisotropy wizard
+  global fit (tr_anisotropy + polarised TCSPC model), VV/VH G-factor demo + tour, emtk model editor output rows
+  (no fixed/bounds), `api.list_fits()` χ²ᵣ, filter-calculator residual axis label (emtk implot), Qt IRF field
+  full path (`chisurf/macros/model.py` curve naming), `test/gui/test_fit_window_emtk.py` right-click menu test.
+  Touching: `chisurf/plugins/fluorescence_decay/{tr_anisotropy,vv_vh_g_factor}/**`, polarised model files,
+  `chisurf/emtk/model_editor.py` (output rows only), console/API list_fits, `chisurf/macros/model.py`,
+  `test/gui/test_fit_window_emtk.py`, emtk implot axis layout, `okf/plugins/{fluorescence-decay,fcs}.md` resume,
+  known-issues entries dated 2026-10-11 (those items). Not: `.ts` files, burst plugins, test/e2e. No chisurf commit.
+  All seven resolved with tests; record in known-issues (each bullet) and the resume lists of
+  `okf/plugins/fluorescence-decay.md` / `fcs.md`. New known issue: `test_every_shipped_demo_has_the_standard_contract`
+  red at HEAD (9 other plugins' demos). Files released.
+
+## Resolved — FCS/TCSPC QA walk, 2026-10-11
+
+- **T-20261011-QA-FCS-TCSPC · [chisurf] QA walk: FCS / lifetime / anisotropy / filtered FCS / PCH-FIDA / console / saving guides, Qt + emtk shell**
+  - Status: ✅ done (uncommitted, per instruction)
+  - Owner: opus-5.5/qa-spectroscopist
+  - Opened/Picked: 2026-10-11
+  - Why: owner: "reported bugs indicate many issues; need better quality control". Walk docs/guides 04, 09, 10, 17, 59, 75, 76, 91, saving_projects as a user in both shells, headless.
+  - Done when: every step screenshotted and inspected; defects in okf/references/known-issues.md "(found 2026-10-11)"; owned defects fixed with a regression test; others handed over.
+  - Touching: the guides above (+ their figures via docs/guides/screenshots), `okf/references/known-issues.md` (own headings only), plugin/model code of pch / fcs_filter_calculator / fcs models / tcspc models / tr_anisotropy / vv_vh_g_factor where a defect is found, new regression tests. NOT main_app.py, fit_docks.py, model_editor.py, reader_settings.py, console code. No commits.
+  - Progress: 2026-10-11 done. 16 defects fixed with tests (FCS general w_r degeneracy + MDF outputs panel; Qt TCSPC reader settings collapsed; Qt Code button elided; TCSPC dataset names = full path; console reprs/str/chi2r; PCH unweighted fit + y-range; FIDA bounds; Anisotropy Wizard fits created with range (0,0); stale guides 04/09/10/17/18/75/91/saving_projects + figures). Also touched (small hunks): chisurf/gui/main_helper.py (SetupMixin), chisurf/gui/widgets/fitting/fit_subwindow.py, chisurf/emtk/datasets.py (build_fit_group), chisurf/server/services/fits.py (_initialise_fit_range → core), chisurf/core/{data.py,fitting/fit.py,fio/fluorescence/tcspc.py}, agent fit-correlation skill + KB. Open/handed over: known-issues "Anisotropy Wizard's global fit misses its own simulated example" and "emtk shell / Qt gaps seen in the 2026-10-11 QA walk". Resume: okf/plugins/fcs.md, okf/plugins/fluorescence-decay.md.
+
+## Resolved — W9 emtk shell whole-parity gaps, 2026-10-11
+
+- **T-20261011-W9-WHOLE-GAPS · ✅ DONE (uncommitted in chisurf, by request)** — `KNOWN_GAPS` of
+  `test/native_emtk/test_emtk_shell_whole_parity.py` 23 → 0 (S3 and S5 gaps also empty). Log dock
+  (`chisurf/emtk/shell_log.py`, `views/log.view.json`), Menu Switch (command plugins run from the shell; public
+  `ribbon_enabled` in both shells), ribbon pin (emtk), Qt-free fit export/import (`chisurf/core/fitting/fit_export.py`,
+  `chisurf/emtk/fit_report.py`, RPCs `fit.export*`/`fit.import`, `core_fit.save_fit/save_fits/load_fit_project`),
+  drop routed by pointer (emtk drop position). emtk `ee4c76a`, `9931996` pushed; `pixi.lock` pins `9931996`; arm64
+  reinstalled. Tests `test/native_emtk/test_emtk_shell_whole_gaps.py` (9, RealisticDriver). Catalogues re-extracted,
+  81 new de/fr strings translated. Resume: `okf/subsystems/qt-retirement.md` items 5, 7, 8. Files released.
+
+## Resolved — emtk expanding tables measure what follows them; stretch weights, 2026-10-11/12
+
+- **T-20261011-TABLE-FILL · [emtk+chisurf] drop hand-set `reserve` from expanding tables; vertical stretch**
+  - Status: ✅ done (chisurf uncommitted by request; emtk 7c94678 + 31d84a8 pushed, pinned, arm64 reinstalled;
+    ndxplorer 3f2599f local). Resume: `okf/subsystems/gui-autoform.md` "Where to pick this up — vertical space". Files released.
+  - Owner: opus-5.5/table-fill
+  - Why: `"reserve": <px>` under `expand` tables broke whenever the rows after the table changed size (tr_anisotropy 112→144 bump in 86cc898a5 was a workaround).
+  - Touching: emtk `layout.py`, `im_core.py` (end/end_child/end_frame), `im_widgets.py` (begin_tab_bar), `widgets/data_table.py`, `view_form.py`; chisurf: every `*.view.json`/py spec carrying `"reserve"` (only that key), `chisurf/core/dataspec/schemas/view.schema.json` (regenerated), docs/okf mentions of `reserve`, `okf/log.md` (one bullet); ndxplorer 3 overlay specs.
+
+## Claimed — emtk shell boot splash, 2026-10-12
+
+- **T-20261012-SPLASH · [chisurf (+emtk if needed)] emtk shell splash to parity with the Qt SplashScreen**
+  - Status: ✅ done 2026-10-12 (chisurf uncommitted by request; emtk 93bc456 pushed, pixi.lock pinned, arm64 reinstalled). Splash is its own frameless transparent window (owner); resume: `okf/subsystems/qt-retirement.md` item 13. Files released.
+  - Owner: opus-5.5/splash
+  - Touching: `chisurf/emtk/main_app.py` (splash draw/state only), new `chisurf/emtk/splash.py`, `chisurf/startup/services.py` / `services.d/*` (emtk stage set only), new `test/native_emtk/test_emtk_shell_splash.py`, `okf/subsystems/qt-retirement.md` rows Splash/Startup services + resume, my log hunk, `.ts` catalogues (new strings only). emtk only if SVG rasterisation is missing.
+
+## Claimed — wheel zoom runaway + settle-check pipeline, 2026-10-12
+
+- **T-20261012-WHEEL-SETTLE · [emtk+chisurf] one wheel notch zooms forever while hovered; make one-shot input structural + idle-settle sweep**
+  - Status: ✅ done — emtk b82aa06 + 6d998ed pushed; chisurf landed in c37a478b5 / 5eb7ade37 (by lead). Only `okf/workflows/testing.md` resume item 5 uncommitted. Files released.
+  - Owner: opus-5.5/wheel-settle
+  - Touching: emtk `im_core.py` (IO.end_event / frame depth only), `app.py` (wheel delivery), `testing_realistic.py` (settle helper), new emtk tests, emtk docs; chisurf: removal of per-app stale-wheel band-aids (tttr_image_browser, spectra_downloader, code_editor, ptu_alex_creator, hydropro app.py — the wheel-clear lines only), `test/e2e/test_click_all_plugins.py` (new phase), `okf/workflows/testing.md`, `okf/log.md` (one bullet). NOT the plot "A" autoscale hunks, NOT view_form layout.
+
+## Claimed — ndX right-click locks all input, 2026-10-12
+
+- **T-20261012-POPUP-RELEASE · [emtk+chisurf+ndX] after a context menu closes, no click lands anywhere**
+  - Status: ✅ done 2026-10-12 (chisurf uncommitted by request; emtk `af31641` pushed, pixi.lock + arm64 at it; ndX `7608ec8` local)
+  - Owner: opus-5.5/popup-release
+  - Result: root cause = submenu row without `tooltip` raised in the popup every frame (overlay held ndX's input) + a press outside a hosted child never closed its menu. Context-menu phase in the click-all sweep: 123 tools, 111 menus, all released; 3 plot menus ran out of the window (fixed in emtk implot). Resume: okf/workflows/testing.md "Simple user sequences". Files released.
+  - Touching: emtk popup/menu/capture code (`im_core.py`/`im_widgets.py` popup + menu width only), `testing_realistic.py` (`assert_input_released` helper only — reuse wheel-settle helper), new emtk tests; ndxplorer context-menu code if the cause is there; chisurf `chisurf/plugins/ndxplorer/gui/app.py` / shell host routing if the cause is there, `test/e2e/test_click_all_plugins.py` (new context-menu phase only), new `test/native_emtk/test_ndx_context_menu_release.py`, `okf/workflows/testing.md` (one rule), `okf/log.md` (one bullet).
+
+## Resolved — "A" auto-range button on every emtk plot, 2026-10-12
+
+- emtk aea9d8b (pushed): `emtk/widgets/auto_range.py` + implot wiring (`_auto_range_input` before `_update_input`, drawn after `_end_plot_render`), `FLAGS_NO_AUTO_RANGE_BUTTON`, de/fr tooltip, `tests/test_auto_range_button.py`. Committed through a private index; the wheel-zoom lane's uncommitted hunks in `implot.py` (WHEEL_NOTCHES_PER_FRAME, zoom_rate) were left untouched in the worktree.
+- chisurf (uncommitted, by request): chiplot `EmtkCanvas` A button + `set_auto_range_button` opt-out, tests, sweep `auto_range` phase, docs/OKF. pixi.lock -> emtk aea9d8b; arm64 reinstalled.
+
+## Resolved — emtk Documentation dock figures and fonts, 2026-10-12
+
+- **T-20261012-DOC-RENDER · ✅ DONE (chisurf uncommitted by request; emtk committed+pushed)** — blank white
+  figures (emtk image atlas declined >1024 px images; now grows / stores scaled down), glued prose (exact-em
+  sub-pixel glyphs, nearest 1:1; `prose` family = Verdana/DejaVu Sans), captions/headings/table headers wrap,
+  page-relative + SVG figures, missing-figure placeholder. emtk b7b67f4, 3698315; `pixi.lock` pins 3698315;
+  arm64 reinstalled. chisurf files: `chisurf/plugins/core/help/gui/help_app.py`, new
+  `chisurf/plugins/core/help/test/test_emtk_doc_render_sweep.py`, `okf/plugins/core-tools.md`, `okf/log.md`,
+  `pixi.lock`. Resume: `okf/plugins/core-tools.md` "emtk Documentation dock: figures and type". Files released.
+
+## Claimed — Fonts settings section + emtk font configuration, 2026-10-12
+
+- **T-20261012-FONTS · [emtk+chisurf] one font configuration (roles, zoom, oversampling, fallbacks) + ChiSurf Settings "Fonts" panel**
+  - Status: ✅ done 2026-10-12 (chisurf uncommitted by request; emtk 136d300, 334c83c, 7bffd4f pushed — main now at cbe66f3, pixi.lock pins it, arm64 reinstalled). Resume: `okf/subsystems/fonts.md`. Files released.
+  - Owner: opus-5.5/fonts
+  - Touching: emtk new `emtk/fonts.py`, `type_scale.py`, `font_render.py` (FontSpec fallback chain, oversample/antialias, cache reset), `tex.py`/`mathtext.py` (math family + cache reset), `app.py` ControlSurface (zoom), `testing_realistic.py` (zoom-aware painter key/pointer), `painter.py` (font save/restore helper), `widgets/text_editor.py` (code-role font), new tests, docs. NOT `dialog_window.py`/`web/boot.js` (someone's uncommitted hunks). chisurf: new `chisurf/plugins/core/setup/gui/fonts*.py` + `fonts.view.json` + guide, `setup/gui/model.py` (one Panel row), `core/settings/settings_chisurf.yaml` (`gui.fonts` block), `settings_utils.py` (one setter), `chisurf/emtk/main_app.py` (apply at startup only), docs getting_started settings, OKF fonts concept, `.ts` catalogues (new strings only), `pixi.lock`. No chisurf commit.
+
+## Resolved — dissolve the Structure Tools hub into standalone tools, 2026-10-12
+
+- **T-20261012-STRUCT-HUB · [chisurf] structure_tools hub removed; each card moves into the plugin that owns the tool**
+  - Status: ✅ DONE (uncommitted, by request). Structure tab: Modelling ChiMOL · FRET Docking & Screening, FPS JSON Editor · Computation HydroPro, QuEst · Trajectory Traj Tools. FPS editor moved INTO chimol (chimol 4d9eef9, 7c20edb, 4f1f070 pushed); ChiSurf's FPS card deleted, the menu entry opens ChiMOL's labelling window. Shared shell `chisurf/emtk/card_shell.py`. Resume: `okf/plugins/modelling.md` "Where to pick this up". Files released.
+  - Owner: opus-5.5/structure-hub
+  - Touching: `chisurf/plugins/modelling/structure_tools/**` (moved out, then deleted), `chisurf/plugins/modelling/{fps_json_editor,fret}/{gui,test,manifest.json}`, `chisurf/plugins/quenching_estimator/{gui/app.py,gui/card.py,manifest.json,gui/help.md}` (NOT its AV files), `chisurf/plugins/modelling/hydropro/manifest.json`, `chisurf/plugins/traj/traj_tools/manifest.json`, new `chisurf/emtk/card_shell.py`, tests naming structure_tools (`test/plugins/test_{hub_membership,ribbon_layout,plugin_contracts}.py`, `test/native_emtk/test_{fps_card_window_contract,structure_hub_window_contract,release_runtime_edges}.py`, `test/gui/test_native_guides_wired.py`, `test/test_plugin_help_guide_seam.py`, `test/core/test_dye_definition_shipped.py`, plugin_manager/plugin_check tests), docs guide 88 + plugin catalogue, OKF ribbon/modelling concepts, `.ts` catalogues (new strings). Files with another lane's AV hunks (`cards/fps_model.py`, `cards/views/fps_positions.view.json`, `test_cards.py`) are MOVED INTACT (plain mv, no index change). No commit.
+
+## Claimed — AV obstacle-radius scale (one factor on IMP's radii to match FPS), 2026-10-12
+
+- **T-20261012-AVRSCALE · [imp.bff+chimol+chisurf] `AV_DEFAULT_RADIUS_SCALE`: one declared scale on IMP's radii as the AV obstacle set, fitted to FPS**
+  - Status: ✅ done 2026-10-12 — 0.84 (imp.bff 3b1751b7e pushed, chimol 5ba1c3b pushed, pixi.lock pinned; chisurf uncommitted by request). Record: imp.bff `okf/validation/fps_screening_ab.md`, chisurf known-issues QuEst entry. Files released.
+  - Owner: opus-5.5/av-radius-scale
+  - Touching: imp.bff `include/ProbeAccessibleVolumeDefaults.h`, decorator/registry radii (`src/imp/ProbeAccessibleVolume{Decorator,OccupancyMap}.cpp`, headers), `src/probe/FPS.cpp` schema (position field `radius_scale`), tests + goldens, `okf/validation/fps_screening_ab.md`; chimol `chimol/plugins/labelling/` AV editor + `AV_DEFAULTS` guard; chisurf `chisurf/plugins/quenching_estimator/core/{av,fps_json,scan}.py` + its Dye/Simulation view spec + baselines `_previous`, `test/fitting/data/fret_structure_reference.json`, `docs/concepts/accessible_volume.md`, `okf/references/known-issues.md` (QuEst entry, in place). NOT touching the structure_tools/FPS card (STRUCT-HUB lane). No chisurf commit; no okf/log.md edit.
+
+## Claimed — Plot settings panel redesign + pyqtgraph remnants removed, 2026-10-12
+
+- **T-20261012-PLOTSET · [chisurf] Settings ▸ Plots: illustrative convolved preview, live apply, dead pyqtgraph settings removed and dead plot settings wired at chiplot level**
+  - Status: ✅ done 2026-10-12 (chisurf uncommitted by request; emtk 1dfa2b5 pushed, pixi.lock + arm64 at it). Resume: okf/subsystems/chiplot.md "Settings ▸ Plots changed no plot". Files released.
+  - Owner: opus-5.5/plot-settings
+  - Touching: `chisurf/plugins/core/plot_settings/**`, `chisurf/core/settings/{settings_chisurf.yaml (gui.plot only),settings_utils.py (migration only)}`, `chisurf/gui/plots/{__init__,lineplot/lineplot,distribution,proteinMC}.py`, `chisurf/gui/widgets/wizard/tttr_photonfilter/tttr_photon_filter_plots.py`, `chisurf/gui/chiplot/{backends/__init__,backends/emtk_backend,style}.py` (settings reads only), `chisurf/plugins/tttr/{trace_browser,intensity_trace}/__init__.py`, `chisurf/plugins/core/setup/gui/model.py` (Plots row text only), `test/test_pyqtgraph_seam.py` + new guard, `.ts` catalogues (new strings), docs plot-settings pages, `okf/subsystems/chiplot.md`. No commit; no okf/log.md edit.
+
+## Claimed — one AV atom-radius set everywhere (IMP's radii × AV_DEFAULT_RADIUS_SCALE), 2026-10-12
+
+- **T-20261012-AVRADII1 · [imp.bff+chimol+chisurf] retire the Bondi AV radius tables**
+  - Status: ✅ done 2026-10-12 — imp.bff 3cd39fdc3 + 113a0b1d6 pushed (`imp_atom_radius`, file door IMP radii × scale), chimol 0bb73d6 pushed; chisurf uncommitted by request. Resume: `okf/plugins/modelling.md` item 6 + "Accessible-volume obstacle radii". Files released.
+  - Owner: opus-5.5/av-one-radius-set
+  - Touching: chisurf `chisurf/core/structure/av/{__init__,radii}.py`, `chisurf/plugins/modelling/fret/core/{av,evaluate}.py`, `chisurf/plugins/modelling/fret/test/test_{element_symbols→obstacle_radii}.py`, `test/core/test_av_single_radius_set.py`, `test/fitting/{test_fret_views.py,data/fret_structure_reference.json}`, `docs/concepts/accessible_volume.md`, `okf/plugins/modelling.md`, `pixi.lock` (imp-bff pin only). No chisurf commit; no okf/log.md edit.
+- **T-20261013-W9-S5-STATUS · [chisurf+emtk] S5 status strip + ledger item 6 (fit pages out of Qt), phase A**
+  - Status: ✅ done 2026-10-13 (chisurf uncommitted by request; emtk `dc763f5` committed on main, not pushed). Status strip at control parity with the Qt status bar (`chisurf/emtk/status_strip.py`, `test/native_emtk/test_emtk_shell_status_strip.py`, before-half `capture_shell_s5_status_qt_before.py` + `shell_s5_status_qt_inventory.json`). Item 6 phase A: `chisurf/emtk/fit_pages/{surface,plots,code_face}.py` Qt-free; guard `test/native_emtk/test_fit_window_is_qt_free.py` (full guard strict xfail: chiplot imports Qt). Touched `main_app.py` (strip hunks only; another lane has workspace hunks there), `fit_docks.py`, `fit_window.py`, `fit_plots_area.py`, `fit_subwindow.py`, `model_editor.py`, autoform `registry.py`/`builtin.py`/`state_scheme_section.py`, `test/gui/test_fit_first_use.py`. Resume: `okf/subsystems/qt-retirement.md` items 5 and 6. Files released.
+- **T-20261013-MYPY-RATCHET · [chisurf] PRD-154 pickup 4: shrink test/mypy_baseline.json**
+  - Status: ✅ done 2026-10-13 (chisurf a7dd5a137, 2da6e912d, not pushed). Baseline 3900 -> 3068. Resume: `okf/prds/prd-154.md` item 4 (largest remaining files listed). Left raised on purpose: emtk `main_app`/`model_editor`, burst `transformer`, `fcs_channel_preset` view model. Files released.
+  - Owner: sonnet-5.5/mypy-ratchet
 - **T-20261013-W9-S5-STARTUP · [chisurf+emtk] W9 phase 2: S3 gaps check, rest of S5 (startup post-show stages on the emtk surface), S6 default-window guard**
   - Status: ✅ done 2026-10-13 — chisurf 6beb16345 (post-show stages), 4a796ef9a (headless frame persists nothing), 3946a026e (Workspace = fits only, tools are docks; owner correction), e51e9498f (okf); emtk 410f791 (DockWindow.workspace rule) committed locally, not pushed, pin not moved. S3 KNOWN_GAPS already empty; emtk default + --qt already landed (a8e23cad6). S6 blocked on ledger item 6 (chiplot). Resume: okf/subsystems/qt-retirement.md items 5, 9, 10. Files released.
   - Owner: opus-5.5/w9-s5-startup
@@ -5923,9 +6155,6 @@ retired so nobody works the same thing twice.)*
   - Status: done 2026-10-13. tttrlib 54422de06 (CLSMImage.get_record_kinds / classify_records(_events), CLSMRecordKind), chisurf 8558eaf2d (Photon Table Kind column/filter/counts, record_kinds.yaml). Resume: okf/plugins/tttr.md "Photon Table lists every record". Files released.
   - Owner: opus-5.5/photon-table-kinds
   - Touching: tttrlib `modules/imaging/clsm/{include/CLSMImage.h,src/CLSMImage.cpp}` (record-kind classifier only), `ext/python/CLSM*.i` if needed, new `test/python/clsm/test_clsm_record_kinds.py`, new `examples/imaging/plot_clsm_record_kinds.py`. chisurf `chisurf/plugins/tttr/photon_table/**`, `docs/guides/108_photon_table.md` (+ figure), `docs/reference/plugins/*photon_table*`, i18n de/fr catalogue entries for the new strings, owning OKF concept, `okf/log.md` (one bullet). Not `chisurf/emtk/**`, not burst/fio. No pixi.lock bump.
-- **T-20261013-MYPY-RATCHET · [chisurf] PRD-154 pickup 4: shrink test/mypy_baseline.json**
-  - Status: ✅ done 2026-10-13 (chisurf a7dd5a137, 2da6e912d, not pushed). Baseline 3900 -> 3068. Resume: `okf/prds/prd-154.md` item 4 (largest remaining files listed). Left raised on purpose: emtk `main_app`/`model_editor`, burst `transformer`, `fcs_channel_preset` view model. Files released.
-  - Owner: sonnet-5.5/mypy-ratchet
 
 ## Claimed — W9 ledger item 6: Qt-free chiplot core, fit pages out of chisurf.gui, 2026-10-13
 
@@ -5969,6 +6198,13 @@ retired so nobody works the same thing twice.)*
   - Owner: opus-5.5/import-cycles
   - Touching: new `test/test_import_cycles.py`, `test/import_cycle_allowlist.txt`, `test/import_side_effect_allowlist.txt`; the chisurf modules that close a cycle (lazy imports / leaf modules; skipped where another lane has uncommitted hunks); `okf/subsystems/qt-retirement.md` item 5; one `okf/log.md` bullet. NOT the gate, NOT frame_modules.py, NOT the Qt-retirement lane's plugins (code_editor, help, mmfdb_admin, project_browser, lightpath_simulator), NOT chimol.
 
+## Resolved — W9 chimol off Qt: chimol tests on the native host, ChiSurf's Qt chimol window retired, 2026-10-13
+
+- **T-20261013-W9-CHIMOL-QT · [chimol+chisurf(+emtk if a gap)] inventory chimol's Qt importers; port `chisurf/plugins/chimol/test/*` Qt-window tests to the toolkit-free `ChimolApp` / emtk Driver; retire Qt host modules whose emtk twin exists (before/after + control inventory first); strike `test/plugin_qt_allowlist.txt` chimol lines**
+  - Status: ✅ done 2026-10-13 — chimol be7d7e6 (native host gaps: structure reader hook, labels/box as quads, chain sequence rows, degraded-load report, CanvasView.resize, backdrop; hosts/qt/demos.py retired), chisurf e411fbcfc (110 tests on ChimolApp via test/native_window.py, manifest `gui` dropped, __init__ Qt-free, allow-list 171→64, chimol 111→4). No emtk change, not pushed, no pixi.lock. Resume: `okf/subsystems/qt-retirement.md` items 1 and 9; chimol `okf/references/pymol/index.md` item 0. Files released.
+  - Owner: opus-5.5/w9-chimol-qt
+  - Touching: chisurf `chisurf/plugins/chimol/**` (tests, `__init__.py`, manifest), `test/plugin_qt_allowlist.txt` (shrink only), `okf/subsystems/qt-retirement.md` items 1 and 9 + the chimol ledger row, one `okf/log.md` bullet; chimol `chimol/hosts/**`, importers of `chimol.hosts.qt`, chimol okf resume. emtk only new widgets + tests if a gap; NOT emtk `dialog_window.py`/`web/boot.js`/dialog tests. NOT chimol's uncommitted notebook-host files (`hosts/notebook/`, `hosts/base.py`, `ui/gui/menubar.py`, `ui/panels/form.py`, `tests/test_form_tables.py`, `tools/deps.py`, README, `chimol/__init__.py` hunks of the other lane). Single test files one at a time; no pixi.lock.
+
 ## Done — W9 Qt allow-list: core/games/modelling leftovers whose "cannot" is challenged, 2026-10-13
 
 - **T-20261013-W9-QT-LEFTOVERS · [chisurf(+emtk if a gap)] freeze live-Qt parity facts (switch_user LoginDialog cases, help home links, project_browser rows) as recorded references; retire the games' Qt widgets + capture scripts (Qt before-renders already committed), project_browser / f_test / globalview Qt tools where the emtk twin is at parity; strike allow-list lines**
@@ -5983,12 +6219,12 @@ retired so nobody works the same thing twice.)*
   - Owner: opus-5.5/w9-qt-hch
   - Touching: `chisurf/plugins/modelling/hydropro/**`, `chisurf/plugins/core/code_editor/**`, `chisurf/plugins/core/help/**`, `chisurf/emtk/emtk_preview.json` (or wherever the preview list lives), `test/plugin_qt_allowlist.txt` (shrink only), `okf/plugins/emtk-ports/{code_editor,help,hydropro}/`, docs/guides of changed UIs, `okf/subsystems/qt-retirement.md` item 1, one `okf/log.md` bullet, .ts catalogues via safe_edit. emtk only new widgets + tests if a gap. NOT chimol, NOT chisurf/emtk plugin-opening code, NOT tttr/trace_browser, NOT pixi.lock.
 
-## Resolved — W9 chimol off Qt: chimol tests on the native host, ChiSurf's Qt chimol window retired, 2026-10-13
+## Done — W9 Qt allow-list: mmfdb_admin, 2026-10-13
 
-- **T-20261013-W9-CHIMOL-QT · [chimol+chisurf(+emtk if a gap)] inventory chimol's Qt importers; port `chisurf/plugins/chimol/test/*` Qt-window tests to the toolkit-free `ChimolApp` / emtk Driver; retire Qt host modules whose emtk twin exists (before/after + control inventory first); strike `test/plugin_qt_allowlist.txt` chimol lines**
-  - Status: ✅ done 2026-10-13 — chimol be7d7e6 (native host gaps: structure reader hook, labels/box as quads, chain sequence rows, degraded-load report, CanvasView.resize, backdrop; hosts/qt/demos.py retired), chisurf e411fbcfc (110 tests on ChimolApp via test/native_window.py, manifest `gui` dropped, __init__ Qt-free, allow-list 171→64, chimol 111→4). No emtk change, not pushed, no pixi.lock. Resume: `okf/subsystems/qt-retirement.md` items 1 and 9; chimol `okf/references/pymol/index.md` item 0. Files released.
-  - Owner: opus-5.5/w9-chimol-qt
-  - Touching: chisurf `chisurf/plugins/chimol/**` (tests, `__init__.py`, manifest), `test/plugin_qt_allowlist.txt` (shrink only), `okf/subsystems/qt-retirement.md` items 1 and 9 + the chimol ledger row, one `okf/log.md` bullet; chimol `chimol/hosts/**`, importers of `chimol.hosts.qt`, chimol okf resume. emtk only new widgets + tests if a gap; NOT emtk `dialog_window.py`/`web/boot.js`/dialog tests. NOT chimol's uncommitted notebook-host files (`hosts/notebook/`, `hosts/base.py`, `ui/gui/menubar.py`, `ui/panels/form.py`, `tests/test_form_tables.py`, `tools/deps.py`, README, `chimol/__init__.py` hunks of the other lane). Single test files one at a time; no pixi.lock.
+- **T-20261013-W9-QT-MMFDB · [chisurf(+emtk if a gap)] retire the mmfdb_admin Qt tool + Qt views (emtk twin at parity since 432eed4da), port the Qt widget tests to the emtk Driver, strike the 30 allow-list lines**
+  - Status: ✅ done 2026-10-13 — allow-list 30 → 0 (empty). chisurf a9cc56754 (Qt window + Qt-only modules deleted, 12 Qt test files ported to the emtk app/Driver, nine missing interactions added + Open in ndX + Demo data), da620cd64 / d25cd3f67 (OKF item 1, retire_* evidence: 459 → 1030 controls, lost [], known issues, log). emtk 2eeec85 (0.1.11 enter_call/live), 5bd6a82 (0.1.12 form-scoped widget ids) — not pushed, arm64 reinstalled at 0.1.12, EMTK_MIN_VERSION unchanged. mmfdb 2180b1a (spectra bytes broke export validation). No pixi.lock. Open: Open in ndX in the emtk shell attaches no burst-ID recorder (ndX's open_path hand-off; known issues). Files released.
+  - Owner: opus-5.5/w9-qt-mmfdb
+  - Touching: `chisurf/plugins/core/mmfdb_admin/**`, `test/plugin_qt_allowlist.txt` (mmfdb_admin lines only), `test/mypy_baseline.json` (mmfdb_admin, lower only), `okf/plugins/emtk-ports/mmfdb_admin/`, mmfdb admin docs/guide, `okf/subsystems/qt-retirement.md` item 1, one `okf/log.md` bullet, known-issues. NOT chimol, NOT other plugins, NOT pixi.lock.
 
 ## Done — W9 Qt allow-list: acq device dialogs, lightpath, batch view-model, number_quest, plugin infra, 2026-10-13
 
@@ -5996,13 +6232,6 @@ retired so nobody works the same thing twice.)*
   - Status: ✅ done 2026-10-13 — chisurf fa6f18819 (acq dialogs), 7e0514d95 (lightpath host + Easy Mode), 3b978b173 (batch Qt run; DOCX fit pictures restored), 5d6b6bf8b (number_quest), 89a74df47 (plugins root + cookiecutter emtk template), 1ce8543f2 (okf). Allow-list −14 (64 → 30 with parallel lanes; only mmfdb_admin left). No emtk change, no pixi.lock, not pushed. Leftovers closed in a follow-up (coordinator): chisurf 26367e91e (lightpath detector names, wizard last-config, missed-completion race behind 3 click tests), 655a57efd (acq cards → view.json), 79280a157 (inventory), 1014cffd2 (okf); known-issues entry resolved. Files released.
   - Owner: opus-5.5/w9-qt-acq-lp
   - Touching: the files above + their tests/manifests/view.json/help/guide, `okf/plugins/emtk-ports/{acq_devices,lightpath_simulator,batch_analysis,number_quest}/`, `test/plugin_qt_allowlist.txt` (shrink only, own lines), `okf/subsystems/qt-retirement.md` item 1, one `okf/log.md` bullet, known-issues for leftovers. NOT number_quest's untracked app.py/drawing.py (other lane), NOT mmfdb_admin, NOT pixi.lock. emtk only new widgets + tests if a gap (rebased onto emtk HEAD).
-
-## Done — W9 Qt allow-list: mmfdb_admin, 2026-10-13
-
-- **T-20261013-W9-QT-MMFDB · [chisurf(+emtk if a gap)] retire the mmfdb_admin Qt tool + Qt views (emtk twin at parity since 432eed4da), port the Qt widget tests to the emtk Driver, strike the 30 allow-list lines**
-  - Status: ✅ done 2026-10-13 — allow-list 30 → 0 (empty). chisurf a9cc56754 (Qt window + Qt-only modules deleted, 12 Qt test files ported to the emtk app/Driver, nine missing interactions added + Open in ndX + Demo data), da620cd64 / d25cd3f67 (OKF item 1, retire_* evidence: 459 → 1030 controls, lost [], known issues, log). emtk 2eeec85 (0.1.11 enter_call/live), 5bd6a82 (0.1.12 form-scoped widget ids) — not pushed, arm64 reinstalled at 0.1.12, EMTK_MIN_VERSION unchanged. mmfdb 2180b1a (spectra bytes broke export validation). No pixi.lock. Open: Open in ndX in the emtk shell attaches no burst-ID recorder (ndX's open_path hand-off; known issues). Files released.
-  - Owner: opus-5.5/w9-qt-mmfdb
-  - Touching: `chisurf/plugins/core/mmfdb_admin/**`, `test/plugin_qt_allowlist.txt` (mmfdb_admin lines only), `test/mypy_baseline.json` (mmfdb_admin, lower only), `okf/plugins/emtk-ports/mmfdb_admin/`, mmfdb admin docs/guide, `okf/subsystems/qt-retirement.md` item 1, one `okf/log.md` bullet, known-issues. NOT chimol, NOT other plugins, NOT pixi.lock.
 
 ## Done — W9 chimol hosts/qt deletion, 2026-10-13
 
