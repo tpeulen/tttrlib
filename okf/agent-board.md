@@ -5999,3 +5999,9 @@ retired so nobody works the same thing twice.)*
   - Owner: opus-5.5/w9-qt-mmfdb
   - Touching: `chisurf/plugins/core/mmfdb_admin/**`, `test/plugin_qt_allowlist.txt` (mmfdb_admin lines only), `test/mypy_baseline.json` (mmfdb_admin, lower only), `okf/plugins/emtk-ports/mmfdb_admin/`, mmfdb admin docs/guide, `okf/subsystems/qt-retirement.md` item 1, one `okf/log.md` bullet, known-issues. NOT chimol, NOT other plugins, NOT pixi.lock.
 
+## Done — W9 chimol hosts/qt deletion, 2026-10-13
+
+- **T-20261013-W9-CHIMOL-HOSTQT · [chimol+chisurf] delete chimol `hosts/qt/`: `Viewer()` toolkit-free by default, drop the lazy `MolViewPluginWindow` export and `--qt`, port/retire the chimol + ChiSurf tests that import the Qt host**
+  - Status: ✅ done 2026-10-13 — chimol a53e512 (hosts/qt deleted, Viewer never a widget, Viewer() → SceneSink, no qtpy in chimol), chisurf 7f83c666e (tests ported/retired, Qt AutoForm chimol section retired, OKF qt-retirement item 9 + known-issues + log). Leftovers closed: chimol a245145 (stand-ins to core/toolkit.py + layering guard, CHIMOL_TOOLKIT removed, desktop/browser declare labels/ray_image), chisurf 30e80255c.
+  - Owner: opus-5.5/w9-chimol-hostqt
+  - Touching: chimol `chimol/hosts/qt/**` (delete), `chimol/hosts/toolkit.py`, `chimol/core/viewer/{viewer,_common,info}.py`, `chimol/__main__.py`, `chimol/__init__.py` (my hunks only), `chimol/commands/{base,command}.py`, `chimol/render/picking.py`, `tools/check_imports.py`, `tools/plan_moves.py`, tests importing the Qt host, chimol okf pymol/index.md item 0; chisurf `chisurf/plugins/chimol/{__main__.py,test/*}` (Qt-host importers only), `test/gui/test_migrated_tool_windows.py`, `test/console/test_command_dispatch_rule.py`, `okf/subsystems/qt-retirement.md` item 9, known-issues, one `okf/log.md` bullet
