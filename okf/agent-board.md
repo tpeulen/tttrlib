@@ -1094,13 +1094,13 @@ are still claims and still binding.
 ## Active
 
 - **T-20261015-03 · [chisurf] Fix L1/L2 fit output, integrate all Qt features into EMTK, retire Qt from vv_vh plugins**
-  - Status: 🔄 in-progress
+  - Status: ✅ done 2026-10-15
   - Owner: gemini-2.5-pro/89b1efb4
-  - Opened: 2026-10-15 22:05 · Picked: 2026-10-15 22:05
-  - Why: User requested: "check all qt features are intgrated into emtk, emtk must be better. then retire qt. unclear where is the l1/l2 fit output? doesn towrk."
-  - Done when: L1/L2 calculation/fit output works properly and is clearly visible/usable in EMTK GUI; all Qt features are audited, verified integrated and superior in EMTK; Qt legacy tools are retired with zero regression.
+  - Opened: 2026-10-15 22:05 · Done: 2026-10-15 22:25
+  - Why: User requested: "check all qt features are intgrated into emtk, emtk must be better. then retire qt. unclear where is the l1/l2 fit output? doesn towrk." and "nach backward compat needed. deprecate the old. no backward compat, update dependent."
+  - Done when: L1/L2 calculation/fit output works properly and is clearly visible/usable in EMTK GUI; all Qt features are audited, verified integrated and superior in EMTK; Qt legacy tools are retired with zero regression; old backward-compat workarounds removed; old plugin deprecated; dependent tests updated.
   - Touching: `chisurf/plugins/vv_vh_g_factor/`, `chisurf/plugins/vv_vh_anisotropy/`, `test/plugin_qt_allowlist.txt`, `okf/`.
-  - Progress: Claimed. Investigating L1/L2 fit calculation, Qt tool features, and retirement status.
+  - Progress: Completed. (1) Fixed L1/L2 calculation in `GFactorModel.estimate_mixing` where unpopulated `fp_result` previously cleared solved `l` to 0. (2) Added dedicated "L1/L2 mixing" dock tab with all parameters, real-time Perrin mixing status, and 7-row Mixing estimate table displaying linked and applied l1/l2 values without scrolling. (3) Removed redundant backward-compat mixing controls from G-factor tab and removed legacy state format restores. (4) Deprecated `vv_vh_anisotropy` with prominent in-window notice. (5) Updated dependent tests to select mixing tab and all 70 + 56 tests pass cleanly. Headless screenshots visually inspected across all docks.
 
 - **T-20261015-02 · [chisurf] Combine vv_vh plugins into unified Anisotropy & G/L1/L2 calibration plugin**
   - Status: ✅ done 2026-10-15
