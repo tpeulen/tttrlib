@@ -1093,6 +1093,25 @@ are still claims and still binding.
 
 ## Active
 
+- **T-20261015-02 · [chisurf] Combine vv_vh plugins into unified Anisotropy & G/L1/L2 calibration plugin**
+  - Status: ✅ done 2026-10-15
+  - Owner: gemini-2.5-pro/89b1efb4
+  - Opened: 2026-10-15 21:40 · Picked: 2026-10-15 21:40
+  - Why: User requested removing duplication between vv_vh_anisotropy and vv_vh_g_factor into a single full-featured plugin with full G, L1/L2 mixing, sample r(t) decay, r_inf, batch processing and zero lost functionality for release.
+  - Done when: A single unified plugin handles fast reference G-factor calibration (tail match, background, shift, flip), slow reference linked/independent L1/L2 mixing estimation (Perrin, moment), sample decay r(t) with full Schaffer correction, interactive r_inf region and display, single-file outputs export (shifted, trace, rinf), batch processing with table export, MMFDB calibration archival, and all tests pass with zero lost functionality.
+  - Touching: `chisurf/plugins/vv_vh_g_factor/`, `chisurf/plugins/vv_vh_anisotropy/`, `test/plugins/test_decay_tools.py`, `okf/`.
+  - Progress: Completed. Core math, unified GFactorModel with sample r(t), L1/L2 overrides and mixing, batch with L1/L2, export routines, view specs, guide updates, and full test suites (70 + 56 tests) passing. Headless screenshots visually inspected across all docks.
+
+
+- **T-20261015-01 · [chisurf] Fix simulated TCSPC duplicate scientific UID on multiple adds and dataset selector selection / IRF deselect**
+  - Status: ✅ done
+  - Owner: gemini-2.5-pro/89b1efb4
+  - Opened: 2026-10-15 11:45 · Done: 2026-10-15 12:35
+  - Why: Clicking "Add" in TCSPC Simulator twice causes duplicate scientific UID when editing/deselecting IRF, and selecting one simulated dataset in the dataset selector highlights both rows. Editing parameters in table was sluggish and dropped rapid inputs. Logs lacked copy capability.
+  - Done when: Each simulated dataset and its components receive fresh scientific UIDs, datasets can be selected individually in the Datasets selector, deselecting/editing IRF in fits works without UID collision errors, parameter editing is responsive and accepts Enter, and logs dock allows copying. Verified with headless screenshots and automated tests.
+  - Touching: `chisurf/core/data.py`, `chisurf/core/api/__init__.py`, `chisurf/server/services/datasets.py`, `chisurf/macros/core_data.py`, `chisurf/emtk/tcspc_simulator.py`, `chisurf/emtk/fit_docks.py`, `chisurf/emtk/model_editor.py`, `chisurf/emtk/shell_log.py`, `chisurf/emtk/views/log.view.json`, `emtk/widgets/data_table.py`.
+  - Progress: Completed. (1) Added `ensure_unique_dataset_uids` in `chisurf/core/data.py` and invoked on dataset import; reset preview on `SimulatorSettingsModel` after `add_preview()`. (2) In `emtk.widgets.data_table`: `begin_edit` selects all, Enter/F2/character starts edit, Enter commits and parses comma decimal separator, Cmd+C/Ctrl+C copies TSV, key event queue ensures no dropped keystrokes. (3) In `chisurf/emtk/fit_docks.py`: `DataDocks` queues parameter edit jobs (`_job_queue`) so rapid edits are never dropped when busy; `cell_editable` is not locked out by `busy`. (4) Added clipboard copy functions and UI buttons / context menu to Log and RPC monitor docks. Headless screenshots captured and visually verified.
+
 
 - **T-20261014-FINAL-PARITY-PLUGINS · [chisurf(+emtk if a gap)] last Qt-vs-emtk parity pass for every plugin GUI before `s6-retire-qt-shell` lands: each plugin opened in the `--qt` host (ControlHost) and as an emtk shell dock in the same realistic state, pairs read, Qt-era `retire_qt_before*` inventories re-checked**
   - Status: 🔄 in-progress 2026-10-14
