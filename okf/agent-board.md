@@ -1093,6 +1093,15 @@ are still claims and still binding.
 
 ## Active
 
+- **T-20261015-03 · [chisurf] Fix L1/L2 fit output, integrate all Qt features into EMTK, retire Qt from vv_vh plugins**
+  - Status: 🔄 in-progress
+  - Owner: gemini-2.5-pro/89b1efb4
+  - Opened: 2026-10-15 22:05 · Picked: 2026-10-15 22:05
+  - Why: User requested: "check all qt features are intgrated into emtk, emtk must be better. then retire qt. unclear where is the l1/l2 fit output? doesn towrk."
+  - Done when: L1/L2 calculation/fit output works properly and is clearly visible/usable in EMTK GUI; all Qt features are audited, verified integrated and superior in EMTK; Qt legacy tools are retired with zero regression.
+  - Touching: `chisurf/plugins/vv_vh_g_factor/`, `chisurf/plugins/vv_vh_anisotropy/`, `test/plugin_qt_allowlist.txt`, `okf/`.
+  - Progress: Claimed. Investigating L1/L2 fit calculation, Qt tool features, and retirement status.
+
 - **T-20261015-02 · [chisurf] Combine vv_vh plugins into unified Anisotropy & G/L1/L2 calibration plugin**
   - Status: ✅ done 2026-10-15
   - Owner: gemini-2.5-pro/89b1efb4
