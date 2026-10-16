@@ -1132,10 +1132,20 @@ are still claims and still binding.
 
 
 - **T-20261014-FINAL-PARITY-PLUGINS · [chisurf(+emtk if a gap)] last Qt-vs-emtk parity pass for every plugin GUI before `s6-retire-qt-shell` lands: each plugin opened in the `--qt` host (ControlHost) and as an emtk shell dock in the same realistic state, pairs read, Qt-era `retire_qt_before*` inventories re-checked**
-  - Status: 🔄 in-progress 2026-10-14
+  - Status: ✅ done 2026-10-16 (review wave; one recipe fix and one re-capture left, see Open)
   - Owner: opus-5.5/final-parity-plugins → hermes/glm-5.3 takeover 2026-10-16 (weekly limit); fix wave delegated to codex/gpt-6.1-sol; harness + all-120 capture evidence committed (chisurf 1db0d0e45, 1e02a9b80)
   - Touching: NEW `test/gui/final_parity_plugins.py`, `okf/plugins/emtk-ports/final-parity/plugins/**` (PNGs, report.json, README.md, index.html), one `okf/log.md` bullet, `okf/subsystems/qt-retirement.md` resume item; blocker fixes only inside the affected plugin's emtk app (claimed here per plugin before editing). Claimed fixes: `chisurf/plugins/burst/burst_ebfret/gui/app.py` (App.close: closing the tool never released the backend session) + `burst_ebfret/tests/test_gui.py`. NOT chisurf/emtk shell files (shell-parity lane), NOT docs/** (docs review lanes), NOT pixi.lock. One capture process at a time, single test files only.
-  - Progress: capture half done and committed (all 120 plugins, both hosts, recipe fixes for burst_ebfret/burst_mle_analysis; report.json ranked 25 plugins with real missing words after ellipsis filtering — mmfdb_admin 103 incl. 78 unexplained vs Qt-era baseline, help 68, tttr_count_rate_analysis 31, burst_h2mm 23, burst_mle_analysis 18, acq 15 …). Fix wave in progress: verdicts land in `verdicts.json`, report regenerated per verdict. vv_vh_g_factor excluded from this wave (agy live lane).
+  - Progress: DONE 2026-10-16. Capture half committed (1db0d0e45, 1e02a9b80); review wave: every
+    measured delta classified against the PNGs and per-host JSON — verdicts committed in
+    cd651988b (mmfdb_admin/help: rail-below-the-fold + dock-width artifacts; harness gained a
+    scroll step and the seeded MMFDB fixture), 8d20aecc3 (23 plugins: clipped dock labels, Qt
+    offscreen text harvest, data-cell tokens), 84b93ff94 (ndxplorer retire-baseline strays are
+    capture-state artifacts), b34dc6fd1 (93 plugins parity by measurement; img_pixel_phasor
+    dropdown-state artifact). Final: 118 parity, 1 defect (traj_tools RECIPE ordering — fix
+    `app.model.topology_filename` step order and re-capture; identical failure on both hosts, no
+    UI loss), 1 unreviewed (vv_vh_g_factor — agy's live lane re-captures it when its edits land).
+    Open follow-ups: traj_tools recipe fix + re-capture; vv_vh_g_factor re-capture post-agy;
+    the full-suite gate run per okf/validation/release-readiness-gate-848fd9f6c.md.
 
 - **T-20261004-PROJECT-INTEGRATION · [chisurf] Close native/public Main/optional-plot integration blockers**
   - Status: 🔄 in-progress
