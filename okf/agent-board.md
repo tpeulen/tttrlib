@@ -1133,8 +1133,9 @@ are still claims and still binding.
 
 - **T-20261014-FINAL-PARITY-PLUGINS · [chisurf(+emtk if a gap)] last Qt-vs-emtk parity pass for every plugin GUI before `s6-retire-qt-shell` lands: each plugin opened in the `--qt` host (ControlHost) and as an emtk shell dock in the same realistic state, pairs read, Qt-era `retire_qt_before*` inventories re-checked**
   - Status: 🔄 in-progress 2026-10-14
-  - Owner: opus-5.5/final-parity-plugins
+  - Owner: opus-5.5/final-parity-plugins → hermes/glm-5.3 takeover 2026-10-16 (weekly limit); fix wave delegated to codex/gpt-6.1-sol; harness + all-120 capture evidence committed (chisurf 1db0d0e45, 1e02a9b80)
   - Touching: NEW `test/gui/final_parity_plugins.py`, `okf/plugins/emtk-ports/final-parity/plugins/**` (PNGs, report.json, README.md, index.html), one `okf/log.md` bullet, `okf/subsystems/qt-retirement.md` resume item; blocker fixes only inside the affected plugin's emtk app (claimed here per plugin before editing). Claimed fixes: `chisurf/plugins/burst/burst_ebfret/gui/app.py` (App.close: closing the tool never released the backend session) + `burst_ebfret/tests/test_gui.py`. NOT chisurf/emtk shell files (shell-parity lane), NOT docs/** (docs review lanes), NOT pixi.lock. One capture process at a time, single test files only.
+  - Progress: capture half done and committed (all 120 plugins, both hosts, recipe fixes for burst_ebfret/burst_mle_analysis; report.json ranked 25 plugins with real missing words after ellipsis filtering — mmfdb_admin 103 incl. 78 unexplained vs Qt-era baseline, help 68, tttr_count_rate_analysis 31, burst_h2mm 23, burst_mle_analysis 18, acq 15 …). Fix wave in progress: verdicts land in `verdicts.json`, report regenerated per verdict. vv_vh_g_factor excluded from this wave (agy live lane).
 
 - **T-20261004-PROJECT-INTEGRATION · [chisurf] Close native/public Main/optional-plot integration blockers**
   - Status: 🔄 in-progress
