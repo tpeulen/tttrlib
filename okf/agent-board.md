@@ -1093,6 +1093,15 @@ are still claims and still binding.
 
 ## Active
 
+- **T-20261016-01 · [chisurf] Universal MMFDB dataset picker, reference standards table, and time-resolved VV/VH ratio plot in G-factor calibration**
+  - Status: ✅ done 2026-10-16
+  - Owner: gemini-2.5-pro/08c92c7c
+  - Opened: 2026-10-16 08:20 · Done: 2026-10-16 10:45
+  - Why: User requested: (1) MMFDB endpoint in PRD-10 and dataset selection browser, (2) eliminate "fast/slow" dichotomy and replace with reference standards table with correlation times (rho), (3) add time-resolved VV/VH ratio plot to see resulting G-factor plateau.
+  - Done when: PRD-10 documents MMFDB dataset picker endpoints; reference decays are managed in AutoForm data table with rho, tau, r0, tail-match flag, and solved mixing estimates with inline editing; dedicated VV/VH ratio plot displays raw and corrected ratio curves with horizontal G baseline, shaded interactive tail matching region, and ratio CSV export; all 72 tests pass and headless screenshots visually inspected.
+  - Touching: `chisurf/plugins/vv_vh_g_factor/`, `okf/prds/prd-10.md`, `okf/usecases/vv-vh-g-factor-calibration.md`.
+  - Progress: Completed. (1) Added PRD-10 Section 8 for MMFDB universal dataset picker. (2) Added `Database...` dataset picker button to load reference decays directly from MMFDB. (3) Added `reference_rows` AutoForm data table and active standard editor (rho, tau, tail match toggle, remove). (4) Added `draw_ratio` dock tab with VV/VH ratio plot, horizontal G baseline, interactive draggable tail bounds, and `export_active_ratio`. (5) 72/72 tests passing hermetically. Headless screenshots captured and visually verified across all docks.
+
 - **T-20261015-03 · [chisurf] Fix L1/L2 fit output, integrate all Qt features into EMTK, retire Qt from vv_vh plugins**
   - Status: ✅ done 2026-10-15
   - Owner: gemini-2.5-pro/89b1efb4
@@ -6274,3 +6283,15 @@ retired so nobody works the same thing twice.)*
   - Status: ✅ done 2026-10-16 — Batch converted to modal DialogWindow with Run/Save/Close actions; generalized multi-decay management supporting arbitrary decays with configurable roles (Fast reference, Slow reference, Sample) and rotational correlation times (rho) and lifetimes (tau); dynamic Perrin relation calculates linked polarization mixing (l1 = l2) upon Slow reference selection/change; decay selector combo (im.combo) on VV/VH and anisotropy plots allows "All (Overlay)" or single-decay isolation; single-line uncertainty formatting (value ± stddev); 100% test pass (70/70 vv_vh_g_factor, 56/56 vv_vh_anisotropy).
   - Owner: antigravity/08c92c7c
   - Touching: `chisurf/plugins/vv_vh_g_factor/gui/{app.py,model.py,gfactor_emtk.view.json}`, `chisurf/plugins/vv_vh_g_factor/test/test_emtk_vv_vh_g_factor_parity.py`, `okf/usecases/vv-vh-g-factor-calibration.md`, `okf/log.md`.
+
+- **T-20261016-02 · [chisurf] vv_vh_g_factor: interactive editable parameter table for calibration inputs and in-place reference standards editing**
+  - Status: ✅ done 2026-10-16 — Replaced/augmented stacked input spinboxes with an interactive, editable Parameter Table (`source: "parameter_rows"`, `editable: true`, `edited_call: "edit_parameter"`) covering all calibration settings and overrides (Tail start/stop, Background start/stop, VH shift, Flip VV/VH, dt, r0, rho, tau, Manual G, Manual l1/l2); made Reference Standards table in-place editable (`editable: true`, `edited_call: "edit_reference"`) with interactive checkbox for tail match and inline editing for rho, tau, r0; 100% test pass (73/73 vv_vh_g_factor).
+  - Owner: antigravity/08c92c7c
+  - Touching: `chisurf/plugins/vv_vh_g_factor/gui/{app.py,model.py,gfactor_emtk.view.json}`, `chisurf/plugins/vv_vh_g_factor/test/test_emtk_vv_vh_g_factor_parity.py`, `okf/usecases/vv-vh-g-factor-calibration.md`, `okf/log.md`.
+
+- **T-20261016-03 · [chisurf] vv_vh_g_factor: adopt ChiSurf standard FittingParameter table (Parameter, Value, Fixed, Error) and declutter UI**
+  - Status: ✅ done 2026-10-16 — Replaced custom parameter table with ChiSurf's standard FittingParameterGroup / FittingParameter table schema (Parameter, Value, Fixed, Error) backed by live FittingParameter instances (`from chisurf.core.fitting.parameter import FittingParameter, FittingParameterGroup`); custom `__deepcopy__` bypasses SWIG C++ `_port` pickling in model snapshots; inline editing supports value updates and fixed checkbox toggling for manual G/l/tau/rS overrides; decluttered UI by moving descriptions to tooltips, simplifying top action buttons to compact 1-2 row labels, and removing duplicate selected lines; headless screenshot inspection verified clean proportions and 73/73 tests pass (100% green).
+  - Owner: antigravity/08c92c7c
+  - Touching: `chisurf/plugins/vv_vh_g_factor/gui/{app.py,model.py,gfactor_emtk.view.json}`, `chisurf/plugins/vv_vh_g_factor/test/test_emtk_vv_vh_g_factor_parity.py`, `okf/usecases/vv-vh-g-factor-calibration.md`, `okf/log.md`.
+
+
