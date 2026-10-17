@@ -6305,4 +6305,16 @@ retired so nobody works the same thing twice.)*
   - Owner: antigravity/08c92c7c
   - Touching: `chisurf/plugins/vv_vh_g_factor/gui/{app.py,model.py,gfactor_emtk.view.json}`, `chisurf/plugins/vv_vh_g_factor/test/test_emtk_vv_vh_g_factor_parity.py`, `okf/usecases/vv-vh-g-factor-calibration.md`, `okf/log.md`.
 
+## Done — EMTK shell live CPU/memory watermark graphs, 2026-10-17
 
+- **T-20261017-01 · [chisurf] emtk shell: live CPU/memory usage tracking, sparkline rendering and background frame refresh**
+  - Status: ✅ done 2026-10-17 — Fixed process_usage psutil.Process caching so CPU percent measures non-zero on ongoing calls; fixed EMTK draw list 0..255 integer RGBA color conversion so sparkline polylines and tracks are visible and opaque; added rounded sparkline background tracks with headroom autoscaling; added next_frame_in cadence delay (1.0s) so the shell requests frames continuously for live monitoring; 100% test pass on test_emtk_shell_final_parity.py (6/6 passed).
+  - Owner: antigravity/08c92c7c
+  - Touching: `chisurf/core/system_info.py`, `chisurf/emtk/main_app.py`, `test/native_emtk/test_emtk_shell_final_parity.py`, `okf/log.md`.
+
+## In progress — Tooltip dismiss on leaving dock & subdock re-dock stall in vv_vh_g_factor, 2026-10-17
+
+- **T-20261017-02 · [chisurf+emtk] tooltip dismiss on leaving dock, and fix UI stall when dragging floating subdock back to dock region in vv_vh_g_factor**
+  - Status: ✅ done 2026-10-17 — Folded watermark into compact single-line badge toggleable via click in both EMTK and Qt; added live rolling FPS, frame time ms, machine specs (CPU arch, cores, RAM) matching ChiMOL FrameStats; connected pointer_leave canvas event in EMTK native.py and cleared child io.mouse_pos when exiting docks to immediately dismiss stale tooltips; switched vv_vh_g_factor ImApp to continuous=False with animating() checks, eliminating continuous 60fps full-plot recalculation stalls during dock drag-and-drop; clamped floating dock windows to bottom region padding; all 63 parity and shell tests pass.
+  - Owner: antigravity/08c92c7c
+  - Touching: `emtk/native.py`, `emtk/docking.py`, `chisurf/core/system_info.py`, `chisurf/gui/widgets/system_info_watermark.py`, `chisurf/emtk/main_app.py`, `chisurf/plugins/vv_vh_g_factor/gui/app.py`, `test/native_emtk/test_emtk_shell_final_parity.py`, `okf/log.md`.
