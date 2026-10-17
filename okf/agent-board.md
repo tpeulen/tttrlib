@@ -1093,60 +1093,6 @@ are still claims and still binding.
 
 ## Active
 
-- **T-20261016-01 · [chisurf] Universal MMFDB dataset picker, reference standards table, and time-resolved VV/VH ratio plot in G-factor calibration**
-  - Status: ✅ done 2026-10-16
-  - Owner: gemini-2.5-pro/08c92c7c
-  - Opened: 2026-10-16 08:20 · Done: 2026-10-16 10:45
-  - Why: User requested: (1) MMFDB endpoint in PRD-10 and dataset selection browser, (2) eliminate "fast/slow" dichotomy and replace with reference standards table with correlation times (rho), (3) add time-resolved VV/VH ratio plot to see resulting G-factor plateau.
-  - Done when: PRD-10 documents MMFDB dataset picker endpoints; reference decays are managed in AutoForm data table with rho, tau, r0, tail-match flag, and solved mixing estimates with inline editing; dedicated VV/VH ratio plot displays raw and corrected ratio curves with horizontal G baseline, shaded interactive tail matching region, and ratio CSV export; all 72 tests pass and headless screenshots visually inspected.
-  - Touching: `chisurf/plugins/vv_vh_g_factor/`, `okf/prds/prd-10.md`, `okf/usecases/vv-vh-g-factor-calibration.md`.
-  - Progress: Completed. (1) Added PRD-10 Section 8 for MMFDB universal dataset picker. (2) Added `Database...` dataset picker button to load reference decays directly from MMFDB. (3) Added `reference_rows` AutoForm data table and active standard editor (rho, tau, tail match toggle, remove). (4) Added `draw_ratio` dock tab with VV/VH ratio plot, horizontal G baseline, interactive draggable tail bounds, and `export_active_ratio`. (5) 72/72 tests passing hermetically. Headless screenshots captured and visually verified across all docks.
-
-- **T-20261015-03 · [chisurf] Fix L1/L2 fit output, integrate all Qt features into EMTK, retire Qt from vv_vh plugins**
-  - Status: ✅ done 2026-10-15
-  - Owner: gemini-2.5-pro/89b1efb4
-  - Opened: 2026-10-15 22:05 · Done: 2026-10-15 22:25
-  - Why: User requested: "check all qt features are intgrated into emtk, emtk must be better. then retire qt. unclear where is the l1/l2 fit output? doesn towrk." and "nach backward compat needed. deprecate the old. no backward compat, update dependent."
-  - Done when: L1/L2 calculation/fit output works properly and is clearly visible/usable in EMTK GUI; all Qt features are audited, verified integrated and superior in EMTK; Qt legacy tools are retired with zero regression; old backward-compat workarounds removed; old plugin deprecated; dependent tests updated.
-  - Touching: `chisurf/plugins/vv_vh_g_factor/`, `chisurf/plugins/vv_vh_anisotropy/`, `test/plugin_qt_allowlist.txt`, `okf/`.
-  - Progress: Completed. (1) Fixed L1/L2 calculation in `GFactorModel.estimate_mixing` where unpopulated `fp_result` previously cleared solved `l` to 0. (2) Added dedicated "L1/L2 mixing" dock tab with all parameters, real-time Perrin mixing status, and 7-row Mixing estimate table displaying linked and applied l1/l2 values without scrolling. (3) Removed redundant backward-compat mixing controls from G-factor tab and removed legacy state format restores. (4) Deprecated `vv_vh_anisotropy` with prominent in-window notice. (5) Updated dependent tests to select mixing tab and all 70 + 56 tests pass cleanly. Headless screenshots visually inspected across all docks.
-
-- **T-20261015-02 · [chisurf] Combine vv_vh plugins into unified Anisotropy & G/L1/L2 calibration plugin**
-  - Status: ✅ done 2026-10-15
-  - Owner: gemini-2.5-pro/89b1efb4
-  - Opened: 2026-10-15 21:40 · Picked: 2026-10-15 21:40
-  - Why: User requested removing duplication between vv_vh_anisotropy and vv_vh_g_factor into a single full-featured plugin with full G, L1/L2 mixing, sample r(t) decay, r_inf, batch processing and zero lost functionality for release.
-  - Done when: A single unified plugin handles fast reference G-factor calibration (tail match, background, shift, flip), slow reference linked/independent L1/L2 mixing estimation (Perrin, moment), sample decay r(t) with full Schaffer correction, interactive r_inf region and display, single-file outputs export (shifted, trace, rinf), batch processing with table export, MMFDB calibration archival, and all tests pass with zero lost functionality.
-  - Touching: `chisurf/plugins/vv_vh_g_factor/`, `chisurf/plugins/vv_vh_anisotropy/`, `test/plugins/test_decay_tools.py`, `okf/`.
-  - Progress: Completed. Core math, unified GFactorModel with sample r(t), L1/L2 overrides and mixing, batch with L1/L2, export routines, view specs, guide updates, and full test suites (70 + 56 tests) passing. Headless screenshots visually inspected across all docks.
-
-
-- **T-20261015-01 · [chisurf] Fix simulated TCSPC duplicate scientific UID on multiple adds and dataset selector selection / IRF deselect**
-  - Status: ✅ done
-  - Owner: gemini-2.5-pro/89b1efb4
-  - Opened: 2026-10-15 11:45 · Done: 2026-10-15 12:35
-  - Why: Clicking "Add" in TCSPC Simulator twice causes duplicate scientific UID when editing/deselecting IRF, and selecting one simulated dataset in the dataset selector highlights both rows. Editing parameters in table was sluggish and dropped rapid inputs. Logs lacked copy capability.
-  - Done when: Each simulated dataset and its components receive fresh scientific UIDs, datasets can be selected individually in the Datasets selector, deselecting/editing IRF in fits works without UID collision errors, parameter editing is responsive and accepts Enter, and logs dock allows copying. Verified with headless screenshots and automated tests.
-  - Touching: `chisurf/core/data.py`, `chisurf/core/api/__init__.py`, `chisurf/server/services/datasets.py`, `chisurf/macros/core_data.py`, `chisurf/emtk/tcspc_simulator.py`, `chisurf/emtk/fit_docks.py`, `chisurf/emtk/model_editor.py`, `chisurf/emtk/shell_log.py`, `chisurf/emtk/views/log.view.json`, `emtk/widgets/data_table.py`.
-  - Progress: Completed. (1) Added `ensure_unique_dataset_uids` in `chisurf/core/data.py` and invoked on dataset import; reset preview on `SimulatorSettingsModel` after `add_preview()`. (2) In `emtk.widgets.data_table`: `begin_edit` selects all, Enter/F2/character starts edit, Enter commits and parses comma decimal separator, Cmd+C/Ctrl+C copies TSV, key event queue ensures no dropped keystrokes. (3) In `chisurf/emtk/fit_docks.py`: `DataDocks` queues parameter edit jobs (`_job_queue`) so rapid edits are never dropped when busy; `cell_editable` is not locked out by `busy`. (4) Added clipboard copy functions and UI buttons / context menu to Log and RPC monitor docks. Headless screenshots captured and visually verified.
-
-
-- **T-20261014-FINAL-PARITY-PLUGINS · [chisurf(+emtk if a gap)] last Qt-vs-emtk parity pass for every plugin GUI before `s6-retire-qt-shell` lands: each plugin opened in the `--qt` host (ControlHost) and as an emtk shell dock in the same realistic state, pairs read, Qt-era `retire_qt_before*` inventories re-checked**
-  - Status: ✅ done 2026-10-16 (review wave; one recipe fix and one re-capture left, see Open)
-  - Owner: opus-5.5/final-parity-plugins → hermes/glm-5.3 takeover 2026-10-16 (weekly limit); fix wave delegated to codex/gpt-6.1-sol; harness + all-120 capture evidence committed (chisurf 1db0d0e45, 1e02a9b80)
-  - Touching: NEW `test/gui/final_parity_plugins.py`, `okf/plugins/emtk-ports/final-parity/plugins/**` (PNGs, report.json, README.md, index.html), one `okf/log.md` bullet, `okf/subsystems/qt-retirement.md` resume item; blocker fixes only inside the affected plugin's emtk app (claimed here per plugin before editing). Claimed fixes: `chisurf/plugins/burst/burst_ebfret/gui/app.py` (App.close: closing the tool never released the backend session) + `burst_ebfret/tests/test_gui.py`. NOT chisurf/emtk shell files (shell-parity lane), NOT docs/** (docs review lanes), NOT pixi.lock. One capture process at a time, single test files only.
-  - Progress: DONE 2026-10-16. Capture half committed (1db0d0e45, 1e02a9b80); review wave: every
-    measured delta classified against the PNGs and per-host JSON — verdicts committed in
-    cd651988b (mmfdb_admin/help: rail-below-the-fold + dock-width artifacts; harness gained a
-    scroll step and the seeded MMFDB fixture), 8d20aecc3 (23 plugins: clipped dock labels, Qt
-    offscreen text harvest, data-cell tokens), 84b93ff94 (ndxplorer retire-baseline strays are
-    capture-state artifacts), b34dc6fd1 (93 plugins parity by measurement; img_pixel_phasor
-    dropdown-state artifact). Final: 118 parity, 1 defect (traj_tools RECIPE ordering — fix
-    `app.model.topology_filename` step order and re-capture; identical failure on both hosts, no
-    UI loss), 1 unreviewed (vv_vh_g_factor — agy's live lane re-captures it when its edits land).
-    Open follow-ups: traj_tools recipe fix + re-capture; vv_vh_g_factor re-capture post-agy;
-    the full-suite gate run per okf/validation/release-readiness-gate-848fd9f6c.md.
-
 - **T-20261004-PROJECT-INTEGRATION · [chisurf] Close native/public Main/optional-plot integration blockers**
   - Status: 🔄 in-progress
   - Owner: hermes/20261003_195530_419bbd, continuation of the project-persistence owner
@@ -1249,6 +1195,60 @@ are still claims and still binding.
   - Progress: chimol `db07093` (reference-viewer arg binding, Python escape, alias, load/fetch); probe 45→22 failing. 12 reference pages + ~140 junk headers in `~/dev/chimol/okf/references/pymol/`. Stopped early (user saving credits). Next: `index.md` "Where to pick this up" there (setting levels first).
 
 ## Resolved
+
+- **T-20261016-01 · [chisurf] Universal MMFDB dataset picker, reference standards table, and time-resolved VV/VH ratio plot in G-factor calibration**
+  - Status: ✅ done 2026-10-16
+  - Owner: gemini-2.5-pro/08c92c7c
+  - Opened: 2026-10-16 08:20 · Done: 2026-10-16 10:45
+  - Why: User requested: (1) MMFDB endpoint in PRD-10 and dataset selection browser, (2) eliminate "fast/slow" dichotomy and replace with reference standards table with correlation times (rho), (3) add time-resolved VV/VH ratio plot to see resulting G-factor plateau.
+  - Done when: PRD-10 documents MMFDB dataset picker endpoints; reference decays are managed in AutoForm data table with rho, tau, r0, tail-match flag, and solved mixing estimates with inline editing; dedicated VV/VH ratio plot displays raw and corrected ratio curves with horizontal G baseline, shaded interactive tail matching region, and ratio CSV export; all 72 tests pass and headless screenshots visually inspected.
+  - Touching: `chisurf/plugins/vv_vh_g_factor/`, `okf/prds/prd-10.md`, `okf/usecases/vv-vh-g-factor-calibration.md`.
+  - Progress: Completed. (1) Added PRD-10 Section 8 for MMFDB universal dataset picker. (2) Added `Database...` dataset picker button to load reference decays directly from MMFDB. (3) Added `reference_rows` AutoForm data table and active standard editor (rho, tau, tail match toggle, remove). (4) Added `draw_ratio` dock tab with VV/VH ratio plot, horizontal G baseline, interactive draggable tail bounds, and `export_active_ratio`. (5) 72/72 tests passing hermetically. Headless screenshots captured and visually verified across all docks.
+
+- **T-20261015-03 · [chisurf] Fix L1/L2 fit output, integrate all Qt features into EMTK, retire Qt from vv_vh plugins**
+  - Status: ✅ done 2026-10-15
+  - Owner: gemini-2.5-pro/89b1efb4
+  - Opened: 2026-10-15 22:05 · Done: 2026-10-15 22:25
+  - Why: User requested: "check all qt features are intgrated into emtk, emtk must be better. then retire qt. unclear where is the l1/l2 fit output? doesn towrk." and "nach backward compat needed. deprecate the old. no backward compat, update dependent."
+  - Done when: L1/L2 calculation/fit output works properly and is clearly visible/usable in EMTK GUI; all Qt features are audited, verified integrated and superior in EMTK; Qt legacy tools are retired with zero regression; old backward-compat workarounds removed; old plugin deprecated; dependent tests updated.
+  - Touching: `chisurf/plugins/vv_vh_g_factor/`, `chisurf/plugins/vv_vh_anisotropy/`, `test/plugin_qt_allowlist.txt`, `okf/`.
+  - Progress: Completed. (1) Fixed L1/L2 calculation in `GFactorModel.estimate_mixing` where unpopulated `fp_result` previously cleared solved `l` to 0. (2) Added dedicated "L1/L2 mixing" dock tab with all parameters, real-time Perrin mixing status, and 7-row Mixing estimate table displaying linked and applied l1/l2 values without scrolling. (3) Removed redundant backward-compat mixing controls from G-factor tab and removed legacy state format restores. (4) Deprecated `vv_vh_anisotropy` with prominent in-window notice. (5) Updated dependent tests to select mixing tab and all 70 + 56 tests pass cleanly. Headless screenshots visually inspected across all docks.
+
+- **T-20261015-02 · [chisurf] Combine vv_vh plugins into unified Anisotropy & G/L1/L2 calibration plugin**
+  - Status: ✅ done 2026-10-15
+  - Owner: gemini-2.5-pro/89b1efb4
+  - Opened: 2026-10-15 21:40 · Picked: 2026-10-15 21:40
+  - Why: User requested removing duplication between vv_vh_anisotropy and vv_vh_g_factor into a single full-featured plugin with full G, L1/L2 mixing, sample r(t) decay, r_inf, batch processing and zero lost functionality for release.
+  - Done when: A single unified plugin handles fast reference G-factor calibration (tail match, background, shift, flip), slow reference linked/independent L1/L2 mixing estimation (Perrin, moment), sample decay r(t) with full Schaffer correction, interactive r_inf region and display, single-file outputs export (shifted, trace, rinf), batch processing with table export, MMFDB calibration archival, and all tests pass with zero lost functionality.
+  - Touching: `chisurf/plugins/vv_vh_g_factor/`, `chisurf/plugins/vv_vh_anisotropy/`, `test/plugins/test_decay_tools.py`, `okf/`.
+  - Progress: Completed. Core math, unified GFactorModel with sample r(t), L1/L2 overrides and mixing, batch with L1/L2, export routines, view specs, guide updates, and full test suites (70 + 56 tests) passing. Headless screenshots visually inspected across all docks.
+
+
+- **T-20261015-01 · [chisurf] Fix simulated TCSPC duplicate scientific UID on multiple adds and dataset selector selection / IRF deselect**
+  - Status: ✅ done
+  - Owner: gemini-2.5-pro/89b1efb4
+  - Opened: 2026-10-15 11:45 · Done: 2026-10-15 12:35
+  - Why: Clicking "Add" in TCSPC Simulator twice causes duplicate scientific UID when editing/deselecting IRF, and selecting one simulated dataset in the dataset selector highlights both rows. Editing parameters in table was sluggish and dropped rapid inputs. Logs lacked copy capability.
+  - Done when: Each simulated dataset and its components receive fresh scientific UIDs, datasets can be selected individually in the Datasets selector, deselecting/editing IRF in fits works without UID collision errors, parameter editing is responsive and accepts Enter, and logs dock allows copying. Verified with headless screenshots and automated tests.
+  - Touching: `chisurf/core/data.py`, `chisurf/core/api/__init__.py`, `chisurf/server/services/datasets.py`, `chisurf/macros/core_data.py`, `chisurf/emtk/tcspc_simulator.py`, `chisurf/emtk/fit_docks.py`, `chisurf/emtk/model_editor.py`, `chisurf/emtk/shell_log.py`, `chisurf/emtk/views/log.view.json`, `emtk/widgets/data_table.py`.
+  - Progress: Completed. (1) Added `ensure_unique_dataset_uids` in `chisurf/core/data.py` and invoked on dataset import; reset preview on `SimulatorSettingsModel` after `add_preview()`. (2) In `emtk.widgets.data_table`: `begin_edit` selects all, Enter/F2/character starts edit, Enter commits and parses comma decimal separator, Cmd+C/Ctrl+C copies TSV, key event queue ensures no dropped keystrokes. (3) In `chisurf/emtk/fit_docks.py`: `DataDocks` queues parameter edit jobs (`_job_queue`) so rapid edits are never dropped when busy; `cell_editable` is not locked out by `busy`. (4) Added clipboard copy functions and UI buttons / context menu to Log and RPC monitor docks. Headless screenshots captured and visually verified.
+
+
+- **T-20261014-FINAL-PARITY-PLUGINS · [chisurf(+emtk if a gap)] last Qt-vs-emtk parity pass for every plugin GUI before `s6-retire-qt-shell` lands: each plugin opened in the `--qt` host (ControlHost) and as an emtk shell dock in the same realistic state, pairs read, Qt-era `retire_qt_before*` inventories re-checked**
+  - Status: ✅ done 2026-10-16 (review wave; one recipe fix and one re-capture left, see Open)
+  - Owner: opus-5.5/final-parity-plugins → hermes/glm-5.3 takeover 2026-10-16 (weekly limit); fix wave delegated to codex/gpt-6.1-sol; harness + all-120 capture evidence committed (chisurf 1db0d0e45, 1e02a9b80)
+  - Touching: NEW `test/gui/final_parity_plugins.py`, `okf/plugins/emtk-ports/final-parity/plugins/**` (PNGs, report.json, README.md, index.html), one `okf/log.md` bullet, `okf/subsystems/qt-retirement.md` resume item; blocker fixes only inside the affected plugin's emtk app (claimed here per plugin before editing). Claimed fixes: `chisurf/plugins/burst/burst_ebfret/gui/app.py` (App.close: closing the tool never released the backend session) + `burst_ebfret/tests/test_gui.py`. NOT chisurf/emtk shell files (shell-parity lane), NOT docs/** (docs review lanes), NOT pixi.lock. One capture process at a time, single test files only.
+  - Progress: DONE 2026-10-16. Capture half committed (1db0d0e45, 1e02a9b80); review wave: every
+    measured delta classified against the PNGs and per-host JSON — verdicts committed in
+    cd651988b (mmfdb_admin/help: rail-below-the-fold + dock-width artifacts; harness gained a
+    scroll step and the seeded MMFDB fixture), 8d20aecc3 (23 plugins: clipped dock labels, Qt
+    offscreen text harvest, data-cell tokens), 84b93ff94 (ndxplorer retire-baseline strays are
+    capture-state artifacts), b34dc6fd1 (93 plugins parity by measurement; img_pixel_phasor
+    dropdown-state artifact). Final: 118 parity, 1 defect (traj_tools RECIPE ordering — fix
+    `app.model.topology_filename` step order and re-capture; identical failure on both hosts, no
+    UI loss), 1 unreviewed (vv_vh_g_factor — agy's live lane re-captures it when its edits land).
+    Open follow-ups: traj_tools recipe fix + re-capture; vv_vh_g_factor re-capture post-agy;
+    the full-suite gate run per okf/validation/release-readiness-gate-848fd9f6c.md.
 
 - **T-20261014-WORKSPACE-DOCK · [chisurf] Workspace as a dock window, tools land in docks, fit windows land in workspace**
   - Status: ✅ done 2026-10-14, files released. Workspace is a special dock window (docked in center by default, closable=False, core=True) containing self.workspace_docks where fit windows live; tools open in docks (center by default) taking full dock width without auto-floating; tests pass in test_emtk_shell_workspace.py, test_emtk_shell_fit_windows.py, and test_emtk_shell_final_parity.py; headless screenshots inspected. Resume: `okf/subsystems/qt-retirement.md` item 10.
@@ -6290,7 +6290,7 @@ retired so nobody works the same thing twice.)*
 
 ## Done — vv_vh_g_factor modal batch, multi-decay management, and plot selectors, 2026-10-16
 
-- **T-20261016-01 · [chisurf] vv_vh_g_factor: modal batch window, multi-decay manager, dynamic Perrin l1/l2, plot decay selector dropdowns**
+- **T-20261016-04 · [chisurf] vv_vh_g_factor: modal batch window, multi-decay manager, dynamic Perrin l1/l2, plot decay selector dropdowns**
   - Status: ✅ done 2026-10-16 — Batch converted to modal DialogWindow with Run/Save/Close actions; generalized multi-decay management supporting arbitrary decays with configurable roles (Fast reference, Slow reference, Sample) and rotational correlation times (rho) and lifetimes (tau); dynamic Perrin relation calculates linked polarization mixing (l1 = l2) upon Slow reference selection/change; decay selector combo (im.combo) on VV/VH and anisotropy plots allows "All (Overlay)" or single-decay isolation; single-line uncertainty formatting (value ± stddev); 100% test pass (70/70 vv_vh_g_factor, 56/56 vv_vh_anisotropy).
   - Owner: antigravity/08c92c7c
   - Touching: `chisurf/plugins/vv_vh_g_factor/gui/{app.py,model.py,gfactor_emtk.view.json}`, `chisurf/plugins/vv_vh_g_factor/test/test_emtk_vv_vh_g_factor_parity.py`, `okf/usecases/vv-vh-g-factor-calibration.md`, `okf/log.md`.
