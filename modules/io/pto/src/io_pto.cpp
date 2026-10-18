@@ -501,6 +501,14 @@ bool read_one(const PtoFile& file, const std::string& path, const PtoObject& o,
     }
     const int container = container_for(o.encoding);
     if (container < 0) return false;
+    const std::string ext = file.external_payload_path(o.uid);
+    if (!ext.empty() && o.size == 0) {
+        const std::string sc = sidecar_text(file, o.uid);
+        if (!sc.empty()) {
+            return out->read_embedded(ext.c_str(), container, 0, 0, sc) != 0;
+        }
+        return out->read_file(ext.c_str(), container) != 0;
+    }
     return out->read_embedded(path.c_str(), container, o.offset, o.size,
                               sidecar_text(file, o.uid)) != 0;
 }
@@ -738,7 +746,7 @@ int pto_read_events(const std::string& spec, std::uint64_t first_event,
         out->find_used_routing_channels();
         return 1;
     }
-    if (container < 0 || !have_from || from.event == 0) {
+    if (container < 0 || !have_from || from.event == 0 || chosen->size == 0) {
         if (!read_one(file, path, *chosen, out)) return 0;
         keep_range(out, first_event, n_events);
         out->find_used_routing_channels();

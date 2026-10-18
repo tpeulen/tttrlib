@@ -112,21 +112,26 @@ bool zstd_compress_with(const unsigned char* in, std::size_t n, int level,
 bool zstd_decompress_with(const unsigned char* in, std::size_t n, std::size_t raw_size,
                           const std::vector<unsigned char>& dictionary,
                           std::vector<unsigned char>& out) {
-    // the digested dictionary, per thread, for the last dictionary seen
+    // The digested dictionary, per thread, for the last dictionary seen. It is
+    // matched by content, not by address: a dictionary freed with its reader
+    // and another one of the same size allocated at the same address (two
+    // columns' default-sized dictionaries, readers opened one after another)
+    // must not get the first one's digest -- the stream then reads as corrupt.
     struct Digest {
-        const void* key = nullptr;
-        std::size_t size = 0;
+        std::vector<unsigned char> bytes;
         ZSTD_DDict* ddict = nullptr;
         ZSTD_DCtx* dctx = ZSTD_createDCtx();
         ~Digest() { if (ddict) ZSTD_freeDDict(ddict); ZSTD_freeDCtx(dctx); }
     };
     thread_local Digest d;
-    if (d.key != dictionary.data() || d.size != dictionary.size() || d.ddict == nullptr) {
+    const bool same = d.ddict != nullptr && d.bytes.size() == dictionary.size() &&
+                      (dictionary.empty() ||
+                       std::memcmp(d.bytes.data(), dictionary.data(), dictionary.size()) == 0);
+    if (!same) {
         if (d.ddict) ZSTD_freeDDict(d.ddict);
         d.ddict = ZSTD_createDDict(dictionary.data(), dictionary.size());
-        d.key = dictionary.data();
-        d.size = dictionary.size();
-        if (d.ddict == nullptr) return false;
+        d.bytes = dictionary;
+        if (d.ddict == nullptr) { d.bytes.clear(); return false; }
     }
     if (raw_size == 0) {
         const unsigned long long known = ZSTD_getFrameContentSize(in, n);

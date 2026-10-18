@@ -2701,6 +2701,17 @@ bool compress_bytes(const std::string& codec, const unsigned char* in, std::size
 /// \see Codec::decompress. False if the codec is unknown or the stream is bad.
 bool decompress_bytes(const std::string& codec, const unsigned char* in, std::size_t n,
                       std::size_t raw_size, std::vector<unsigned char>& out);
+/// \see Codec::compress_with: compress against a dictionary. False if the
+/// codec is unknown, has no dictionary support, or failed.
+bool compress_with_dictionary(const std::string& codec, const unsigned char* in, std::size_t n,
+                              int level, const std::vector<unsigned char>& dictionary,
+                              std::vector<unsigned char>& out);
+/// \see Codec::decompress_with: decompress a stream made against \p dictionary.
+/// The dictionary is matched by content, so a different dictionary at the
+/// address of an earlier one is never mistaken for it.
+bool decompress_with_dictionary(const std::string& codec, const unsigned char* in, std::size_t n,
+                                std::size_t raw_size, const std::vector<unsigned char>& dictionary,
+                                std::vector<unsigned char>& out);
 #endif
 /// Whether a codec of this name is registered.
 bool has_codec(const std::string& name);

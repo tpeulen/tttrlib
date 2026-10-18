@@ -5603,7 +5603,15 @@ void StoreReader::Impl::open(const std::string& name, std::uint64_t base, std::u
     // starts on a page) and served from its own first byte.
     r.mapped_bytes = base + r.size;
 #ifdef _WIN32
-    r.file = CreateFileW(detail::utf8_to_wide(filename).c_str(), GENERIC_READ, FILE_SHARE_READ,
+    // FILE_SHARE_READ | FILE_SHARE_WRITE: a mapping must not veto writers.
+    // The format is append-only with a generation flip; POSIX readers and
+    // writers coexist on the same file, and every other Windows open here
+    // (_wfsopen _SH_DENYNO, _wsopen_s _SH_DENYNO) already shares writes.
+    // FILE_SHARE_READ alone made add_embedding_prefilter's _O_RDWR open
+    // fail with ERROR_SHARING_VIOLATION while a read-only mapping of the
+    // same database was alive.
+    r.file = CreateFileW(detail::utf8_to_wide(filename).c_str(), GENERIC_READ,
+                         FILE_SHARE_READ | FILE_SHARE_WRITE,
                          nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (r.file == INVALID_HANDLE_VALUE) throw std::runtime_error("cannot open " + filename);
     r.mapping = CreateFileMappingW(r.file, nullptr, PAGE_READONLY, 0, 0, nullptr);
@@ -8030,6 +8038,19 @@ bool File::remove(std::uint64_t uid) {
 std::vector<unsigned char> File::read_stored(std::uint64_t uid) const {
     const Impl::Slot* s = p_->find(uid);
     if (s == nullptr) throw std::runtime_error("no object with that uid");
+    if (s->meta.size == 0) {
+        std::string sc = external_payload_path(uid);
+        if (!sc.empty() && detail::fs::exists(sc)) {
+            FileHandle in;
+            if (!in.open(sc, "rb"))
+                throw std::runtime_error("cannot open sidecar " + sc);
+            std::uintmax_t sz = detail::fs::file_size(sc);
+            std::vector<unsigned char> out(sz);
+            if (sz > 0 && !in.read(out.data(), sz))
+                throw std::runtime_error("could not read sidecar " + sc);
+            return out;
+        }
+    }
     std::vector<unsigned char> out(static_cast<std::size_t>(s->meta.size));
     if (!out.empty()) {
         p_->f.flush();
@@ -8107,7 +8128,22 @@ std::size_t File::read_at(std::uint64_t uid, std::uint64_t at,
                              void* into, std::size_t n) const {
     Impl& m = *p_;
     const Impl::Slot* s = m.find(uid);
-    if (s == nullptr || at >= s->meta.size || n == 0) return 0;
+    if (s == nullptr || n == 0) return 0;
+    if (s->meta.size == 0) {
+        std::string sc = external_payload_path(uid);
+        if (!sc.empty() && detail::fs::exists(sc)) {
+            std::uintmax_t sz = detail::fs::file_size(sc);
+            if (at >= sz) return 0;
+            std::uintmax_t left = sz - at;
+            std::size_t take = n < left ? n : static_cast<std::size_t>(left);
+            FileHandle in;
+            if (!in.open(sc, "rb")) return 0;
+            if (!in.seek(at) || !in.read(into, take)) return 0;
+            return take;
+        }
+        return 0;
+    }
+    if (at >= s->meta.size) return 0;
     // Short at the end rather than an error, because that is what a read of a
     // file does and a payload is a file that happens to live inside another.
     const std::uint64_t left = s->meta.size - at;
@@ -8365,7 +8401,17 @@ std::uint64_t File::ebml_offset() const { return p_->ebml_at; }
 
 PtoFileType File::classify(const std::string& path) const { return classify_by_extension(path); }
 
-std::string File::external_payload_path(std::uint64_t) const { return std::string(); }
+std::string File::external_payload_path(std::uint64_t uid) const {
+    for (const auto& tag : tags_for(uid)) {
+        if (tag.name == "_mmfdb_artifact.file_path" && tag.type == PtoType::Text) {
+            detail::fs::path p(tag.text);
+            if (p.is_absolute()) return p.string();
+            detail::fs::path base = detail::fs::u8path(filename()).parent_path();
+            return (base / p).string();
+        }
+    }
+    return std::string();
+}
 
 namespace {
 
