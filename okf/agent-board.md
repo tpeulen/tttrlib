@@ -6323,3 +6323,13 @@ retired so nobody works the same thing twice.)*
   - Status: ✅ done 2026-10-17 — Replaced inter-frame sleep interval in frame_ms with actual CPU render execution time (measuring ~4.5ms rather than 1000ms idle sleep); filtered idle gaps (>250ms) out of rolling FPS duration deque so single-digit decayed rates are never recorded; enabled continuous frame requests in animating() while watermark is unfolded so FPS counter stays live without stalling when mouse is idle; verified with 9 passed parity tests in test_emtk_shell_final_parity.py and visual screenshot inspection.
   - Owner: antigravity/08c92c7c
   - Touching: `chisurf/emtk/main_app.py`, `test/native_emtk/test_emtk_shell_final_parity.py`, `okf/log.md`.
+
+## Active — ptolib index reserve sized by object count, 2026-10-19
+
+- **T-20261019-01 · [both] Replace the local 64 KiB / byte `index_reserve` ptolib patch with the upstream fix**
+  - Status: ✅ done 2026-10-19 — re-vendored at ptolib `v0.3.2-26-g98497f1`; `PtoFile::create(filename, title, max_objects)`; chisurf passes `4·raws+64`; tttrlib PTO 164 passed, chisurf PTO 225 passed (banner test green again). Not committed yet.
+  - Owner: claude-code/3fdc738b
+  - Opened: 2026-10-19
+  - Why: tttrlib's vendored ptolib carried an uncommitted local patch (64 KiB `kSeekHeadReserve`, `create(..., index_reserve)` in bytes, compact sidecar fix). Fixed upstream instead (ptolib `d10ec4e`, `98497f1`): `File::create(..., max_objects)` sizes the index from an object count, compact sizes the copy and keeps sidecar references. The 64 KiB default also broke chisurf `test_the_explanation_is_findable_in_the_raw_bytes`.
+  - Done when: thirdparty/ptolib re-vendored from upstream, `PtoFile::create(filename, title, max_objects)`, chisurf `Measurement.create` passes an object count, tttrlib rebuilt, chisurf PTO tests green.
+  - Touching: `tttrlib` (`thirdparty/ptolib/`, `modules/io/pto/include/io_pto.h`, `modules/io/pto/src/io_pto.cpp`), `chisurf` (`chisurf/core/fio/pto.py`).

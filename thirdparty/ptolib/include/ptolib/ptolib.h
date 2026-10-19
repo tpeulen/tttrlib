@@ -3566,9 +3566,16 @@ public:
      *        whoever opens the file with no reader at hand. \ref kDefaultBanner
      *        says how to decode the framing; an application passes its own to
      *        add where a reader is found. Empty writes no banner.
+     * \param max_objects how many objects the index must be able to hold. Both
+     *        indexes are reserved at creation and can never grow, so a file
+     *        that needs more fails to \ref commit and has to be compacted.
+     *        The default reserve (8 KiB) holds a few hundred; asking for fewer
+     *        never shrinks it. \ref compact sizes the copy for twice as many
+     *        objects as the original has.
      */
     bool create(const std::string& filename, const std::string& title = "",
-                const std::string& banner = kDefaultBanner);
+                const std::string& banner = kDefaultBanner,
+                std::size_t max_objects = 0);
 
     /*!
      * \brief Open an existing one. \param writable false opens it read-only.

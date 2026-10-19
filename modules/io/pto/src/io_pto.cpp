@@ -45,8 +45,9 @@ const char* const kTttrlibBanner = kBannerText.c_str();
 PtoFile::PtoFile() = default;
 PtoFile::~PtoFile() = default;
 
-bool PtoFile::create(const std::string& filename, const std::string& title) {
-    return pto::File::create(filename, title, kBannerText);
+bool PtoFile::create(const std::string& filename, const std::string& title,
+                     std::size_t max_objects) {
+    return pto::File::create(filename, title, kBannerText, max_objects);
 }
 
 // --- inspection data -----------------------------------------------------------

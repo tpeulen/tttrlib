@@ -130,7 +130,8 @@ public:
      * `pto::File::create` with tttrlib's banner: the decoding note, and where
      * a reader for photon containers is found.
      */
-    bool create(const std::string& filename, const std::string& title = "");
+    bool create(const std::string& filename, const std::string& title = "",
+                std::size_t max_objects = 0);
 
     /// Embed cheap inspection data (time trace, fluorescence decays, TTTR metadata) into the PTO container.
     bool add_inspection_trace(const std::vector<std::uint32_t>& counts, double dt_s);

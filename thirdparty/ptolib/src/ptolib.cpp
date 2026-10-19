@@ -6173,7 +6173,8 @@ const std::uint32_t kPtoBanner      = 0x1E54F040;
 /// and that permission is what makes in-place update possible at all.
 const int kWideSize = 8;
 
-/// Payload bytes each SeekHead is given, so it can be rewritten where it lies.
+/// Payload bytes each SeekHead is given at least, so it can be rewritten where
+/// it lies; \ref File::create takes more when asked for more objects.
 /// The commit protocol depends on that: a SeekHead that had to move could not
 /// be the fallback for the move.
 const std::uint64_t kSeekHeadReserve = 8192;
@@ -6665,7 +6666,7 @@ struct File::Impl {
     std::uint64_t head_at[2] = {0, 0}; ///< the two SeekHead element offsets
     std::uint64_t head_total = 0;      ///< bytes each SeekHead element occupies
     /// The payload each index slot was reserved with. This writer reserves
-    /// kSeekHeadReserve; another writer may have reserved more or less, and
+    /// at least kSeekHeadReserve; another writer may have reserved more or less, and
     /// an index rewritten in place has to fill exactly the slot it found.
     std::uint64_t head_reserve[2] = {kSeekHeadReserve, kSeekHeadReserve};
     int live = 0;                      ///< which SeekHead is authoritative
@@ -7261,8 +7262,29 @@ void File::close() {
     p_->dirty = false;
 }
 
+/// The index payload `max_objects` objects need, never less than
+/// kSeekHeadReserve. Every entry is sized at its widest -- the largest uid and
+/// offset -- so the bound holds wherever the objects end up.
+std::uint64_t seekhead_reserve_for(std::size_t max_objects) {
+    Buf idb;
+    idb.put_id(kAttachedFile);
+    Buf s;
+    s.bytes_elem(kSeekID, idb.b.data(), idb.b.size());
+    s.uint_elem(kPtoSeekUID, ~std::uint64_t(0));
+    s.uint_elem(kSeekPosition, ~std::uint64_t(0));
+    Buf entry;
+    entry.master(kSeek, s);
+    // CRC, generation, the four top-level entries, the smallest Void; each
+    // top-level entry is no wider than an object's.
+    Buf gen;
+    gen.uint_elem(kPtoGeneration, ~std::uint64_t(0));
+    const std::uint64_t fixed = 6 + gen.b.size() + 4 * entry.b.size() + kMinVoid;
+    const std::uint64_t need = fixed + static_cast<std::uint64_t>(max_objects) * entry.b.size();
+    return std::max(need, kSeekHeadReserve);
+}
+
 bool File::create(const std::string& filename, const std::string& title,
-                  const std::string& banner) {
+                  const std::string& banner, std::size_t max_objects) {
     Impl& m = *p_;
     m.err.clear();
     FileHandle::LockResult lock = FileHandle::kLockTaken;
@@ -7327,16 +7349,18 @@ bool File::create(const std::string& filename, const std::string& title,
     }
 
     // The two indexes come first, each with room to be rewritten where it lies.
-    const std::uint64_t total = id_octets(kSeekHead) + kWideSize + kSeekHeadReserve;
+    const std::uint64_t reserve = seekhead_reserve_for(max_objects);
+    const std::uint64_t total = id_octets(kSeekHead) + kWideSize + reserve;
     m.head_total = total;
     for (int i = 0; i < 2; i++) {
         m.head_at[i] = m.seg_data + m.seg_bytes;
+        m.head_reserve[i] = reserve;
         m.seg_bytes += total;
         Buf e;
         e.put_id(kSeekHead);
-        e.put_size(kSeekHeadReserve, kWideSize);
+        e.put_size(reserve, kWideSize);
         if (!m.f.at(m.head_at[i], e.b.data(), e.b.size())) return m.fail_open("write failed");
-        if (!m.write_void(m.head_at[i] + e.b.size(), kSeekHeadReserve)) return m.fail_open();
+        if (!m.write_void(m.head_at[i] + e.b.size(), reserve)) return m.fail_open();
     }
     // An empty but valid index, rather than a full commit: committing here
     // would place an Info element before the caller has set anything, and the
@@ -8729,7 +8753,9 @@ bool File::compact(const std::string& to, bool tight, double reserve) {
     m.err.clear();
     if (reserve < 0.0) return m.fail("a negative reserve is not a fraction");
     File out;
-    if (!out.create(to, m.title, m.banner)) return m.fail(out.error());
+    // The copy's index is sized for this file's objects and as many again: a
+    // fixed reserve would hand back the very index that sent the caller here.
+    if (!out.create(to, m.title, m.banner, 2 * m.slots.size())) return m.fail(out.error());
     out.set_writing_app(m.writing_app);
     out.p_->align_payloads = !tight;
     for (std::size_t i = 0; i < m.slots.size(); i++) {
@@ -8744,6 +8770,11 @@ bool File::compact(const std::string& to, bool tight, double reserve) {
         const std::uint64_t made = out.p_->emit_object(
                 o.kind, o.encoding, o.name, o.size, room,
                 [&](FileHandle& dst) {
+                    // A reference (no bytes of its own) stays a reference:
+                    // streaming it would resolve external_payload_path and
+                    // copy the referenced file in. The tags that carry the
+                    // reference come across with set_tags below.
+                    if (o.size == 0) return true;
                     copied = stream_stored(o.uid, [&](const void* block, std::size_t n) {
                         return dst.write(block, n);
                     });
