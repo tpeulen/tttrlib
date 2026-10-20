@@ -91,7 +91,7 @@ def _numpy_reference(a, b=None):
     published implementations use -- PAM's ``Do_2D_XCor.m`` and the Kolin/Wiseman STICS
     reference both compute exactly this and then divide by ``N * mean^2`` to normalise,
     which is what ChiSurf's ``normalise_ics`` does. Only the convention was read from
-    those; no code was taken (both are GPL-3, against this project's GPL-2.0).
+    those; no code was taken (both are GPL-3; this project is BSD-3-Clause).
     """
     b = a if b is None else b
     return np.real(np.fft.ifft2(np.fft.fft2(a) * np.conj(np.fft.fft2(b))))
