@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+- **Fixed: PicoQuant CLSM images read from the header alone lost most frames
+  when the frame marker shares a record with the last line stop.** The Leica
+  SP5 test file (SymPhoTime 64) emits the frame marker together with the stop
+  of each frame's last line, mostly as one record with both bits set (routing
+  channel 6). The header names only the frame bit, so
+  `CLSMImage(TTTR(file), fill=True)` returned one 7921 x 256 frame. Header-derived
+  PTU frame markers now include the merged value, and the default routine pairs
+  each line start with the stop that closes it, so a frame keeps its last line.
+  The file now reads as 230 x 256 x 256.
+
 - **Fixed: every `Random` (and so every Philox `SimCounterRandom`) built a
   Mersenne Twister it never used.** `std::mt19937` was a by-value member, so
   each construction ran its 624-word default seeding and carried 2.5 KB --

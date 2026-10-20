@@ -31,6 +31,22 @@ frames without pixel markers, both opening-marker orders, lazy/materialized
 counts, exact input photon indices and mean microtimes. It also checks the
 legacy positional/keyword-callable signatures and shared or start-only line clocks.
 
+## Frame markers that close the last line
+
+Some scanners raise the frame signal together with the stop of a frame's last
+line. PicoQuant marker records are bit fields, so this arrives either as one
+record carrying both bits (frame 4 | line stop 2 = routing channel 6) or as the
+frame marker followed by the stop within a few ticks. The default routine pairs
+every line start with the stop that closes it; a stop with no open line is
+ignored, and a line still open at the frame edge is closed by that frame record
+or by the stop directly after it. Header-derived PTU markers add the merged
+value (`{4, 6}`) to the frame markers, the convention the SP5 routine already
+used. The Leica SP5 test file read from its header alone gives
+230 x 256 x 256; before, it gave one 7921-line frame.
+
+`test/python/clsm/test_CLSM_frame_marker_with_line_stop.py` covers both record
+forms on a synthetic stream and the SP5 header-only read.
+
 ## Deferred channel splitting
 
 `split_frames_by_channel()` refreshes the channel layout after constructing its

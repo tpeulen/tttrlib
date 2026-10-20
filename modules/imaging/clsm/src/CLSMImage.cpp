@@ -234,6 +234,17 @@ CLSMImageInfo CLSMImageInfo::from_header(TTTRHeader* header) {
                 if (frame_raw > 0)
                     info.marker_frame_start = { 1 << (frame_raw - 1) };
             }
+            // PicoQuant marker records are bit fields: a frame marker that
+            // coincides with the last line stop of the frame arrives as one
+            // record carrying both bits (Leica SP5 via SymPhoTime: 4 | 2 = 6,
+            // the convention the SP5 routine hard-codes as {4, 6}). Matching the
+            // bare frame bit alone misses nearly every frame.
+            if (info.marker_frame_start.size() == 1) {
+                const int frame_bit = info.marker_frame_start[0];
+                const int stop_bit = info.marker_line_stop;
+                if (frame_bit > 0 && stop_bit > 0 && (frame_bit & stop_bit) == 0)
+                    info.marker_frame_start.push_back(frame_bit | stop_bit);
+            }
         }
     } else {
         // HT3 (and any other container storing raw routing channels)
@@ -1327,6 +1338,56 @@ std::vector<int> CLSMImage::get_line_edges(
             }
             return paired_edges;
         }
+    }
+
+    // Distinct start and stop markers under the default routine: pair each
+    // start with the stop that closes it, instead of reading the edge list as
+    // alternating (start, stop) pairs. Two things in a real scan break the
+    // alternation, and either one shifts every later pair onto a fly-back:
+    //
+    //  * a frame marker emitted with the last line's stop. PicoQuant markers
+    //    are bit fields, so the two arrive either merged in one record (frame
+    //    bit | stop bit, e.g. routing channel 6 = 4 | 2) or as the frame marker
+    //    followed by the stop in the same few ticks. Either way the closing
+    //    stop of the frame's last line sits at or after the frame edge, outside
+    //    [start_event, stop_event) -- the line is left open, and in the next
+    //    frame that stop leads the edge list.
+    //  * so a stop with no open line is stray, not the start of a pair.
+    //
+    // A line still open at the frame edge is closed by the frame record (the
+    // merged case), or by the stop when that is the next marker after it. The
+    // last frame of a stream (stop_event == end of data) has no closing record
+    // and keeps dropping its open line.
+    if (reading_routine == CLSM_DEFAULT && !line_edges.empty() &&
+        marker_line_stop >= 0 && marker_line_stop != CLSM_MARKER_NO_STOP &&
+        marker_line_stop != marker_line_start) {
+        std::vector<int> paired_edges;
+        paired_edges.reserve(line_edges.size() + 2);
+        int open = -1;
+        for (int idx : line_edges) {
+            if (routing_channels[idx] == marker_start_sc) {
+                open = idx;  // a start without a stop is not a line
+            } else if (open >= 0) {
+                paired_edges.emplace_back(open);
+                paired_edges.emplace_back(idx);
+                open = -1;
+            }
+        }
+        const int n_events = static_cast<int>(tttr->n_valid_events);
+        if (open >= 0 && stop_event < n_events &&
+            event_types[stop_event] == marker_event_sc) {
+            // the frame record closes the line, unless the stop follows it as
+            // the very next marker (frame marker and stop in two records)
+            int close = stop_event;
+            for (int k = stop_event + 1; k < n_events; ++k) {
+                if (event_types[k] != marker_event_sc) continue;
+                if (routing_channels[k] == marker_stop_sc) close = k;
+                break;
+            }
+            paired_edges.emplace_back(open);
+            paired_edges.emplace_back(close);
+        }
+        return paired_edges;
     }
 
     return line_edges;
