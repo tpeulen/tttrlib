@@ -125,6 +125,7 @@ Verdicts: **PASS** = agrees with the reference to the stated metric.
 | `Dual.h` | `tanh`, `sin`, `cos`, `sqrt`, `pow`, `min`, `max`, comparisons vs double (added 2026-08-19) | hand derivatives | 1e-14 | PASS | `test/cpp/test_ad_gradient.cpp::test_dual_ops` |
 | `LatticeDiffusion.h` | forward (`lattice_propagate`) | conservation without decay; `exp(−kt)` with a uniform rate; imp.bff's analytic-diffusion tests on the same kernel | 1e-15 | PASS | `test/cpp/test_lattice_diffusion.cpp::test_forward`; imp.bff `test/quenching/test_quenching_field.py` |
 | `LatticeDiffusion.h` | adjoint (`lattice_propagate_adjoint`): `dL/dd`, `dL/ddecay`, `dL/dcur` | dot-product identity vs central differences of the forward — both flux forms, checkpoint lengths dividing and not, domain on the shell; imp.bff: through the Python chain rule and vs the FD Jacobian on the PRD-111 θ | 1e-8–1e-12 rel. (1e-7 Python, 1e-4 θ) | PASS | `test/cpp/test_lattice_diffusion.cpp::test_adjoint`; imp.bff `test/quenching/test_diffusion_adjoint.py` |
+| `LatticeDiffusion.h` | detailed-balance flux (`LATTICE_FLUX_DETAILED_BALANCE`, weight `w`) | the masked, normalised `w` is a fixed point of the discrete step; an arbitrary start relaxes onto it; population conserved; `w = 1` equals Smoluchowski; adjoint dot-product identity as above (2026-10-20) | 3e-16 stationary, 1e-15 w=1, 1e-7–1e-12 adjoint | PASS | `test/cpp/test_lattice_diffusion.cpp::test_detailed_balance`, `test_adjoint(LATTICE_FLUX_DETAILED_BALANCE, ...)`; imp.bff `test/quenching/test_detailed_balance_pde.py` |
 
 ## What the A/B found
 

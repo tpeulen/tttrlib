@@ -1,5 +1,18 @@
 # Bundle update log
 
+## 2026-10-20 — Detailed-balance flux in the lattice diffusion kernel
+
+- `LatticeDiffusion.h` gains `LATTICE_FLUX_DETAILED_BALANCE`: the Smoluchowski
+  flux with a potential, `0.5 (d_c + d_m) sqrt(w_c w_m) (p_c/w_c - p_m/w_m) b_m`,
+  so the equilibrium weight `w` and the mobility are separate inputs (imp.bff's
+  QuEst PDE ensemble needs `p ~ prod s^-n` with an independent `D`). Forward,
+  adjoint (`dL/dd`, `dL/ddecay`, `dL/dcur`, weights held fixed) and a
+  `lattice_root_weight` helper; `lattice_propagate`/`_adjoint` take the weight
+  as a trailing defaulted argument, so existing callers are unchanged. Tests in
+  `test/cpp/test_lattice_diffusion.cpp`; register row in
+  [math-kernel-validation](testing/math-kernel-validation.md). imp.bff vendors
+  the header verbatim.
+
 ## 2026-10-09 — Report gamma identification without inferring adoption
 
 - The owning `calibration_report` labels finite data gamma using explicit

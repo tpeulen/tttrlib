@@ -7,6 +7,8 @@
 //   checkpoint lengths that do and do not divide n_steps, and a domain touching the shell: 1e-8..1e-12 rel.
 //   test/cpp/test_lattice_diffusion.cpp. The forward is the kernel imp.bff validated against analytic
 //   diffusion (its test/quenching/test_quenching_field.py); imp.bff vendors this header verbatim.
+//   2026-10-20: LATTICE_FLUX_DETAILED_BALANCE gets the same adjoint identity (1e-7..1e-12) plus a stationary
+//   weight field to 3e-16 over 500 steps, relaxation onto it from any start, and w = 1 equal to Smoluchowski.
 //   Register: okf/testing/math-kernel-validation.md
 
 // Explicit propagation of a density on a masked cubic lattice, and its adjoint.
@@ -25,6 +27,19 @@
 //
 //   LATTICE_FLUX_SMOLUCHOWSKI   0.5 (d_c + d_m) (p_c - p_m) b_m   equilibrium uniform, whatever D
 //   LATTICE_FLUX_ITO            (d_c p_c - d_m p_m) b_m           equilibrium p ~ 1/D
+//   LATTICE_FLUX_DETAILED_BALANCE
+//       0.5 (d_c + d_m) sqrt(w_c w_m) (p_c / w_c - p_m / w_m) b_m      equilibrium p ~ w, whatever D
+//
+// The third is the Smoluchowski equation *with a potential*, w = exp(-U/kT)
+// the equilibrium weight. Mobility and equilibrium are then separate inputs:
+// the flux vanishes exactly at p = w on every edge (detailed balance, so the
+// discrete scheme's stationary state is w itself, not an approximation of it),
+// and the arithmetic-mean mobility sets only how fast it is reached. With
+// w = 1 it is LATTICE_FLUX_SMOLUCHOWSKI term for term. The geometric mean
+// sqrt(w_c w_m) is what makes the generator symmetric under u = p / sqrt(w):
+// off-diagonal -0.5 (d_c + d_m) b_m, the same as the plain Smoluchowski form,
+// diagonal sum_m 0.5 (d_c + d_m) b_m sqrt(w_m / w_c). The weights enter as
+// r = sqrt(w), computed once by lattice_root_weight().
 //
 // The outer shell of the grid is written to zero rather than left alone: the
 // stencil cannot be evaluated there, and with ping-pong buffers those voxels
@@ -68,7 +83,35 @@ namespace TTTRLIB_LATTICE_NAMESPACE {
 /// How the flux between two voxels is discretised; the two differ exactly
 /// when the mobility varies in space, and the difference decides where the
 /// density sits at equilibrium (see the header comment).
-enum LatticeFluxForm { LATTICE_FLUX_SMOLUCHOWSKI = 0, LATTICE_FLUX_ITO = 1 };
+enum LatticeFluxForm {
+    LATTICE_FLUX_SMOLUCHOWSKI = 0,
+    LATTICE_FLUX_ITO = 1,
+    LATTICE_FLUX_DETAILED_BALANCE = 2
+};
+
+/// `sqrt(w)` where `bounds` is non-zero, 1 elsewhere: what the detailed-balance
+/// flux reads. Empty `weight` means w = 1 (the plain Smoluchowski form).
+/*!
+    \throws std::invalid_argument if `weight` is not ng^3 long, or is not
+            positive and finite somewhere in the domain -- a zero weight is a
+            voxel the dye can never occupy, which is a bound, not a weight.
+*/
+inline std::vector<double> lattice_root_weight(const std::vector<double>& weight,
+                                               const std::vector<double>& bounds) {
+    std::vector<double> r(bounds.size(), 1.0);
+    if (weight.empty()) return r;
+    if (weight.size() != bounds.size())
+        throw std::invalid_argument("lattice_root_weight: weight must have as many voxels as bounds");
+    for (std::size_t c = 0; c < bounds.size(); ++c) {
+        if (bounds[c] == 0.0) continue;
+        const double w = weight[c];
+        if (!(w > 0.0) || !std::isfinite(w))
+            throw std::invalid_argument("lattice_root_weight: the equilibrium weight must be positive and "
+                                        "finite inside the domain");
+        r[c] = std::sqrt(w);
+    }
+    return r;
+}
 
 /// One explicit sweep of `dp/dt = div(D grad p) - k p`, writing into `nxt`.
 /*!
@@ -113,6 +156,49 @@ inline void lattice_sweep(const std::vector<double>& cur, const std::vector<doub
                 // The rate is applied as a factor: exp(-k dt) is the exact
                 // solution of dp/dt = -k p over the step, so it contributes no
                 // stability constraint. Subtracting k dt diverges once k dt > 1.
+                nxt[c] = (p0 - flux) * decay[c];
+            }
+        }
+    }
+}
+
+/// One explicit sweep with the detailed-balance flux, writing into `nxt`.
+/*!
+    `p'_c = decay_c [p_c - sum_m h_cm (r_m/r_c p_c - r_c/r_m p_m)]`,
+    `h_cm = 0.5 (d_c + d_m) b_m`, `r = sqrt(w)` from lattice_root_weight().
+    At `p = w` every bracket is zero, so with `decay = 1` the weight field is
+    a fixed point of the *discrete* step to roundoff. Same threading and shell
+    handling as lattice_sweep().
+*/
+inline void lattice_sweep_weighted(const std::vector<double>& cur, const std::vector<double>& d,
+           const std::vector<double>& decay, const std::vector<double>& bounds,
+           const std::vector<double>& root_w, std::size_t n, std::vector<double>& nxt) {
+    std::fill(nxt.begin(), nxt.end(), 0.0);
+    const long ngl = static_cast<long>(n);
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (long ixl = 1; ixl < ngl - 1; ++ixl) {
+        const std::size_t ix = static_cast<std::size_t>(ixl);
+        for (std::size_t iy = 1; iy + 1 < n; ++iy) {
+            for (std::size_t iz = 1; iz + 1 < n; ++iz) {
+                const std::size_t c = (ix * n + iy) * n + iz;
+                if (bounds[c] == 0.0) continue;
+                const double p0 = cur[c], d0 = d[c], r0 = root_w[c];
+                const double inv0 = 1.0 / r0;
+                const std::size_t nb[6] = {
+                    ((ix - 1) * n + iy) * n + iz, ((ix + 1) * n + iy) * n + iz,
+                    (ix * n + iy - 1) * n + iz,   (ix * n + iy + 1) * n + iz,
+                    (ix * n + iy) * n + iz - 1,   (ix * n + iy) * n + iz + 1};
+                double flux = 0.0;
+                for (int q = 0; q < 6; ++q) {
+                    const std::size_t m = nb[q];
+                    const double bm = bounds[m];
+                    if (bm == 0.0) continue;     // reflecting wall
+                    const double h = 0.5 * (d0 + d[m]) * bm;
+                    const double rm = root_w[m];
+                    flux += h * (rm * inv0 * p0 - r0 / rm * cur[m]);
+                }
                 nxt[c] = (p0 - flux) * decay[c];
             }
         }
@@ -222,16 +308,105 @@ inline void lattice_adjoint_sweep(const std::vector<double>& cur, const std::vec
     }
 }
 
+/// The adjoint of lattice_sweep_weighted(), in the same gather form.
+/*!
+    Row c of A (c active): diagonal `delta_c (1 - sum_m h_cm s_cm)`,
+    off-diagonal `delta_c h_cm / s_cm`, with `s_cm = r_m / r_c`. The gradient
+    is with respect to `d` and `decay`, the weights held fixed.
+*/
+inline void lattice_adjoint_sweep_weighted(const std::vector<double>& cur, const std::vector<double>& d,
+                   const std::vector<double>& decay, const std::vector<double>& bounds,
+                   const std::vector<double>& root_w,
+                   const std::vector<double>& pbar, std::size_t n,
+                   std::vector<double>& pbar_prev, std::vector<double>& dbar,
+                   std::vector<double>& decaybar) {
+    const long ngl = static_cast<long>(n);
+    const long stride[6] = {-ngl * ngl, ngl * ngl, -ngl, ngl, -1, 1};
+    const double* P = cur.data();
+    const double* D = d.data();
+    const double* B = bounds.data();
+    const double* R = root_w.data();
+    const double* DEC = decay.data();
+    const double* PB = pbar.data();
+    double* PBP = pbar_prev.data();
+    double* DB = dbar.data();
+    double* DECB = decaybar.data();
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (long ixl = 0; ixl < ngl; ++ixl) {
+        for (long iy = 0; iy < ngl; ++iy) {
+            for (long iz = 0; iz < ngl; ++iz) {
+                const long m = (ixl * ngl + iy) * ngl + iz;
+                const double bm = B[m];
+                if (bm == 0.0) { PBP[m] = 0.0; continue; }
+                const bool xi = ixl >= 1 && ixl < ngl - 1, yi = iy >= 1 && iy < ngl - 1, zi = iz >= 1 && iz < ngl - 1;
+                const bool m_interior = xi && yi && zi;
+                const bool m_active = m_interior && bm != 0.0;
+                const bool k_int[6] = {ixl >= 2 && yi && zi, ixl < ngl - 2 && yi && zi,
+                                       xi && iy >= 2 && zi, xi && iy < ngl - 2 && zi,
+                                       xi && yi && iz >= 2, xi && yi && iz < ngl - 2};
+                const double p0 = P[m], d0 = D[m], dec0 = DEC[m], pb0 = PB[m], r0 = R[m];
+                double coef = 0.0, flux = 0.0, ddiag = 0.0;
+                double pb_off = 0.0, db_off = 0.0;
+                for (int q = 0; q < 6; ++q) {
+                    if (!m_interior && !k_int[q]) continue;
+                    const long k = m + stride[q];
+                    const double bk = B[k];
+                    if (bk == 0.0) continue;     // no edge either way: h vanishes in both rows
+                    const double pk = P[k], dk = D[k], rk = R[k];
+                    const double up = rk / r0, dn = r0 / rk;   // s_mk and 1/s_mk
+                    if (m_active) {
+                        const double h = 0.5 * (d0 + dk) * bk;
+                        const double j = up * p0 - dn * pk;
+                        coef += h * up;
+                        flux += h * j;
+                        ddiag += 0.5 * bk * j;
+                    }
+                    if (k_int[q]) {               // k active: row k read p_m and d_m through b_m
+                        const double pbk = PB[k], deck = DEC[k];
+                        pb_off += deck * 0.5 * (dk + d0) * bm * up * pbk;          // h_km / s_km, s_km = r_m / r_k
+                        db_off += -deck * pbk * 0.5 * bm * (dn * pk - up * p0);
+                    }
+                }
+                double pb = pb_off, db = db_off;
+                if (m_active) {
+                    pb += dec0 * (1.0 - coef) * pb0;
+                    DECB[m] += pb0 * (p0 - flux);
+                    db += -dec0 * pb0 * ddiag;
+                }
+                PBP[m] = pb;
+                DB[m] += db;
+            }
+        }
+    }
+}
+
+/// One sweep in whichever flux form `flux_form` names; `root_w` is read only
+/// by LATTICE_FLUX_DETAILED_BALANCE.
+inline void lattice_sweep_form(const std::vector<double>& cur, const std::vector<double>& d,
+           const std::vector<double>& decay, const std::vector<double>& bounds,
+           const std::vector<double>& root_w, std::size_t n, int flux_form,
+           std::vector<double>& nxt) {
+    if (flux_form == LATTICE_FLUX_DETAILED_BALANCE)
+        lattice_sweep_weighted(cur, d, decay, bounds, root_w, n, nxt);
+    else
+        lattice_sweep(cur, d, decay, bounds, n, flux_form == LATTICE_FLUX_SMOLUCHOWSKI, nxt);
+}
+
 /// Propagate `n_steps` explicit steps from `cur`, reporting the population
 /// (the plain sum over all voxels) before every `n_out`-th step and once more
 /// at the end -- `n_steps / n_out + 1` values in `population_out` -- and
-/// return the final density.
+/// return the final density. `weight` is the equilibrium weight field the
+/// detailed-balance form reads (empty: w = 1); the other two forms ignore it.
 inline std::vector<double> lattice_propagate(
         const std::vector<double>& cur_in, const std::vector<double>& d,
         const std::vector<double>& decay, const std::vector<double>& bounds,
         int ng, int flux_form, int n_steps, int n_out,
-        std::vector<double>& population_out) {
-    const bool smoluchowski = (flux_form == LATTICE_FLUX_SMOLUCHOWSKI);
+        std::vector<double>& population_out,
+        const std::vector<double>& weight = std::vector<double>()) {
+    const std::vector<double> root_w = flux_form == LATTICE_FLUX_DETAILED_BALANCE
+            ? lattice_root_weight(weight, bounds) : std::vector<double>();
     const std::size_t n = static_cast<std::size_t>(ng);
     std::vector<double> cur = cur_in;
     std::vector<double> nxt(cur.size(), 0.0);
@@ -244,7 +419,7 @@ inline std::vector<double> lattice_propagate(
         if (step % n_out == 0 && i_out < n_reports) {
             population_out[static_cast<std::size_t>(i_out++)] = lattice_population(cur);
         }
-        lattice_sweep(cur, d, decay, bounds, n, smoluchowski, nxt);
+        lattice_sweep_form(cur, d, decay, bounds, root_w, n, flux_form, nxt);
         // Swap **every** step. Swapping only on odd steps while always
         // computing nxt <- f(cur) recomputes the previous step from a stale
         // buffer and throws away half the evolution.
@@ -263,8 +438,11 @@ inline void lattice_propagate_adjoint(
         int ng, int flux_form, int n_steps, int n_out,
         const std::vector<double>& dL_dF,
         std::vector<double>& dL_dd, std::vector<double>& dL_ddecay,
-        std::vector<double>& dL_dcur) {
+        std::vector<double>& dL_dcur,
+        const std::vector<double>& weight = std::vector<double>()) {
     const bool smoluchowski = (flux_form == LATTICE_FLUX_SMOLUCHOWSKI);
+    const bool weighted = (flux_form == LATTICE_FLUX_DETAILED_BALANCE);
+    const std::vector<double> root_w = weighted ? lattice_root_weight(weight, bounds) : std::vector<double>();
     const std::size_t n = static_cast<std::size_t>(ng);
     const std::size_t nv = cur_in.size();
     if (n_out < 1) n_out = 1;
@@ -292,7 +470,7 @@ inline void lattice_propagate_adjoint(
         std::vector<double> cur = cur_in, nxt(nv, 0.0);
         for (int step = 0; step < n_steps; ++step) {
             if (step % K == 0) checkpoint[static_cast<std::size_t>(step / K)] = cur;
-            lattice_sweep(cur, d, decay, bounds, n, smoluchowski, nxt);
+            lattice_sweep_form(cur, d, decay, bounds, root_w, n, flux_form, nxt);
             cur.swap(nxt);
         }
         if (n_steps % K == 0) checkpoint[static_cast<std::size_t>(n_steps / K)] = cur;
@@ -317,11 +495,15 @@ inline void lattice_propagate_adjoint(
         seg[0] = checkpoint[static_cast<std::size_t>(seg_start / K)];
         for (int i = 1; i < len; ++i) {
             seg[static_cast<std::size_t>(i)].assign(nv, 0.0);
-            lattice_sweep(seg[static_cast<std::size_t>(i - 1)], d, decay, bounds, n, smoluchowski, seg[static_cast<std::size_t>(i)]);
+            lattice_sweep_form(seg[static_cast<std::size_t>(i - 1)], d, decay, bounds, root_w, n, flux_form,
+                               seg[static_cast<std::size_t>(i)]);
         }
         for (int step = seg_end - 1; step >= seg_start; --step) {
             // pbar is the adjoint of p_{step+1}; produce the adjoint of p_step.
-            if (smoluchowski)
+            if (weighted)
+                lattice_adjoint_sweep_weighted(seg[static_cast<std::size_t>(step - seg_start)], d, decay, bounds,
+                                               root_w, pbar, n, pbar_prev, dL_dd, dL_ddecay);
+            else if (smoluchowski)
                 lattice_adjoint_sweep<true>(seg[static_cast<std::size_t>(step - seg_start)], d, decay, bounds, pbar, n,
                                     pbar_prev, dL_dd, dL_ddecay);
             else
