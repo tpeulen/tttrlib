@@ -6324,7 +6324,7 @@ retired so nobody works the same thing twice.)*
   - Owner: antigravity/08c92c7c
   - Touching: `chisurf/emtk/main_app.py`, `test/native_emtk/test_emtk_shell_final_parity.py`, `okf/log.md`.
 
-## Active — ptolib index reserve sized by object count, 2026-10-19
+## Resolved — ptolib index reserve sized by object count, 2026-10-19
 
 - **T-20261019-01 · [both] Replace the local 64 KiB / byte `index_reserve` ptolib patch with the upstream fix**
   - Status: ✅ done 2026-10-19 — re-vendored at ptolib `v0.3.2-26-g98497f1`; `PtoFile::create(filename, title, max_objects)`; chisurf passes `4·raws+64`; tttrlib PTO 164 passed, chisurf PTO 225 passed (banner test green again). Not committed yet.
