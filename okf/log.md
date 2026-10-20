@@ -1,5 +1,16 @@
 # Bundle update log
 
+## 2026-10-20 — read_clsm_settings is the header resolution, not a second decoder
+
+- `CLSMImage.read_clsm_settings` now reports `CLSMImageInfo.from_header` (the
+  settings the constructor builds with) instead of re-decoding the PTU/HT3 tags in
+  Python. The copy had drifted again after 5d126dec3: it said frame marker `[4]`
+  for the Leica SP5/SP8 samples where the C++ reader uses `[4, 6]`, so a caller
+  building with the reported settings (chisurf's CLSM tool) got a 3 x 3316 x 256
+  SP5 image instead of 230 x 256 x 256. BH files without scan markers now give `{}`
+  (was `{"bidirectional_scan": False}`). Guard:
+  `TestReadClsmSettingsIsTheHeaderResolution` in `test/python/clsm/test_CLSM_metadata.py`.
+
 ## 2026-10-20 — Detailed-balance flux in the lattice diffusion kernel
 
 - `LatticeDiffusion.h` gains `LATTICE_FLUX_DETAILED_BALANCE`: the Smoluchowski

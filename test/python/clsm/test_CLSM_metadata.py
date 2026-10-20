@@ -72,7 +72,8 @@ class TestCLSMImageMetadata(unittest.TestCase):
         self.assertIn('n_lines', settings)
         
         # Check marker values are correct (2^index conversion)
-        self.assertEqual(settings['marker_frame_start'], [4])  # 2^2
+        # 2^2, and 2^2 | 2^1: a frame bit merged with the last line stop is a frame edge too
+        self.assertEqual(settings['marker_frame_start'], [4, 6])
         self.assertEqual(settings['marker_line_start'], 1)     # 2^0
         self.assertEqual(settings['marker_line_stop'], 2)      # 2^1
         self.assertEqual(settings['n_pixel_per_line'], 500)
@@ -306,3 +307,40 @@ class TestCLSMImageBackwardCompatibility(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+
+
+class TestReadClsmSettingsIsTheHeaderResolution(unittest.TestCase):
+    """``CLSMImage.read_clsm_settings`` reports what ``CLSMImageInfo.from_header``
+    resolves -- the settings the constructor builds with -- for every sample file.
+
+    It used to decode the header a second time in Python and drifted: after the
+    C++ reader learnt that a PTU frame bit merged with the last line stop (Leica
+    SP5: 4 | 2 = 6) is a frame edge, the Python helper still said ``[4]``, and a
+    caller that built with those settings got a 3 x 3316 x 256 SP5 image instead
+    of 230 x 256 x 256.
+    """
+
+    def test_settings_equal_from_header_for_every_sample(self):
+        files = [settings.get(k) for k in ("clsm_sp5_filename", "clsm_confocal_filename",
+                                           "clsm_sted_filename", "ht3_clsm_filename")]
+        checked = 0
+        for path in files:
+            if not path or not os.path.exists(path):
+                continue
+            tttr = tttrlib.TTTR(path)
+            info = tttrlib.CLSMImageInfo.from_header(tttr.header)
+            got = tttrlib.CLSMImage.read_clsm_settings(tttr)
+            self.assertEqual(got["marker_frame_start"], [int(m) for m in info.marker_frame_start], path)
+            self.assertEqual(got["marker_line_start"], info.marker_line_start, path)
+            self.assertEqual(got["marker_line_stop"], info.marker_line_stop, path)
+            self.assertEqual((got["n_pixel_per_line"], got["n_lines"]), (info.n_pixel, info.n_lines), path)
+            # and building with the reported settings is building from the header
+            built = tttrlib.CLSMImage(tttr_data=tttr, **{
+                k: got[k] for k in ("marker_frame_start", "marker_line_start", "marker_line_stop",
+                                    "marker_event_type", "n_pixel_per_line")})
+            header = tttrlib.CLSMImage(tttr_data=tttr)
+            self.assertEqual((built.n_frames, built.n_lines, built.n_pixel),
+                             (header.n_frames, header.n_lines, header.n_pixel), path)
+            checked += 1
+        if not checked:
+            self.skipTest("no CLSM sample files available")

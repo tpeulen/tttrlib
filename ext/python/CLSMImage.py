@@ -142,112 +142,34 @@ def __getattr__(self, item):
 @staticmethod
 def read_clsm_settings(tttr_data):
     """
-    Read CLSM settings from TTTR header metadata.
+    CLSM settings read from the TTTR header, as the constructor resolves them.
 
-    Handles both PTU and HT3 file formats with robust error handling
-    for missing or malformed metadata.
+    A view of ``CLSMImageInfo.from_header`` (the C++ resolution every binding
+    uses), not a second decoder: a Python copy of that logic drifted from it twice
+    (most recently PTU frame markers, where a frame bit merged with the last line
+    stop -- Leica SP5: 4 | 2 = 6 -- is a frame edge too, so the header's frame
+    marker 4 reads as ``[4, 6]``). Returns an empty dict when the header carries
+    no scan markers.
 
-    FIXED VERSION - uses 2^idx for markers
+    Keys: ``marker_line_start``, ``marker_line_stop``, ``marker_frame_start``
+    (list), ``n_pixel_per_line``, ``n_lines``, ``marker_event_type``,
+    ``bidirectional_scan``.
     """
     settings = dict()
-    if tttr_data is not None:
-        header = tttr_data.header
-
-        # Read PTU‐style tags
-        if tttr_data.get_tttr_container_type() == 'PTU':
-            try:
-                line_start_tag = header.tag('ImgHdr_LineStart')
-                line_stop_tag = header.tag('ImgHdr_LineStop')
-                line_start_val = line_start_tag.get("value", None)
-                line_stop_val = line_stop_tag.get("value", None)
-                if line_start_val is None or line_stop_val is None:
-                    return settings
-                line_start_raw = int(line_start_val)
-                line_stop_raw = int(line_stop_val)
-            except (KeyError, ValueError, TypeError):
-                # Missing line markers - not a CLSM image
-                return settings
-
-            if line_start_raw == 0:
-                # Unusual file: ImgHdr_LineStart=0 means use 2^index encoding
-                try:
-                    frame_tag = header.tag('ImgHdr_Frame')
-                    frame_val = frame_tag.get("value", None)
-                    frame_raw = int(frame_val) if frame_val is not None else None
-                except (KeyError, ValueError, TypeError):
-                    frame_raw = None
-
-                marker_frame = []
-                if frame_raw is not None and frame_raw >= 0:
-                    marker_frame = [1 << frame_raw]
-                if not marker_frame:
-                    marker_frame = [4]
-
-                try:
-                    pix_x = int(header.tag('ImgHdr_PixX').get("value", 0))
-                    pix_y = int(header.tag('ImgHdr_PixY').get("value", 0))
-                except (KeyError, ValueError, TypeError):
-                    pix_x = 0
-                    pix_y = 0
-
-                settings.update({
-                    "marker_line_start": 1 << line_start_raw,      # 2^0 = 1
-                    "marker_line_stop":  1 << line_stop_raw,
-                    "marker_frame_start": marker_frame,
-                    "n_pixel_per_line":  pix_x,
-                    "n_lines":           pix_y,
-                    "marker_event_type": 1
-                })
-            else:
-                try:
-                    pix_x = int(header.tag('ImgHdr_PixX').get("value", 0))
-                    pix_y = int(header.tag('ImgHdr_PixY').get("value", 0))
-                except (KeyError, ValueError, TypeError):
-                    pix_x = 0
-                    pix_y = 0
-
-                try:
-                    frame_tag = header.tag('ImgHdr_Frame')
-                    frame_val = frame_tag.get("value", None)
-                    frame_raw = int(frame_val) if frame_val is not None else None
-                except (KeyError, ValueError, TypeError):
-                    frame_raw = None
-
-                marker_frame = []
-                if frame_raw is not None and frame_raw > 0:
-                    marker_frame = [1 << (frame_raw - 1)]
-
-                settings.update({
-                    "marker_line_start": 1 << (line_start_raw - 1),      # 2^0 = 1
-                    "marker_line_stop":  1 << (line_stop_raw - 1),
-                    "marker_frame_start": marker_frame,
-                    "n_pixel_per_line":  pix_x,
-                    "n_lines":           pix_y,
-                    "marker_event_type": 1
-                })
-
-        # Read HT3‐style tags
-        elif tttr_data.get_tttr_container_type() == 'HT3':
-            try:
-                settings.update({
-                    "marker_line_start":   int(header.tag('ImgHdr_LineStart').get("value", 0)),
-                    "marker_line_stop":    int(header.tag('ImgHdr_LineStop').get("value", 0)),
-                    "n_pixel_per_line":    int(header.tag('ImgHdr_PixX').get("value", 0)),
-                    "n_lines":             int(header.tag('ImgHdr_PixY').get("value", 0)),
-                    "marker_frame_start":  [int(header.tag('ImgHdr_Frame').get("value", 0))],
-                    "marker_event_type":   1
-                })
-            except (KeyError, ValueError, TypeError):
-                pass
-
-        # --- NEW: read bidirectional‐scan flag ---
-        try:
-            bd_tag = header.tag('ImgHdr_BiDirect')
-            bd = int(bd_tag.get("value", 0))
-            settings["bidirectional_scan"] = (bd != 0)
-        except:
-            settings["bidirectional_scan"] = False
-
+    if tttr_data is None:
+        return settings
+    info = tttrlib.CLSMImageInfo.from_header(tttr_data.header)
+    if not (info.has_line_markers or info.reading_routine != getattr(tttrlib, "CLSM_DEFAULT", 0)):
+        return settings
+    settings.update({
+        "marker_line_start": int(info.marker_line_start),
+        "marker_line_stop": int(info.marker_line_stop),
+        "marker_frame_start": [int(m) for m in info.marker_frame_start],
+        "n_pixel_per_line": int(info.n_pixel),
+        "n_lines": int(info.n_lines),
+        "marker_event_type": int(info.marker_event_type),
+        "bidirectional_scan": bool(info.bidirectional_scan),
+    })
     return settings
 
 
