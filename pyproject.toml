@@ -84,6 +84,9 @@ wheel.packages = []
 build-dir = "build/{wheel_tag}"
 install.strip = true
 install.components = ["bindings"]
+# Third-party notices: NOTICE and licenses/ (Apache-2.0 and MIT texts of the code the
+# Photonscore reader was ported from) ship in the wheel's dist-info beside LICENSE.txt.
+wheel.license-files = ["LICEN[CS]E*", "COPYING*", "NOTICE*", "AUTHORS*", "licenses/*"]
 
 # Pyodide (wasm32-emscripten). pyodide-build exports PYODIDE=1 into the build
 # environment; tools/pyodide/build_wheel.sh drives it. Later -D flags win over

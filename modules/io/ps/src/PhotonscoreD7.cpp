@@ -1,4 +1,18 @@
-// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-License-Identifier: BSD-3-Clause AND Apache-2.0 AND MIT
+//
+// Derived from third-party code (see NOTICE and licenses/ at the repository root):
+//   D7 (.photons) file format reference implementation, https://github.com/photonscore/d7
+//     Copyright 2026 Photonscore GmbH
+//     Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt); you may not
+//     use this file except in compliance with the License. Distributed on an "AS IS" BASIS,
+//     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   photonsfile, https://github.com/alex1075/photonsfile
+//     Copyright (c) 2026 Alex Hunt
+//     MIT License (licenses/photonsfile-MIT.txt)
+//
+// MODIFIED by the tttrlib developers: rewritten as a std-only C++ port (protobuf wire format
+// parsed by hand, integer delta datasets only) and adapted to tttrlib's I/O. The modifications
+// are licensed under the BSD 3-Clause License (LICENSE.txt).
 #include "PhotonscoreD7.h"
 
 #include <algorithm>

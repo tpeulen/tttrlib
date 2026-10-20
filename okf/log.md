@@ -1,5 +1,19 @@
 # Bundle update log
 
+## 2026-10-20 — The Photonscore reader carries its upstream notices
+
+- `modules/io/ps/{include/PhotonscoreD7.h,src/PhotonscoreD7.cpp}` is a port of
+  photonscore/d7 (Apache-2.0, Copyright 2026 Photonscore GmbH) and
+  alex1075/photonsfile (MIT, Copyright (c) 2026 Alex Hunt) and carried neither
+  notice. Both files now open with the upstream copyright notices, a
+  "MODIFIED by the tttrlib developers" statement and SPDX
+  `BSD-3-Clause AND Apache-2.0 AND MIT`; the repository gains `NOTICE` (the
+  pertinent d7 NOTICE attribution) and `licenses/Apache-2.0.txt`,
+  `licenses/photonsfile-MIT.txt` (verbatim upstream texts, d7 627b2b2,
+  photonsfile f620ff2). Shipped by `wheel.license-files` (pyproject) and
+  `license_file` lists in the py/cli/r recipes; the declared package licence
+  stays BSD-3-Clause. Guard: `test/python/misc/test_third_party_notices.py`.
+
 ## 2026-10-20 — read_clsm_settings is the header resolution, not a second decoder
 
 - `CLSMImage.read_clsm_settings` now reports `CLSMImageInfo.from_header` (the

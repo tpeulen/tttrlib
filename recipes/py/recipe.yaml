@@ -67,7 +67,13 @@ about:
     time-resolved imaging and spectroscopic data. For speed, it
     is written in C++ and wrapped for Python via SWIG.
   license: BSD-3-Clause
-  license_file: LICENSE.txt
+  # tttrlib is BSD-3-Clause; the Photonscore .photons reader is a modified port of
+  # Apache-2.0 and MIT code (NOTICE, licenses/).
+  license_file:
+    - LICENSE.txt
+    - NOTICE
+    - licenses/Apache-2.0.txt
+    - licenses/photonsfile-MIT.txt
   documentation: https://tttrlib.readthedocs.io
   repository: https://github.com/fluorescence-tools/tttrlib
 

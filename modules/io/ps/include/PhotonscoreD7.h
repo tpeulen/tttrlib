@@ -1,4 +1,18 @@
-// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-License-Identifier: BSD-3-Clause AND Apache-2.0 AND MIT
+//
+// Derived from third-party code (see NOTICE and licenses/ at the repository root):
+//   D7 (.photons) file format reference implementation, https://github.com/photonscore/d7
+//     Copyright 2026 Photonscore GmbH
+//     Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt); you may not
+//     use this file except in compliance with the License. Distributed on an "AS IS" BASIS,
+//     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   photonsfile, https://github.com/alex1075/photonsfile
+//     Copyright (c) 2026 Alex Hunt
+//     MIT License (licenses/photonsfile-MIT.txt)
+//
+// MODIFIED by the tttrlib developers: rewritten as a std-only C++ port (protobuf wire format
+// parsed by hand, integer delta datasets only) and adapted to tttrlib's I/O. The modifications
+// are licensed under the BSD 3-Clause License (LICENSE.txt).
 #ifndef TTTRLIB_PHOTONSCORED7_H
 #define TTTRLIB_PHOTONSCORED7_H
 // Validation: A/B-TESTED 2026-08-17 -- the public reference decoder photonsfile (Python port of
@@ -28,9 +42,11 @@
  * individual datasets are diff-encoded as a @c seed plus the cumulative sum of
  * zigzag-varint deltas.
  *
- * This decoder is a std-only port of the public, Apache-2.0 reference decoder
- * (github.com/photonscore/d7 and github.com/alex1075/photonsfile). It parses
- * the protobuf wire format by hand and needs no protobuf library. Only the
+ * This decoder is a modified, std-only port of the public reference decoders
+ * github.com/photonscore/d7 (Apache-2.0, Copyright 2026 Photonscore GmbH) and
+ * github.com/alex1075/photonsfile (MIT, Copyright (c) 2026 Alex Hunt); the
+ * notices are at the top of this file and in NOTICE. It parses the protobuf
+ * wire format by hand and needs no protobuf library. Only the
  * integer delta path (signed and unsigned integer datasets) is decoded; the
  * raw float, double and bytes fields are not used by LINCam FLIM files.
  */

@@ -1,0 +1,34 @@
+tttrlib
+Copyright (c) Thomas-Otavio Peulen and the tttrlib developers.
+Licensed under the BSD 3-Clause License (LICENSE.txt).
+
+This product includes software derived from third-party code. The licence
+texts are in the licenses/ folder.
+
+Photonscore LINCam ".photons" (D7) reader
+  modules/io/ps/include/PhotonscoreD7.h, modules/io/ps/src/PhotonscoreD7.cpp
+  are a modified, std-only C++ port of:
+
+  - D7 (.photons) file format reference implementation
+    https://github.com/photonscore/d7
+    Copyright 2026 Photonscore GmbH
+    Licensed under the Apache License, Version 2.0
+    (licenses/Apache-2.0.txt). The attribution notice of its NOTICE file
+    that pertains to this port is reproduced here:
+
+        D7 (.photons) file format reference implementation
+        Copyright 2026 Photonscore GmbH
+
+    (The third-party components that NOTICE also lists -- fmt, oneTBB,
+    protobuf -- are not used by or included in tttrlib.)
+
+  - photonsfile, a pure-Python reader for Photonscore LINCam .photons files
+    https://github.com/alex1075/photonsfile
+    Copyright (c) 2026 Alex Hunt
+    MIT License (licenses/photonsfile-MIT.txt)
+
+  The tttrlib developers modified the code: the decoder was rewritten in
+  C++ (standard library only, protobuf wire format parsed by hand), only
+  the integer delta-encoded datasets are decoded, and it was adapted to
+  tttrlib's file I/O and TTTR container. tttrlib's modifications are
+  licensed under the BSD 3-Clause License.
