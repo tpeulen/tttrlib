@@ -159,18 +159,22 @@ class TestPtoExecutableContainers(unittest.TestCase):
         self.assertEqual(res_info.returncode, 0)
         self.assertIn("Executable Bundle", res_info.stdout)
 
-        # Run bundled executable directly with no args (runs ls via PTO_READER)
+        # Run the bundle directly: the stub's shebang makes the kernel exec it
+        # (the old MZ-first stub needed /bin/sh -- execve refused it).
+        with open(bundle_path, "rb") as fp:
+            self.assertEqual(fp.read(10), b"#!/bin/sh\n")
+        self.assertTrue(os.access(bundle_path, os.X_OK))
         env = os.environ.copy()
         env["PTO_READER"] = PTO_BIN
-        res_exec = subprocess.run(["/bin/sh", bundle_path], capture_output=True, text=True, env=env)
+        res_exec = subprocess.run([bundle_path], capture_output=True, text=True, env=env)
         self.assertEqual(res_exec.returncode, 0)
         self.assertIn("Executable Container Test", res_exec.stdout)
         self.assertIn("stream1", res_exec.stdout)
 
-        # Run bundled executable extract command
+        # Arguments become the reader's subcommand
         ext_dir = os.path.join(self.temp_dir.name, "bundle_extracted")
         os.makedirs(ext_dir, exist_ok=True)
-        res_ext = subprocess.run(["/bin/sh", bundle_path, "extract", "-o", ext_dir], capture_output=True, text=True, env=env)
+        res_ext = subprocess.run([bundle_path, "extract", "-o", ext_dir], capture_output=True, text=True, env=env)
         self.assertEqual(res_ext.returncode, 0)
         with open(os.path.join(ext_dir, "stream1"), "rb") as fp:
             self.assertEqual(fp.read(), self.payload1)
