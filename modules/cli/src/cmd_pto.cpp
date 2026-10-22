@@ -11,12 +11,17 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <system_error>
+#include <vector>
 
 #include "cxxopts.hpp"
 
@@ -72,7 +77,8 @@ const char* const kHelp =
         "  tttr pto cat FILE NAME    print an object's payload\n"
         "  tttr pto extract FILE [OBJECT] DIR   extract one or all objects\n"
         "  tttr pto pack -o OUT.pto PATH...     bundle files into a new container\n"
-        "  tttr pto add FILE PATH...            bundle files into an existing one\n";
+        "  tttr pto add FILE PATH...            bundle files into an existing one\n"
+        "  tttr pto exec FILE [-o OUT]          make a container self-executing\n";
 
 /*!
  * \brief `pack` and `add`: the write side, a directory of files in one call.
@@ -153,6 +159,180 @@ int bundle(int argc, char** argv, bool create) {
     return 0;
 }
 
+// -- self-executing containers ---------------------------------------------------
+//
+// A .pto can carry an executable stub in front of its EBML document: every
+// reader locates the header by scanning (File::find_ebml_header), so the bytes
+// before it are free. The stub is a POSIX sh script first -- `#!/bin/sh` on
+// line one, so the kernel itself runs the file: ./run.pto works from any shell,
+// a file manager, or execve, on macOS and Linux alike. A Windows machine can
+// still run the same bytes as a batch file (rename to .cmd): the batch block
+// sits inside a `: <<'EOF'` heredoc that sh consumes as a no-op and cmd runs
+// as the body of a label.
+//
+// Run directly, the file finds a reader -- `tttr` first, because tttrlib is
+// what a machine usually has, then the standalone `pto`/`ptoview` -- hands it
+// itself and the arguments:
+//   ./run.pto                 -> tttr pto ls run.pto
+//   ./run.pto extract out/    -> tttr pto extract run.pto out/
+// Without any reader installed the file still says what it is and how to open
+// it, and exits 69 (EX_UNAVAILABLE) rather than failing cryptically.
+//
+// The stub is exactly 1024 bytes ('#' comment padding), so the EBML header
+// lands on a multiple of 8 like every payload in the container.
+
+/// The polyglot stub: shebang + sh reader logic + a heredoc'd batch block.
+std::vector<unsigned char> exec_stub() {
+    std::string script =
+        "#!/bin/sh\n"
+        ": << 'EOF'\n"
+        "@echo off\n"
+        "set \"PTO_FILE=%~f0\"\n"
+        "if \"%PTO_READER%\"==\"\" where tttr >nul 2>&1 && set \"PTO_READER=tttr\"\n"
+        "if \"%PTO_READER%\"==\"\" where pto >nul 2>&1 && set \"PTO_READER=pto\"\n"
+        "if \"%PTO_READER%\"==\"\" where ptoview >nul 2>&1 && set \"PTO_READER=ptoview\"\n"
+        "if \"%PTO_READER%\"==\"tttr\" (\n"
+        "  if \"%1\"==\"\" (\"%PTO_READER%\" pto ls \"%PTO_FILE%\") else (\"%PTO_READER%\" pto %1 \"%PTO_FILE%\" %2 %3 %4 %5 %6 %7 %8 %9)\n"
+        ") else (\n"
+        "  \"%PTO_READER%\" \"%PTO_FILE%\" %*\n"
+        ")\n"
+        "exit /b %ERRORLEVEL%\n"
+        "EOF\n"
+        "R=\"${PTO_READER:-}\"\n"
+        "[ -z \"$R\" ] && command -v tttr >/dev/null 2>&1 && R=tttr\n"
+        "[ -z \"$R\" ] && command -v pto >/dev/null 2>&1 && R=pto\n"
+        "[ -z \"$R\" ] && command -v ptoview >/dev/null 2>&1 && R=ptoview\n"
+        "if [ -z \"$R\" ]; then\n"
+        "  echo \"$0: a PTO photon container. No reader found.\" >&2\n"
+        "  echo \"Install tttrlib for the 'tttr' command, then: tttr pto extract \\\"$0\\\" .\" >&2\n"
+        "  exit 69\n"
+        "fi\n"
+        "A=\n"
+        "case \"$R\" in */tttr|tttr|*/tttr.exe|tttr.exe) A=pto;; esac\n"
+        "if [ $# -gt 0 ]; then cmd=\"$1\"; shift; else cmd=ls; fi\n"
+        "exec \"$R\" $A \"$cmd\" \"$0\" \"$@\"\n";
+    // Pad to exactly 1024 bytes with whole '#' comment lines.
+    while (script.size() + 2 <= 1023) script += "#\n";
+    if (script.size() < 1024) {
+        script.append(1023 - script.size(), '#');
+        script += '\n';
+    }
+    if (script.size() != 1024) {
+        throw std::logic_error("the exec stub must be exactly 1024 bytes, it is "
+                               + std::to_string(script.size()));
+    }
+    return std::vector<unsigned char>(script.begin(), script.end());
+}
+
+/*!
+ * \brief `exec`: prepend the stub, in place or to -o, idempotently.
+ *
+ * The container bytes are copied verbatim behind the stub; nothing in them is
+ * rewritten, so anything that reads a .pto (this CLI, tttrlib, ndXplorer, the
+ * standalone pto) opens the executable exactly as it opened the plain one. A
+ * file that already carries a stub has it replaced, never stacked. The result
+ * is marked executable where that means anything (POSIX); on Windows the same
+ * file is a batch script once renamed to .cmd, and the MZ header keeps
+ * `file(1)` honest about it being a container first.
+ */
+int make_executable(int argc, char** argv) {
+    cxxopts::Options opts("tttr pto exec",
+                          "make a PTO container self-executing (sh + batch + MZ/PE stub)");
+    opts.add_options()
+        ("o,output", "write the executable copy here (default: in place)",
+         cxxopts::value<std::string>())
+        ("file", "container file", cxxopts::value<std::string>())
+        ("h,help", "print usage");
+    opts.parse_positional({"file"});
+    cxxopts::ParseResult r;
+    try {
+        r = opts.parse(argc, argv);
+    } catch (const cxxopts::exceptions::exception& e) {
+        return usage(e.what(), opts.help());
+    }
+    if (r.count("help")) {
+        std::cout << opts.help() << std::endl;
+        return 0;
+    }
+    if (!r.count("file")) {
+        return usage("a container file is required", opts.help());
+    }
+    const std::string in = r["file"].as<std::string>();
+    const std::string out = r.count("output") ? r["output"].as<std::string>() : in;
+
+    std::uint64_t old_stub = 0;
+    {
+        PtoFile check;
+        if (!check.open(in, false)) {
+            std::cerr << "error: '" << in << "' is not a readable PTO container: "
+                      << check.error() << std::endl;
+            return 1;
+        }
+        old_stub = check.ebml_offset();
+    }
+
+    std::ifstream src(in, std::ios::binary);
+    if (!src) {
+        std::cerr << "error: cannot read '" << in << "'" << std::endl;
+        return 1;
+    }
+    src.seekg(0, std::ios::end);
+    const std::streamoff size = src.tellg();
+    if (size < (std::streamoff) old_stub) {
+        std::cerr << "error: '" << in << "' shrank under its own stub" << std::endl;
+        return 1;
+    }
+    const std::uint64_t body = static_cast<std::uint64_t>(size) - old_stub;
+
+    namespace fs = std::filesystem;
+    const fs::path tmp = fs::path(out).string() + ".exec.tmp";
+    {
+        std::ofstream dst(tmp, std::ios::binary | std::ios::trunc);
+        if (!dst) {
+            std::cerr << "error: cannot write '" << tmp.string() << "'" << std::endl;
+            return 1;
+        }
+        const std::vector<unsigned char> stub = exec_stub();
+        dst.write(reinterpret_cast<const char*>(stub.data()),
+                  static_cast<std::streamsize>(stub.size()));
+        src.seekg(static_cast<std::streamoff>(old_stub));
+        std::vector<char> buf(1 << 20);
+        for (std::uint64_t left = body; left > 0;) {
+            const std::uint64_t take = left < (std::uint64_t) buf.size() ? left : buf.size();
+            src.read(buf.data(), static_cast<std::streamsize>(take));
+            dst.write(buf.data(), static_cast<std::streamsize>(take));
+            left -= take;
+        }
+        dst.flush();
+        if (!dst) {
+            std::cerr << "error: writing '" << tmp.string() << "' failed" << std::endl;
+            fs::remove(tmp);
+            return 1;
+        }
+    }
+    std::error_code ec;
+    fs::rename(tmp, out, ec);
+    if (ec) {
+        // Windows rename refuses over an existing file; remove and retry.
+        std::error_code drop;
+        fs::remove(out, drop);
+        ec.clear();
+        fs::rename(tmp, out, ec);
+    }
+    if (ec) {
+        std::cerr << "error: cannot put the executable at '" << out << "': "
+                  << ec.message() << std::endl;
+        fs::remove(tmp);
+        return 1;
+    }
+    fs::permissions(out,
+                    fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
+                    fs::perm_options::add, ec);
+    std::cout << out << ": executable (stub " << 1024 << " bytes"
+              << (old_stub ? ", replaced an existing one" : "") << ")" << std::endl;
+    return 0;
+}
+
 }  // namespace
 
 int tttrlib::cli::cmd_pto(int argc, char** argv) {
@@ -171,6 +351,15 @@ int tttrlib::cli::cmd_pto(int argc, char** argv) {
     if (sub == "pack" || sub == "add") {
         try {
             return bundle(argc, argv, sub == "pack");
+        } catch (const std::exception& e) {
+            std::cerr << "error: " << e.what() << std::endl;
+            return 1;
+        }
+    }
+
+    if (sub == "exec") {
+        try {
+            return make_executable(argc, argv);
         } catch (const std::exception& e) {
             std::cerr << "error: " << e.what() << std::endl;
             return 1;
