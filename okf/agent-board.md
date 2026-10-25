@@ -1093,6 +1093,24 @@ are still claims and still binding.
 
 ## Active
 
+- **T-20261025-01 · [chisurf] Natural-language workflow agent ships with the release (owner directive)**
+  - Status: 🔄 in-progress
+  - Owner: hermes/glm-5.3-flash (Hermes session, chisurf lane)
+  - Opened/Picked: 2026-10-25
+  - Why: the owner directive in okf/prds/prd-154.md item 12 — the user drives ChiSurf in plain words
+    ("do a burstwise analysis ... get the distance distribution") and the agent chains the tools, grilling
+    on ambiguity. Acceptance runs end to end on tttrlib-simulated fret_check data as a recorded test.
+  - Done when: burstwise tool chain (detect -> burst analysis -> species gating -> sub-ensemble decay ->
+    Gaussian distance-distribution fit) reachable as agent tools; one-round clarification loop in the runtime;
+    Z.ai (GLM) first-class provider; recorded acceptance test green + live-gated variant; docs/example prompt
+    updated; test/agent/ green; test_okf_bundle.py green at HEAD; pushed to tpeulen/mcts-native-baseline.
+  - Touching: chisurf/core/agent/tools/burst.py (new), tools/__init__.py, runtime.py, prompt.py,
+    core/settings/ai_settings.py, test/agent/*, chisurf/core/agent/examples/prompts.yaml,
+    docs/guides/40_ai_assistant.md, okf/prds/prd-154.md, okf/log.md.
+  - Progress: baseline verified (test_okf_bundle 47 passed at 894936941); fret_check entry/detect,
+    burst_selection write_container/write_decay_container, decay_fit_model.fit_fret_model identified as the
+    seams; simulated TTTR .ht3 round-trip verified (routing + micro times identical).
+
 - **T-20261004-PROJECT-INTEGRATION · [chisurf] Close native/public Main/optional-plot integration blockers**
   - Status: 🔄 in-progress
   - Owner: hermes/20261003_195530_419bbd, continuation of the project-persistence owner
