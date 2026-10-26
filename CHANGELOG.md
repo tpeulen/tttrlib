@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+- **Changed (breaking): HT2-family T2 input channels are now numbered from 1,
+  routing channel 0 is the sync input — PicoQuant's own convention.** All
+  three reference demos shipped with SymPhoTime 64 (Read_PTU.py, Read_PTU.m
+  and ptudemo.cc) decode a regular HydraHarp/TimeHarp260/MultiHarp T2 photon
+  record as `channel + 1`, reserving routing channel 0 for sync events;
+  tttrlib's `RecordProcessor` specializations for HHT2v1, HHT2v2 and
+  GENERIC_T2 returned the raw 6-bit field instead (the comment claiming to
+  match ptudemo was wrong). Readers now apply `+1` to regular T2 photons;
+  markers (1..15) and sync (0) keep their field value; T3 is untouched
+  (PicoQuant does not shift T3 channels, and neither did we). Both T2 record
+  writers (`write_hht2v1_events`, `write_hht2v2_events`) apply the inverse
+  mapping, so round-trips are stable — and sync events now survive a
+  read/write round-trip at all (the old writer stored them as regular
+  channel-0 photon records). Downstream, channel numbers in HT2-family T2
+  data shift by +1: `test/data/reference/pq_ptu_hh_t2.npz` was regenerated
+  (0/2 -> 1/3 on `pq_ptu_hh_t2.ptu`; macro/micro arrays bit-identical).
+  Found while building rustytime (CMC `tools/rustytime`, a Rust SymPhoTime
+  replacement) and cross-verifying PTU interop rustytime <-> pqusb <->
+  tttrlib; measured exact parity on all three after the fix.
+
 - **Added: `StreamingBurstAnalyzer`, live burst analysis for any detection
   scheme.** Photons pushed in chunks (`push_np(macro, micro, channel)`) are
   burst-searched (all-photon sliding window on chosen channels; DCBS declared,

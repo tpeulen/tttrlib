@@ -1,5 +1,23 @@
 # Bundle update log
 
+## 2026-10-26 — T2 input channels shift to PicoQuant's numbering (inputs from 1, 0 = sync)
+
+- Every PicoQuant reference decoder shipped with SymPhoTime 64 v2.11
+  (`Read_PTU.py`, `Read_PTU.m`, `ptudemo.cc`) numbers a *regular* HT2-family
+  T2 photon record `field + 1` and reserves routing channel 0 for sync.
+  tttrlib's HHT2v1/HHT2v2/GENERIC_T2 readers returned the raw field, so every
+  T2 input channel in tttrlib was one lower than what SymPhoTime reports for
+  the same file. Fixed in `TTTRRecordReader.h` (3 readers, `channel + 1` for
+  regular photons only; markers and sync unchanged; T3 untouched — PicoQuant
+  does not shift T3 and neither do we) and inverted in both T2 writers in
+  `TTTR.cpp`, which also makes sync events survive a read/write round-trip
+  for the first time. Reference `pq_ptu_hh_t2.npz` regenerated (channels
+  0/2 -> 1/3, macro/micro bit-identical). Source of the finding: rustytime
+  (CMC `tools/rustytime`), the Rust SymPhoTime-64 replacement, whose PTU
+  output is cross-verified against pqusb and tttrlib — all three agree
+  exactly after this change. Tests: `test/python/tttr` 698/698 on the
+  patched build.
+
 ## 2026-10-20 — The Photonscore reader carries its upstream notices
 
 - `modules/io/ps/{include/PhotonscoreD7.h,src/PhotonscoreD7.cpp}` is a port of

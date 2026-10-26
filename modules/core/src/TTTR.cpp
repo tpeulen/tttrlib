@@ -2844,8 +2844,17 @@ void TTTR::write_hht2v2_events(FILE* fp, TTTR* tttr, uint64_t* MT_ov_state){
         }
         pq_hh_t2_record_t rec;
         rec.allbits = 0;
-        rec.bits.special = tttr->event_types[n];
-        rec.bits.channel = tttr->routing_channels[n];
+        // Inverse of the reader: routing channel 0 is the sync input (a
+        // special record with channel field 0); markers are special records
+        // with the marker number in the channel field; regular T2 inputs are
+        // stored shifted down by one (PicoQuant numbers T2 inputs from 1).
+        if (tttr->event_types[n] == RECORD_MARKER || tttr->routing_channels[n] == 0) {
+            rec.bits.special = 1;
+            rec.bits.channel = (unsigned) tttr->routing_channels[n];
+        } else {
+            rec.bits.special = 0;
+            rec.bits.channel = (unsigned) (tttr->routing_channels[n] - 1);
+        }
         rec.bits.timetag = (unsigned) (MT % T2WRAPAROUND_V2);
         fwrite(&rec, 4, 1, fp);
     }
@@ -2876,8 +2885,16 @@ void TTTR::write_hht2v1_events(FILE* fp, TTTR* tttr, uint64_t* MT_ov_state){
         }
         pq_hh_t2_record_t rec;
         rec.allbits = 0;
-        rec.bits.special = tttr->event_types[n];
-        rec.bits.channel = tttr->routing_channels[n];
+        // Inverse of the reader (see write_hht2v2_events): routing channel 0
+        // is the sync input, markers keep their number, regular T2 inputs
+        // are stored shifted down by one.
+        if (tttr->event_types[n] == RECORD_MARKER || tttr->routing_channels[n] == 0) {
+            rec.bits.special = 1;
+            rec.bits.channel = (unsigned) tttr->routing_channels[n];
+        } else {
+            rec.bits.special = 0;
+            rec.bits.channel = (unsigned) (tttr->routing_channels[n] - 1);
+        }
         rec.bits.timetag = (unsigned) (MT % T2WRAPAROUND_V1);
         fwrite(&rec, 4, 1, fp);
     }
