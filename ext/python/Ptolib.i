@@ -356,6 +356,12 @@ TTTRLIB_DS_KEEP_ROOT(pto::DataStore::column_by_name)
 // named so it cannot collide with the class callers actually use.
 %rename(PtoFileBase) pto::File;
 
+// A link resolver is a std::function, which no binding can hand across; the
+// Python module registers a callable through the bridge below instead, and
+// the other bindings resolve remote links on their own side.
+%ignore pto::register_link_resolver;
+%ignore pto::LinkResolver;
+
 %include "ptolib/ptolib.h"
 
 %template(DataStoreInfoVector) std::vector<pto::DataStoreInfo>;
@@ -373,5 +379,52 @@ TTTRLIB_DS_KEEP_ROOT(pto::DataStore::column_by_name)
 // File links: what verify_links and find_link_candidates return.
 %template(LinkCheckVector) std::vector<pto::LinkCheck>;
 %template(LinkCandidateVector) std::vector<pto::LinkCandidate>;
+
+// Remote link targets (ptolib "Remote targets"): register a Python callable
+// fn(info, uri) -> local path as the resolver of a URI scheme. The callable
+// returns a path (str or os.PathLike) or None; an exception it raises becomes
+// the link's reason. ptolib calls it synchronously and checks size/SHA-256 of
+// what it returns. Same signature as the pure-Python ptolib registry.
+#ifdef SWIGPYTHON
+%inline %{
+void register_link_resolver(const std::string& scheme, PyObject* fn) {
+    if (!PyCallable_Check(fn)) throw std::invalid_argument("a link resolver must be callable");
+    Py_INCREF(fn);  // held for the life of the registration (process-wide)
+    pto::register_link_resolver(scheme, [fn](const pto::LinkInfo& li, const std::string& uri) {
+        PyGILState_STATE gil = PyGILState_Ensure();
+        static swig_type_info* info_type = SWIG_TypeQuery("pto::LinkInfo *");
+        PyObject* info = info_type ? SWIG_NewPointerObj(new pto::LinkInfo(li), info_type, SWIG_POINTER_OWN)
+                                   : (Py_INCREF(Py_None), Py_None);
+        PyObject* got = PyObject_CallFunction(fn, "Os", info, uri.c_str());
+        Py_DECREF(info);
+        std::string path, err;
+        if (got == nullptr) {
+            PyObject *type = nullptr, *value = nullptr, *trace = nullptr;
+            PyErr_Fetch(&type, &value, &trace);
+            if (value != nullptr) {
+                if (PyObject* text = PyObject_Str(value)) {
+                    if (const char* c = PyUnicode_AsUTF8(text)) err = c;
+                    Py_DECREF(text);
+                }
+            }
+            Py_XDECREF(type); Py_XDECREF(value); Py_XDECREF(trace);
+            PyErr_Clear();
+            PyGILState_Release(gil);
+            throw std::runtime_error(err.empty() ? std::string("the resolver raised") : err);
+        }
+        if (got != Py_None) {
+            if (PyObject* fs = PyOS_FSPath(got)) {
+                if (const char* c = PyUnicode_AsUTF8(fs)) path = c;
+                Py_DECREF(fs);
+            }
+            PyErr_Clear();
+        }
+        Py_DECREF(got);
+        PyGILState_Release(gil);
+        return path;
+    });
+}
+%}
+#endif  // SWIGPYTHON
 
 #endif  // TTTRLIB_CORE_IS_IMPORTED

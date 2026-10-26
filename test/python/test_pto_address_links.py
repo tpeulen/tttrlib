@@ -168,3 +168,46 @@ def test_the_mmfdb_sidecar_is_a_link(tmp_path):
     assert f.commit()
     f.close()
     assert len(tttrlib.TTTR(str(run) + "/m000.ptu")) == len(tttrlib.TTTR(str(data)))
+
+
+def test_a_uri_link_reads_through_a_python_resolver(tmp_path):
+    """ptolib 0aa4e5f: a link may target a URI; tttrlib.register_link_resolver
+    bridges a Python callable fn(info, uri) -> path; size is checked."""
+    tttrlib = pytest.importorskip("tttrlib")
+    if not hasattr(tttrlib, "register_link_resolver"):
+        pytest.skip("tttrlib built without remote link targets")
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / "obj42").write_bytes(b"remote photons")
+    (cache / "short").write_bytes(b"short")
+    seen = []
+
+    def resolver(info, uri):
+        seen.append((uri, int(info.size)))
+        key = uri.split("://", 1)[1]
+        if key == "boom":
+            raise RuntimeError("server said no")
+        hit = cache / key
+        return hit if hit.exists() else None
+
+    tttrlib.register_link_resolver("test", resolver)
+    try:
+        sha = tttrlib.sha256_file(str(cache / "obj42"))
+        f = tttrlib.PtoFile()
+        assert f.create(str(tmp_path / "proj.pto"), "project")
+        uid = f.add_uri_link("test://obj42", 14, sha)
+        bad = f.add_uri_link("test://short", 14, sha)
+        gone = f.add_uri_link("test://boom", 14, sha)
+        assert uid and bad and gone and f.commit()
+        f.close()
+        f = tttrlib.PtoFile()
+        assert f.open(str(tmp_path / "proj.pto"))
+        assert f.extract(uid, str(tmp_path / "out.bin"))
+        assert (tmp_path / "out.bin").read_bytes() == b"remote photons"
+        assert seen and seen[0] == ("test://obj42", 14)
+        assert f.resolve_link(bad) == ""            # 5 bytes, 14 linked: refused
+        assert f.resolve_link(gone) == ""           # the resolver's exception
+        assert "test" in list(tttrlib.link_resolver_schemes())
+        f.close()
+    finally:
+        tttrlib.unregister_link_resolver("test")

@@ -9402,7 +9402,59 @@ bool read_record(const std::vector<PtoTag>& tags, bool packed, LinkInfo& out) {
     if (const PtoTag* t = tag_named(tags, packed ? kPtoPackedSize : kPtoLinkSize)) out.size = t->u;
     if (const PtoTag* t = tag_named(tags, packed ? kPtoPackedSha256 : kPtoLinkSha256)) out.sha256 = t->text;
     if (const PtoTag* t = tag_named(tags, packed ? kPtoPackedMtime : kPtoLinkMtime)) out.mtime = t->i;
+    if (const PtoTag* t = tag_named(tags, packed ? kPtoPackedUri : kPtoLinkUri)) out.uri = t->text;
     return true;
+}
+
+/// The resolvers of remote link targets, by lowercased scheme. Process-wide.
+struct ResolverRegistry {
+    std::mutex mu;
+    std::map<std::string, LinkResolver> by_scheme;
+};
+ResolverRegistry& resolvers() {
+    static ResolverRegistry r;
+    return r;
+}
+
+/// Fetch `uri` through its scheme's resolver into `local`; `why` on failure.
+bool fetch_uri(const LinkInfo& li, const std::string& uri, std::string& local, std::string& why) {
+    const std::string scheme = link_uri_scheme(uri);
+    LinkResolver fn;
+    {
+        ResolverRegistry& r = resolvers();
+        std::lock_guard<std::mutex> lock(r.mu);
+        auto it = r.by_scheme.find(scheme);
+        if (it == r.by_scheme.end()) {
+            why = "no resolver registered for '" + scheme + "://' links (" + uri + ")";
+            return false;
+        }
+        fn = it->second;
+    }
+    try {
+        local = fn(li, uri);
+    } catch (const std::exception& e) {
+        why = "could not fetch " + uri + ": " + e.what();
+        return false;
+    } catch (...) {
+        why = "could not fetch " + uri;
+        return false;
+    }
+    if (local.empty()) {
+        why = "could not fetch " + uri;
+        return false;
+    }
+    return true;
+}
+
+/// The target's file name: the path's, or for a URI the last segment of its path.
+std::string target_name(const LinkInfo& li) {
+    if (!is_link_uri(li.path)) return detail::fs::u8path(li.path).filename().string();
+    std::string rest = li.path.substr(li.path.find("://") + 3);
+    const std::size_t cut = rest.find_first_of("?#");
+    if (cut != std::string::npos) rest.erase(cut);
+    while (!rest.empty() && rest.back() == '/') rest.pop_back();
+    const std::size_t slash = rest.rfind('/');
+    return slash == std::string::npos ? rest : rest.substr(slash + 1);
 }
 
 /// The container's directory, absolute.
@@ -9422,32 +9474,53 @@ struct Located {
     LinkStatus status = LinkStatus::Missing;
     std::string path;
     std::uint64_t size = 0;
+    std::string why;   ///< a remote target's reason, when it could not be fetched
 };
 
-/// Where a link's target is: the recorded path, then the same name beside the container.
+/// Where a link's target is. A URI target goes through its resolver; a file
+/// target is looked for at the recorded path, then by name beside the
+/// container, then through the record's fallback URI.
 Located locate_target(const File& f, const LinkInfo& li) {
     Located out;
+    auto take = [&](const std::string& t) {
+        std::error_code ec;
+        if (!detail::fs::is_regular_file(detail::fs::u8path(t), ec)) return false;
+        out.path = t;
+        out.size = static_cast<std::uint64_t>(detail::fs::file_size(detail::fs::u8path(t), ec));
+        out.status = out.size == li.size ? LinkStatus::Ok : LinkStatus::SizeChanged;
+        return true;
+    };
+    if (is_link_uri(li.path)) {
+        std::string local;
+        if (fetch_uri(li, li.path, local, out.why) && !take(local))
+            out.why = li.path + " resolved to " + local + ", which is not a file";
+        return out;
+    }
     const std::string dir = container_dir(f);
     const detail::fs::path recorded = detail::fs::u8path(li.path);
     std::vector<std::string> tries;
     tries.push_back(recorded.is_absolute() ? recorded.string() : (detail::fs::u8path(dir) / recorded).string());
     const std::string beside = (detail::fs::u8path(dir) / recorded.filename()).string();
     if (beside != tries[0]) tries.push_back(beside);
-    for (const std::string& t : tries) {
-        std::error_code ec;
-        if (!detail::fs::is_regular_file(detail::fs::u8path(t), ec)) continue;
-        out.path = t;
-        out.size = static_cast<std::uint64_t>(detail::fs::file_size(detail::fs::u8path(t), ec));
-        out.status = out.size == li.size ? LinkStatus::Ok : LinkStatus::SizeChanged;
-        return out;
+    for (const std::string& t : tries)
+        if (take(t)) return out;
+    if (!li.uri.empty()) {
+        std::string local, why;
+        if (fetch_uri(li, li.uri, local, why)) {
+            if (take(local)) return out;
+            out.why = li.uri + " resolved to " + local + ", which is not a file";
+        } else {
+            out.why = why;
+        }
     }
     return out;
 }
 
 /// Write a link record under one prefix, replacing whatever both prefixes held.
 void write_record(File& f, std::uint64_t uid, bool packed, const LinkInfo& li) {
-    for (const char* n : {kPtoLinkPath, kPtoLinkSize, kPtoLinkSha256, kPtoLinkMtime,
-                          kPtoPackedPath, kPtoPackedSize, kPtoPackedSha256, kPtoPackedMtime})
+    for (const char* n : {kPtoLinkPath, kPtoLinkSize, kPtoLinkSha256, kPtoLinkMtime, kPtoLinkUri,
+                          kPtoPackedPath, kPtoPackedSize, kPtoPackedSha256, kPtoPackedMtime,
+                          kPtoPackedUri})
         f.clear_tags(uid, n);
     PtoTag t;
     t.target = uid;
@@ -9464,6 +9537,11 @@ void write_record(File& f, std::uint64_t uid, bool packed, const LinkInfo& li) {
         t.name = packed ? kPtoPackedMtime : kPtoLinkMtime; t.type = PtoType::Int; t.i = li.mtime;
         f.add_tag(t);
     }
+    if (!li.uri.empty()) {
+        t = PtoTag(); t.target = uid;
+        t.name = packed ? kPtoPackedUri : kPtoLinkUri; t.type = PtoType::Text; t.text = li.uri;
+        f.add_tag(t);
+    }
 }
 
 /// The file an object of size zero reads: a link's checked target, or the
@@ -9475,6 +9553,48 @@ std::string link_or_external(const File& f, std::uint64_t uid, std::string* why)
 }
 
 }  // namespace
+
+bool is_link_uri(const std::string& s) {
+    const std::size_t at = s.find("://");
+    if (at == std::string::npos || at < 2) return false;
+    if (!std::isalpha(static_cast<unsigned char>(s[0]))) return false;
+    for (std::size_t i = 1; i < at; i++) {
+        const unsigned char c = static_cast<unsigned char>(s[i]);
+        if (!std::isalnum(c) && c != '+' && c != '-' && c != '.') return false;
+    }
+    return true;
+}
+
+std::string link_uri_scheme(const std::string& s) {
+    if (!is_link_uri(s)) return std::string();
+    return detail::lowered(s.substr(0, s.find("://")));
+}
+
+void register_link_resolver(const std::string& scheme, LinkResolver resolver) {
+    ResolverRegistry& r = resolvers();
+    std::lock_guard<std::mutex> lock(r.mu);
+    r.by_scheme[detail::lowered(scheme)] = std::move(resolver);
+}
+
+bool unregister_link_resolver(const std::string& scheme) {
+    ResolverRegistry& r = resolvers();
+    std::lock_guard<std::mutex> lock(r.mu);
+    return r.by_scheme.erase(detail::lowered(scheme)) > 0;
+}
+
+bool has_link_resolver(const std::string& scheme) {
+    ResolverRegistry& r = resolvers();
+    std::lock_guard<std::mutex> lock(r.mu);
+    return r.by_scheme.count(detail::lowered(scheme)) > 0;
+}
+
+std::vector<std::string> link_resolver_schemes() {
+    ResolverRegistry& r = resolvers();
+    std::lock_guard<std::mutex> lock(r.mu);
+    std::vector<std::string> out;
+    for (const auto& kv : r.by_scheme) out.push_back(kv.first);
+    return out;
+}
 
 const char* link_status_name(LinkStatus s) {
     switch (s) {
@@ -9511,7 +9631,7 @@ std::string sha256_file(const std::string& path) {
 
 std::uint64_t File::add_link(const std::string& path, const std::string& name,
                              const std::string& kind, const std::string& encoding,
-                             const std::string& media_type) {
+                             const std::string& media_type, const std::string& source_uri) {
     Impl& m = *p_;
     m.err.clear();
     std::error_code ec;
@@ -9525,12 +9645,43 @@ std::uint64_t File::add_link(const std::string& path, const std::string& name,
     if (li.sha256.empty()) { m.fail("cannot read " + path); return 0; }
     li.mtime = detail::fs::mtime_of(detail::fs::u8path(path));
     li.path = recorded_path(detail::fs::absolute(path), container_dir(*this));
+    li.uri = source_uri;
     const PtoFileType t = classify(path);
     const std::string label = name.empty() ? detail::fs::u8path(path).filename().string() : name;
     const std::uint64_t uid = m.emit_object(kind.empty() ? t.kind : kind,
                                             encoding.empty() ? t.encoding : encoding, label, 0, 0,
                                             [](FileHandle&) { return true; },
                                             media_type.empty() ? t.media_type : media_type);
+    if (uid == 0) return 0;
+    write_record(*this, uid, false, li);
+    return uid;
+}
+
+std::uint64_t File::add_uri_link(const std::string& uri, std::uint64_t size,
+                                 const std::string& sha256, const std::string& name,
+                                 const std::string& kind, const std::string& encoding,
+                                 const std::string& media_type) {
+    Impl& m = *p_;
+    m.err.clear();
+    if (!is_link_uri(uri)) {
+        m.fail("not a URI link target: " + uri);
+        return 0;
+    }
+    if (sha256.size() != 64 ||
+        sha256.find_first_not_of("0123456789abcdef") != std::string::npos) {
+        m.fail("a URI link needs the target's SHA-256 as 64 lowercase hex digits");
+        return 0;
+    }
+    LinkInfo li;
+    li.path = uri;
+    li.size = size;
+    li.sha256 = sha256;
+    std::string label = name;
+    if (label.empty()) label = target_name(li);
+    if (label.empty()) label = uri;
+    const std::uint64_t uid = m.emit_object(kind.empty() ? "attachment" : kind,
+                                            encoding.empty() ? "raw" : encoding, label, 0, 0,
+                                            [](FileHandle&) { return true; }, media_type);
     if (uid == 0) return 0;
     write_record(*this, uid, false, li);
     return uid;
@@ -9565,9 +9716,11 @@ std::string File::resolve_link(std::uint64_t uid, std::string* why) const {
     const Located at = locate_target(*this, li);
     if (at.status == LinkStatus::Ok) return at.path;
     if (why) {
-        if (at.status == LinkStatus::Missing)
+        if (at.status == LinkStatus::Missing && is_link_uri(li.path))
+            *why = "linked object unavailable: " + at.why;
+        else if (at.status == LinkStatus::Missing)
             *why = "linked file missing: " + li.path + " (not at the recorded path, not beside " +
-                   filename() + ")";
+                   filename() + ")" + (at.why.empty() ? std::string() : "; " + at.why);
         else
             *why = "linked file changed: " + at.path + " is " + std::to_string(at.size) +
                    " bytes, " + std::to_string(li.size) + " were linked";
@@ -9586,6 +9739,7 @@ std::vector<LinkCheck> File::verify_links(bool hash) const {
         const Located at = locate_target(*this, li);
         c.status = at.status;
         c.resolved = at.path;
+        c.why = at.why;
         if (c.status == LinkStatus::Ok && hash && !li.sha256.empty() &&
             sha256_file(at.path) != li.sha256)
             c.status = LinkStatus::HashChanged;
@@ -9600,21 +9754,34 @@ bool File::relink(std::uint64_t uid, const std::string& path, bool force) {
     if (!m.writable) return m.fail("opened read-only");
     LinkInfo li;
     if (!read_record(tags_for(uid), false, li)) return m.fail("object " + std::to_string(uid) + " is not a link");
+    const bool to_uri = is_link_uri(path);
+    std::string local = path;
+    if (to_uri) {
+        std::string why;
+        if (!fetch_uri(li, path, local, why)) return m.fail(why);
+    }
     std::error_code ec;
-    if (!detail::fs::is_regular_file(detail::fs::u8path(path), ec)) return m.fail(path + " is not a file");
-    const std::uint64_t size = static_cast<std::uint64_t>(detail::fs::file_size(detail::fs::u8path(path), ec));
-    const std::string sha = sha256_file(path);
-    if (sha.empty()) return m.fail("cannot read " + path);
+    if (!detail::fs::is_regular_file(detail::fs::u8path(local), ec)) return m.fail(local + " is not a file");
+    const std::uint64_t size = static_cast<std::uint64_t>(detail::fs::file_size(detail::fs::u8path(local), ec));
+    const std::string sha = sha256_file(local);
+    if (sha.empty()) return m.fail("cannot read " + local);
     if ((size != li.size || sha != li.sha256) && !force)
         return m.fail(path + " is not the linked file (" +
                       (size != li.size ? std::to_string(size) + " bytes, " + std::to_string(li.size) + " linked"
                                        : std::string("a different SHA-256")) +
                       "); relink with force to use it anyway");
-    li.path = recorded_path(detail::fs::absolute(path), container_dir(*this));
-    li.size = size;
-    li.sha256 = sha;
-    li.mtime = detail::fs::mtime_of(detail::fs::u8path(path));
-    write_record(*this, uid, false, li);
+    LinkInfo next;
+    next.size = size;
+    next.sha256 = sha;
+    if (to_uri) {
+        next.path = path;
+    } else {
+        next.path = recorded_path(detail::fs::absolute(local), container_dir(*this));
+        next.mtime = detail::fs::mtime_of(detail::fs::u8path(local));
+        // A file that replaces a URI target remembers where it came from.
+        next.uri = is_link_uri(li.path) ? li.path : li.uri;
+    }
+    write_record(*this, uid, false, next);
     return true;
 }
 
@@ -9623,7 +9790,7 @@ std::vector<LinkCandidate> File::find_link_candidates(std::uint64_t uid,
     std::vector<LinkCandidate> out;
     LinkInfo li;
     if (!read_record(tags_for(uid), false, li)) return out;
-    const std::string want = detail::fs::u8path(li.path).filename().string();
+    const std::string want = target_name(li);
     std::vector<detail::fs::path> files;
     detail::fs::list_regular_files_tolerant(detail::fs::u8path(root), files);
     for (const detail::fs::path& p : files) {
@@ -9710,6 +9877,9 @@ bool File::unpack(std::uint64_t uid, const std::string& to) {
         return m.fail("object " + std::to_string(uid) + " is not a packed link");
     const std::string dir = container_dir(*this);
     std::string dest = to;
+    if (dest.empty() && is_link_uri(li.path))
+        return m.fail("object " + std::to_string(uid) + " was packed from " + li.path +
+                      "; unpack it to an explicit destination");
     if (dest.empty()) {
         const detail::fs::path r = detail::fs::u8path(li.path);
         dest = r.is_absolute() ? r.string() : (detail::fs::u8path(dir) / r).string();
@@ -9726,6 +9896,7 @@ bool File::unpack(std::uint64_t uid, const std::string& to) {
         if (!extract(uid, dest)) return false;
     }
     if (!update(uid, nullptr, 0)) return false;
+    if (is_link_uri(li.path)) li.uri = li.path;
     li.path = recorded_path(detail::fs::absolute(dest), dir);
     li.mtime = detail::fs::mtime_of(detail::fs::u8path(dest));
     write_record(*this, uid, false, li);

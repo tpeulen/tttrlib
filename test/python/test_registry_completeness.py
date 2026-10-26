@@ -101,6 +101,10 @@ PLUMBING = {
         "Address", "AddressTarget", "split_address", "resolve_member",
         "LinkInfo", "LinkCheck", "LinkCandidate", "link_status_name",
         "sha256_file", "sha256_hex",
+        # ptolib 0aa4e5f: remote link targets -- a URI link resolved by a
+        # per-scheme resolver the application registers; plumbing, not analyses
+        "is_link_uri", "link_uri_scheme", "register_link_resolver",
+        "unregister_link_resolver", "has_link_resolver", "link_resolver_schemes",
     },
     "the registry itself": {
         "AlgorithmDescriptor", "algorithm_capabilities", "algorithm_key", "algorithm_operations_json",

@@ -3332,7 +3332,17 @@ static constexpr const char* kPtoSidecarTag = "pto.sidecar_of";
  * - `pto.link.sha256` (Text): its SHA-256, lowercase hex, computed once at
  *   link time;
  * - `pto.link.mtime` (Int): its modification time, seconds since 1970, when
- *   known.
+ *   known;
+ * - `pto.link.uri` (Text, optional): where the file came from -- a URI the
+ *   link falls back to when the local file is gone.
+ *
+ * **Remote targets.** `pto.link.path` may itself be a URI (`scheme://...`,
+ * e.g. `mmfdb://artifact/42`). ptolib does not fetch anything: an application
+ * registers a resolver per scheme (\ref register_link_resolver) that fetches
+ * the object into its own cache and returns the local path; ptolib then
+ * checks the recorded size (and SHA-256 when verifying) exactly as for a file.
+ * Credentials belong to the resolver, never to the container or the URI. An
+ * unregistered scheme or a failing resolver is an error naming the URI.
  *
  * \ref File::pack replaces a link by the target's bytes and keeps the record
  * under `pto.packed.*` (same four names), so \ref File::unpack can write the
@@ -3343,10 +3353,12 @@ static constexpr const char* kPtoLinkPath = "pto.link.path";
 static constexpr const char* kPtoLinkSize = "pto.link.size";
 static constexpr const char* kPtoLinkSha256 = "pto.link.sha256";
 static constexpr const char* kPtoLinkMtime = "pto.link.mtime";
+static constexpr const char* kPtoLinkUri = "pto.link.uri";
 static constexpr const char* kPtoPackedPath = "pto.packed.path";
 static constexpr const char* kPtoPackedSize = "pto.packed.size";
 static constexpr const char* kPtoPackedSha256 = "pto.packed.sha256";
 static constexpr const char* kPtoPackedMtime = "pto.packed.mtime";
+static constexpr const char* kPtoPackedUri = "pto.packed.uri";
 
 /// What a link records. \see File::link
 struct LinkInfo {
@@ -3355,6 +3367,7 @@ struct LinkInfo {
     std::uint64_t size = 0;
     std::string sha256;     ///< lowercase hex
     long long mtime = 0;    ///< seconds since 1970; 0 when not recorded
+    std::string uri;        ///< where the file came from (fallback when the file is gone); may be empty
 };
 
 /// Whether a link's target is still the file that was linked. \see File::verify_links
@@ -3373,6 +3386,7 @@ struct LinkCheck {
     LinkStatus status = LinkStatus::Ok;
     std::string path;       ///< as recorded
     std::string resolved;   ///< the file found, or empty when missing
+    std::string why;        ///< for a missing remote target: the resolver's reason
 };
 
 /// A file that may be a moved link target. \see File::find_link_candidates
@@ -3381,6 +3395,31 @@ struct LinkCandidate {
     std::uint64_t size = 0;
     bool size_matches = false;   ///< the recorded size; a hash only says more on confirmation
 };
+
+/// Whether `s` is a URI link target: `scheme://...` with a scheme of two or more
+/// characters (so a Windows drive `C:/` is a path, not a scheme).
+bool is_link_uri(const std::string& s);
+/// The scheme of a URI link target, lowercased; empty when `s` is not one.
+std::string link_uri_scheme(const std::string& s);
+
+/*!
+ * \brief Fetches a remote link target and returns a local path to it.
+ *
+ * Called with the link's record and the URI to resolve (the target, or the
+ * record's fallback `uri`). Returns the local file -- typically in the
+ * resolver's own cache -- or the empty string when it cannot; it may also
+ * throw, and the message becomes the link's reason. ptolib checks the size
+ * (and the SHA-256 when verifying) of what it returns.
+ */
+using LinkResolver = std::function<std::string(const LinkInfo&, const std::string& uri)>;
+/// Register (or replace) the resolver for `scheme` (case-insensitive). Process-wide.
+void register_link_resolver(const std::string& scheme, LinkResolver resolver);
+/// Remove the resolver for `scheme`; false if there was none.
+bool unregister_link_resolver(const std::string& scheme);
+/// Whether a resolver is registered for `scheme`.
+bool has_link_resolver(const std::string& scheme);
+/// The schemes with a registered resolver, sorted.
+std::vector<std::string> link_resolver_schemes();
 
 /// The SHA-256 of a file, lowercase hex, read in blocks. Empty if it cannot be read.
 std::string sha256_file(const std::string& path);
@@ -4097,7 +4136,23 @@ public:
      */
     std::uint64_t add_link(const std::string& path, const std::string& name = "",
                            const std::string& kind = "", const std::string& encoding = "",
-                           const std::string& media_type = "");
+                           const std::string& media_type = "",
+                           const std::string& source_uri = "");
+    /*!
+     * \brief Add a link whose target is a URI (\ref is_link_uri).
+     *
+     * ptolib cannot hash a remote object, so the caller supplies its size and
+     * SHA-256 (lowercase hex); reads then go through the scheme's resolver
+     * (\ref register_link_resolver) and are checked against them. `name`
+     * defaults to the last segment of the URI's path; kind and encoding to
+     * "attachment" and "raw" when left empty.
+     *
+     * \return the uid, or 0 if `uri` is not a URI or `sha256` is not 64 hex digits.
+     */
+    std::uint64_t add_uri_link(const std::string& uri, std::uint64_t size,
+                               const std::string& sha256, const std::string& name = "",
+                               const std::string& kind = "", const std::string& encoding = "",
+                               const std::string& media_type = "");
     /// Whether `uid` is a link (\ref kPtoLinkPath).
     bool is_link(std::uint64_t uid) const;
     /// Whether `uid` is a packed link (\ref pack), whose record \ref unpack restores.
@@ -4125,14 +4180,18 @@ public:
      *
      * The new file must have the recorded size and SHA-256; a mismatch is
      * refused (see \ref error) unless `force`, which records the new file's
-     * size, hash and modification time instead.
+     * size, hash and modification time instead. `path` may be a URI: it is
+     * fetched through its scheme's resolver and checked the same way, and the
+     * link then targets the URI. Switching from a URI to a file keeps the URI
+     * as the link's fallback (`pto.link.uri`).
      */
     bool relink(std::uint64_t uid, const std::string& path, bool force = false);
     /*!
      * \brief Files under `root` that may be a link's moved target.
      *
      * Walks `root` recursively (unreadable folders are skipped) for files
-     * whose name is the target's file name, those with the recorded size
+     * whose name is the target's file name (for a URI target, the last segment
+     * of its path), those with the recorded size
      * first. Nothing is hashed: confirm a candidate with \ref relink, which
      * checks the hash.
      */
@@ -4153,6 +4212,8 @@ public:
      * \param to where to write; empty uses the recorded path (relative to the
      *        container's directory). An existing file there must be the same
      *        bytes (size and SHA-256), and is then kept rather than rewritten.
+     *        A link packed from a URI target needs an explicit `to`; the URI
+     *        is kept as the restored link's fallback.
      */
     bool unpack(std::uint64_t uid, const std::string& to = "");
 
