@@ -112,7 +112,9 @@ def test_engines_built_from_a_config_are_owned_and_freed():
     import weakref
 
     cfg = tttrlib.SimEngine.default_json()
-    for engine in (tttrlib.SimEngine.from_json(cfg), tttrlib.SimEngine.from_dict(json.loads(cfg))):
+    builders = (tttrlib.SimEngine.from_json, lambda c: tttrlib.SimEngine.from_dict(json.loads(c)))
+    for build in builders:
+        engine = build(cfg)
         assert engine.thisown
         destroyed = []
         weakref.finalize(engine, destroyed.append, True)
