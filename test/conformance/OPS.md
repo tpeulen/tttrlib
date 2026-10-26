@@ -441,7 +441,7 @@ format.
 **`spec` is `path` or `path|object`.** A PTO holds many objects, each of which
 is a tree, and the pipe is where that extra addressing axis goes. Everything
 after it is identical across the three formats:
-`table.read` on `run.dstore`, on `run.h5` and on `run.pto|bursts` with the same
+`table.read` on `run.dstore`, on `run.h5` and on `run.pto/bursts` with the same
 `group` and `columns` gives the same table.
 
 **The reader takes its format from the content and the writer from the

@@ -95,6 +95,12 @@ PLUMBING = {
         # the mapped reader and what it reports per column / segment, and the stream
         # of a store inside a .pto -- storage, not analyses
         "StoreWriter", "StoreReader", "ColumnInfo", "SegmentInfo", "PtoStoreStream",
+        # ptolib 67451c3: path-style container addresses (`run.pto/m001.ptu`) and
+        # file links (relative path + size + SHA-256, verify/relink/locate) --
+        # how a container names and reaches its members, not analyses
+        "Address", "AddressTarget", "split_address", "resolve_member",
+        "LinkInfo", "LinkCheck", "LinkCandidate", "link_status_name",
+        "sha256_file", "sha256_hex",
     },
     "the registry itself": {
         "AlgorithmDescriptor", "algorithm_capabilities", "algorithm_key", "algorithm_operations_json",

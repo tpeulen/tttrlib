@@ -221,12 +221,12 @@ say it once:
 
     tttrlib.read_table("run.dstore",     group="results", columns=["Tau"])
     tttrlib.read_table("run.h5",         group="results", columns=["Tau"])
-    tttrlib.read_table("run.pto|bursts", group="results", columns=["Tau"])
+    tttrlib.read_table("run.pto/bursts", group="results", columns=["Tau"])
 
     tttrlib.write_table("out.h5", store, group="results")
     tttrlib.table_groups("run.dstore")      # ['results']
     tttrlib.table_columns("run.h5", "results")
-    tttrlib.table_has("run.pto|bursts", "results")
+    tttrlib.table_has("run.pto/bursts", "results")
 
 These add **no capability**. Every one is a call to a reader on this page,
 chosen from the file — so a caller swaps a format by swapping a filename rather
@@ -261,7 +261,7 @@ Four things worth knowing before relying on it:
   sniff.
 * **The spec is** ``path`` **or** ``path|object``. A PTO holds many objects,
   each of which is a tree, and the pipe is where that extra addressing axis
-  goes — the same form ``TTTR("run.pto|m001.ptu")`` already takes.
+  goes — the same form ``TTTR("run.pto/m001.ptu")`` already takes.
 * **Group paths come back in the bare form.** HDF5's own listing gives
   ``/results`` and includes the root; the native format's gives ``results`` and
   does not. One had to win, or a path taken from one listing could not be handed

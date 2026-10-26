@@ -1519,8 +1519,8 @@ if (is_verbose()) {
         container_type = tttr_container_type;
     }
 
-    // A spec may name an object inside a container -- "run.pto|m001.ptu". Only
-    // the container is a path; the selector is for whoever reads the container.
+    // A spec may address an object inside a container -- "run.pto/m001.ptu".
+    // Only the container is a path; the member is for whoever reads it.
     const std::string spec = fn ? fn : "";
     const std::string only_path = tttrlib::subfile_path(spec);
 
@@ -1541,16 +1541,14 @@ if (is_verbose()) {
      * A container whose reader lives above core reads itself. PTO holds TTTR
      * files, so io_pto depends on core and core cannot call it; the format
      * table carries a pointer that io_pto filled in instead. The whole spec
-     * goes across, selector and all, because which object to take is the
+     * goes across, member and all, because which object to take is the
      * container's business and not ours.
      */
     {
         const tttrlib::FileFormat* format = tttrlib::IORegistry::by_container_type(container_type);
         if (format != nullptr && format->read_into != nullptr) {
             const std::string whole =
-                    tttrlib::subfile_selector(spec).empty()
-                            ? this->filename
-                            : this->filename + tttrlib::kSubfileSeparator + tttrlib::subfile_selector(spec);
+                    tttrlib::subfile_join(this->filename, tttrlib::subfile_selector(spec));
             return format->read_into(format->read_context, whole.c_str(), this);
         }
     }
@@ -3143,11 +3141,10 @@ bool TTTR::write(std::string filename, TTTRHeader* header, int container_type){
     //     so same-format round trips preserve SPC-600 vs SPC-130 etc.
     //  3. Unknown extensions fall back to the source container type.
     if(container_type < 0){
-        // The extension is the container's, not the selector's. `run.pto|green`
+        // The extension is the container's, not the member's. `run.pto/green`
         // names an object inside a container, and inferring from the whole
-        // string finds no extension at all -- which fell back to the SOURCE
-        // container and wrote a PTU into a file literally called
-        // "run.pto|green". Silent, and the wrong format under the right name.
+        // string finds the member's extension (or none) -- which fell back to
+        // the SOURCE container and wrote the wrong format under the right name.
         int ext_type = inferTTTRContainerTypeFromExtension(
                 tttrlib::subfile_path(filename));
         if(ext_type < 0){
@@ -3178,10 +3175,9 @@ bool TTTR::write(std::string filename, TTTRHeader* header, int container_type){
             return format->write_from(format->write_context, filename.c_str(),
                                       this, header) != 0;
         }
-        // A selector names an object inside a container, so it means nothing to
-        // a format that has no objects. Refused rather than folded into the
-        // filename: the alternative is a file whose name contains a '|' and
-        // whose content is not what the caller asked for.
+        // A member names an object inside a container, so it means nothing to
+        // a format that has no objects. Refused rather than written to some
+        // other path whose content is not what the caller asked for.
         if (!tttrlib::subfile_selector(filename).empty()) {
             std::cerr << "ERROR in TTTR::write: '" << filename
                       << "' names an object inside a container, but "

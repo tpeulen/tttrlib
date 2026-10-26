@@ -105,7 +105,10 @@ def container_chunks(spec, chunk=1 << 20, container_type=-1):
         yield data, at, info.n_records
     # Two containers keep part of the routing channel in the header rather than
     # in the records; a no-op for the other five.
-    data.set_header(TTTRHeader(str(spec).split("|")[0], info.container_type))
+    # The header is the container file's; an address names a member inside it.
+    _address = split_address(str(spec))
+    data.set_header(TTTRHeader(_address.container if _address.found else str(spec),
+                               info.container_type))
     data.apply_container_channels(info.container_type)
     data.find_used_routing_channels()
     # Appending grew the store by a factor, so it holds more rows than events.

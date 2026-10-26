@@ -1,0 +1,31 @@
+{
+  "_comment": "Conformance cases for container addresses: '<path>[/<member>...]'. The container is the shortest leading prefix of the address that is an existing regular FILE (directories never are); everything after it is the member path ('' = the whole container). 'files' and 'dirs' are created relative to a temporary root before each case; addresses are relative to that root. Every implementation (ptolib C++ and Python, tttrlib, chisurf) runs this table. The '|' selector of earlier versions is not an address separator: it is an ordinary character in a file name.",
+  "cases": [
+    {"name": "plain file, no member", "files": ["m000.ptu"], "address": "m000.ptu",
+     "container": "m000.ptu", "member": ""},
+    {"name": "container, no member", "files": ["run.pto"], "address": "run.pto",
+     "container": "run.pto", "member": ""},
+    {"name": "member of a container", "files": ["run.pto"], "address": "run.pto/m001.ptu",
+     "container": "run.pto", "member": "m001.ptu"},
+    {"name": "run and table", "files": ["data/m000.pto"], "address": "data/m000.pto/burstwise/bursts",
+     "container": "data/m000.pto", "member": "burstwise/bursts"},
+    {"name": "member name with spaces and hash", "files": ["m000.pto"],
+     "address": "m000.pto/countrate_All 0.2000#60/bursts",
+     "container": "m000.pto", "member": "countrate_All 0.2000#60/bursts"},
+    {"name": "project dataset", "files": ["proj.cs.pto"], "address": "proj.cs.pto/decay_green",
+     "container": "proj.cs.pto", "member": "decay_green"},
+    {"name": "project dataset by uid", "files": ["proj.cs.pto"], "address": "proj.cs.pto/@3f2a9c",
+     "container": "proj.cs.pto", "member": "@3f2a9c"},
+    {"name": "nested: a container inside a project", "files": ["proj.cs.pto"],
+     "address": "proj.cs.pto/m000.pto/burstwise/bursts",
+     "container": "proj.cs.pto", "member": "m000.pto/burstwise/bursts"},
+    {"name": "a directory named like a container is a directory", "dirs": ["fake.pto"], "files": ["fake.pto/real.pto"],
+     "address": "fake.pto/real.pto/run1", "container": "fake.pto/real.pto", "member": "run1"},
+    {"name": "nothing exists: the whole address is a path", "address": "new/out.pto",
+     "container": null, "member": null},
+    {"name": "trailing slash is no member", "files": ["run.pto"], "address": "run.pto/",
+     "container": "run.pto", "member": ""},
+    {"name": "pipe is part of a file name, not a separator", "files": ["run.pto"], "address": "run.pto|m001.ptu",
+     "container": null, "member": null}
+  ]
+}

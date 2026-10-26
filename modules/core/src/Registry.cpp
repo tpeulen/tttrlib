@@ -218,7 +218,7 @@ json table_format_entries() {
          "pandas and MATLAB. No bool type and no label.",
          ".h5,.hdf5", true, true, true,  true,  false},
         {"pto",    "a store inside a container",
-         "A table as one object of a PTO, addressed as `file.pto|name`. The "
+         "A table as one object of a PTO, addressed as `file.pto/name`. The "
          "container holds many, each of which is a whole tree.",
          ".pto",  true,  true,  true,  true,  true},
         {"csv",    "one flat table",

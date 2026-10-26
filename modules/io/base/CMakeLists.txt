@@ -22,6 +22,6 @@ tttrlib_add_module(
              "${CMAKE_CURRENT_SOURCE_DIR}/src/PhotonSink.cpp"
     HEADERS  "${CMAKE_CURRENT_SOURCE_DIR}/include"
     DEPENDS  util
-    EXTERNAL_DEPS tttrlib::json
+    EXTERNAL_DEPS tttrlib::json ptolib::ptolib
     TEST_DIR test/python/tttr
 )

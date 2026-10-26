@@ -39,23 +39,26 @@
 namespace tttrlib {
 
 /*!
- * \brief Separates a container from the object inside it: `run.pto|m001.spc`.
+ * \brief The container part of an address -- `run.pto/m001.spc` gives `run.pto`.
  *
- * A pipe, not a colon: `C:\\data\\run.pto` already has a colon in it, and
- * telling a drive letter from a selector would be guesswork on every path on
- * one platform. A pipe is not legal in a filename on Windows and is vanishingly
- * rare on anything else.
+ * Data inside a container is addressed as a path, `<path>[/<member>...]`
+ * (ptolib's \c pto::split_address): the container is the shortest leading
+ * prefix that is an existing regular file, a directory never is, and the rest
+ * is the member path. An address whose container does not exist yet -- a
+ * writer about to create `out.pto/green` -- splits at the first component that
+ * ends in `.pto` and is not an existing directory. Anything else is a plain
+ * path and comes back whole. `|`, the selector of earlier versions, is an
+ * ordinary file-name character.
  */
-// An inline constexpr rather than an extern definition in one module: MSVC
-// cannot auto-import a data symbol from another module DLL, only functions.
-inline constexpr char kSubfileSeparator = '|';
-
-/// The container part of a spec -- everything before the last \ref
-/// kSubfileSeparator, or the whole thing when there is none.
 std::string subfile_path(const std::string& spec);
 
-/// The object part, or empty when the spec names no particular one.
+/// The member part (`/`-joined), or empty when the address names the whole
+/// file. \see subfile_path
 std::string subfile_selector(const std::string& spec);
+
+/// Join a container path and a member into an address (`path/member`, or the
+/// path alone when the member is empty).
+std::string subfile_join(const std::string& path, const std::string& member);
 
 /*!
  * \brief One file format tttrlib can read and/or write.

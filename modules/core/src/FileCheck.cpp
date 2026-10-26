@@ -283,8 +283,8 @@ void ensure_sniffers() {
 }  // namespace
 
 int inferTTTRFileType(const char* fn) {
-    // A spec may name an object inside a container -- "run.pto|m001.ptu". The
-    // format is decided by the container, so the selector comes off first;
+    // A spec may address an object inside a container -- "run.pto/m001.ptu".
+    // The format is decided by the container, so the member comes off first;
     // doing it here rather than at every call site is what keeps every TTTR
     // constructor working with one.
     const std::string only_path = tttrlib::subfile_path(fn == nullptr ? "" : fn);

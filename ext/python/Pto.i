@@ -155,7 +155,7 @@ def pto_events(spec, first_event=0, n_events=0):
 
     ``spec`` is a container path, optionally naming an object after a ``|``::
 
-        tttrlib.pto_events("run.pto|m001.ptu", 1_000_000, 1000)
+        tttrlib.pto_events("run.pto/m001.ptu", 1_000_000, 1000)
 
     With cues built over the object (:meth:`PtoFile.build_cues`) the decode
     starts at the nearest cue at or before ``first_event``; without them the

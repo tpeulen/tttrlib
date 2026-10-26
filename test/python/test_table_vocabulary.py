@@ -61,7 +61,7 @@ def pto(tmp_path, store):
     tttrlib.pto_add_store(f, "table", "bursts", store)
     assert f.commit()
     f.close()
-    return p + "|bursts"
+    return p + "/bursts"
 
 
 @pytest.fixture
@@ -225,14 +225,14 @@ def test_a_pto_must_name_its_object(tmp_path, store):
 
     with pytest.raises(RuntimeError) as e:
         tttrlib.read_table(p)
-    assert "|" in str(e.value), "the message should show the spec form"
-    assert tttrlib.read_table(p + "|bursts").names == ["Tau", "E"]
+    assert "/<object>" in str(e.value), "the message should show the address form"
+    assert tttrlib.read_table(p + "/bursts").names == ["Tau", "E"]
 
 
 def test_an_object_that_is_not_there_is_named_along_with_what_is(pto):
-    path = pto.split("|")[0]
+    path = tttrlib.split_address(pto).container
     with pytest.raises(RuntimeError) as e:
-        tttrlib.read_table(path + "|nope")
+        tttrlib.read_table(path + "/nope")
     assert "nope" in str(e.value) and "bursts" in str(e.value)
 
 
@@ -356,9 +356,9 @@ def test_a_pto_object_is_replaced_rather_than_duplicated(tmp_path, store):
     smaller = tttrlib.DataStore()
     smaller.set_n_rows(2)
     smaller.add("Tau", np.array([9.0, 9.0]))
-    tttrlib.write_table(p + "|bursts", smaller)
+    tttrlib.write_table(p + "/bursts", smaller)
 
-    back = tttrlib.read_table(p + "|bursts")
+    back = tttrlib.read_table(p + "/bursts")
     np.testing.assert_array_equal(back["Tau"].numpy(), [9.0, 9.0])
 
 

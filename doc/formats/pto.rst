@@ -550,7 +550,7 @@ Photon streams, natively
 ``PtoKind "photons"`` with ``PtoEncoding "dstore"`` is a **native photon
 stream**: the decoded events as columns, with no vendor container inside. It is
 what makes a ``.pto`` a *sink* rather than a wrapper. The alternative — a vendor
-file embedded whole and reached as ``run.pto|m001.ptu`` — remains legal and
+file embedded whole and reached as ``run.pto/m001.ptu`` — remains legal and
 remains the fidelity anchor; the two are complementary, not competing. A file
 may carry both, and should when the original exists.
 
@@ -672,7 +672,7 @@ partial; what works today is the write-once round trip:
     tttrlib.TTTR("run.pto")                       # events and clocks back
 
 The reader applies the three required tags, and the writer emits them. A second
-write **appends** — ``write("run.pto|green")`` names the object, so one
+write **appends** — ``write("run.pto/green")`` names the object, so one
 container holds several measurements, one object each.
 
 Not yet implemented, and a file relying on any of it is still *conforming* —
@@ -1143,7 +1143,7 @@ point below reads its part and not the whole:
     f.read(uid, at=1 << 20, n=4096)
 
     # events 10^6 .. 10^6+1000 of an embedded photon stream, via its cues
-    tttrlib.pto_events("run.pto|m001.ptu", 1_000_000, 1000)
+    tttrlib.pto_events("run.pto/m001.ptu", 1_000_000, 1000)
 
 and reclaiming space, once a file has been edited enough to be worth it:
 
@@ -1163,7 +1163,7 @@ The same range is reachable through the reader-parameter mechanism, which is
 what makes it work from every binding and from anything that opens a file by
 name alone::
 
-    TTTR("run.pto|m001.ptu", "PTO", '{"first_event": 1000, "n_events": 500}')
+    TTTR("run.pto/m001.ptu", "PTO", '{"first_event": 1000, "n_events": 500}')
 
 .. _pto_cues:
 

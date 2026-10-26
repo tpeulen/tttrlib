@@ -75,7 +75,7 @@ void refuse(const char* verb, const char* what, TableFormat f,
                              " file has (" + spec + ")");
 }
 
-/// The object a `path|name` spec names, by name or by decimal uid.
+/// The object a `path/name` spec names, by name or by decimal uid.
 PtoObject pto_object(const PtoFile& file, const std::string& selector,
                      const std::string& spec) {
     const std::vector<PtoObject> all = file.objects();
@@ -182,7 +182,7 @@ void read_table_into(data::DataStore& out, const std::string& spec,
             if (selector.empty())
                 throw std::runtime_error(
                         "read_table: a PTO holds many objects, so name one: "
-                        "\"" + path + "|<object>\"");
+                        "\"" + path + "/<object>\"");
             const PtoObject o = pto_object(file, selector, spec);
             // An embedded store is a region of a bigger file, and the native
             // reader already takes every knob for a region -- so the group knob
@@ -250,7 +250,7 @@ bool write_table(const std::string& spec, const data::DataStore& store,
             if (selector.empty())
                 throw std::runtime_error(
                         "write_table: name the object to write: "
-                        "\"" + path + "|<object>\"");
+                        "\"" + path + "/<object>\"");
             PtoFile file;
             if (!file.open(path, true) && !file.create(path))
                 throw std::runtime_error("write_table: cannot open " + path);

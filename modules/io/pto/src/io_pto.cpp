@@ -128,27 +128,15 @@ bool PtoFile::add_inspection_data(const std::vector<std::uint32_t>& trace_counts
 
 std::uint64_t PtoFile::add_sidecar_file(const std::string& kind, const std::string& encoding,
                                        const std::string& name, const std::string& file_path) {
-    std::string store_path = file_path;
-    try {
-        std::filesystem::path fp = std::filesystem::u8path(file_path);
-        std::filesystem::path base = std::filesystem::u8path(filename()).parent_path();
-        if (!base.empty()) {
-            std::error_code ec;
-            std::filesystem::path rel = std::filesystem::relative(fp, base, ec);
-            if (!ec && !rel.empty()) {
-                store_path = rel.string();
-            }
-        }
-    } catch (...) {}
-
-    std::uint64_t uid = add(kind, encoding, name, nullptr, 0, 0);
+    const std::uint64_t uid = add_link(file_path, name, kind, encoding);
     if (!uid) return 0;
-
+    // The mmfdb profile's words for the same reference, for deposit records and
+    // the readers that list sidecars by them.
     PtoTag tag_path;
     tag_path.target = uid;
     tag_path.name = "_mmfdb_artifact.file_path";
     tag_path.type = PtoType::Text;
-    tag_path.text = store_path;
+    tag_path.text = link(uid).path;
     add_tag(tag_path);
 
     PtoTag tag_sidecar;
@@ -157,20 +145,7 @@ std::uint64_t PtoFile::add_sidecar_file(const std::string& kind, const std::stri
     tag_sidecar.type = PtoType::Text;
     tag_sidecar.text = "true";
     add_tag(tag_sidecar);
-
     return uid;
-}
-
-std::string PtoFile::external_payload_path(std::uint64_t uid) const {
-    for (const auto& tag : tags_for(uid)) {
-        if (tag.name == "_mmfdb_artifact.file_path" && tag.type == PtoType::Text) {
-            std::filesystem::path p(tag.text);
-            if (p.is_absolute()) return p.string();
-            std::filesystem::path base = std::filesystem::u8path(filename()).parent_path();
-            return (base / p).string();
-        }
-    }
-    return "";
 }
 
 // --- opening the photon data inside a container -------------------------------
@@ -933,7 +908,7 @@ int write_tttr_into_pto(void*, const char* path_c, void* tttr, void* header_v) {
 
     const std::string spec = path_c == nullptr ? "" : path_c;
     const std::string path = subfile_path(spec);
-    // The selector names the object, so `run.pto|green` writes a photons
+    // The member names the object, so `run.pto/green` writes a photons
     // object called "green" -- the same spelling that reads it back.
     const std::string sel = subfile_selector(spec);
     const std::string name = sel.empty() ? "photons" : sel;

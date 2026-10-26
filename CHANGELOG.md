@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+- **Changed: data inside a container is addressed as a path, and the `|`
+  selector is gone.** `TTTR("run.pto/m001.ptu")`, `read_table("run.pto/bursts")`
+  and every other reader and writer take `<path>[/<member>...]` by ptolib's rule
+  (vendored at ptolib 67451c3): the container is the shortest leading prefix
+  that is an existing regular file, a directory never is, and addresses nest.
+  A writer creating a container (`write("out.pto/green")`) splits at the first
+  `.pto` component that is not a folder. `|` is an ordinary file-name
+  character; `tttrlib.split_address(addr)` returns the split (unpackable as
+  `container, member`, false when nothing exists). ptolib's conformance table
+  runs in `test/python/test_pto_address_links.py`.
+
+- **Added: file links.** A container member can stay in its own file
+  (`PtoFile.add_link`: relative path, size, SHA-256), so a project holding many
+  TTTR files does not copy them. Reads follow links transparently
+  (`TTTR("proj.pto/m000.ptu")` reads the linked file); `verify_links`,
+  `resolve_link`, `relink` (size and hash checked, `force` to accept another
+  file), `find_link_candidates`, `pack`/`pack_all`/`unpack` and `sha256_file`
+  come from ptolib. `PtoFile.add_sidecar_file` is now a link plus the mmfdb
+  tags (`_mmfdb_artifact.file_path`, `is_sidecar`); it returns 0 for a missing
+  file. tttrlib's own `external_payload_path` override is removed -- ptolib
+  resolves links and the older `_mmfdb_artifact.file_path` references itself.
+
 - **Fixed: PicoQuant CLSM images read from the header alone lost most frames
   when the frame marker shares a record with the last line stop.** The Leica
   SP5 test file (SymPhoTime 64) emits the frame marker together with the stop

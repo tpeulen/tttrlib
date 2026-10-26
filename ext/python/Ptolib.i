@@ -89,6 +89,23 @@
 #ifdef SWIGPYTHON
 %extend pto::Column { %pythoncode "./ext/python/Column.py" }
 #endif  // SWIGPYTHON
+// An address splits into (container, member) -- unpackable, and false when no
+// prefix of it exists (the C++ explicit operator bool does not cross).
+#ifdef SWIGPYTHON
+%extend pto::Address {
+    %pythoncode %{
+        def __bool__(self):
+            return bool(self.found)
+
+        def __iter__(self):
+            return iter((self.container if self.found else None,
+                         self.member if self.found else None))
+
+        def __repr__(self):
+            return f"Address(container={self.container!r}, member={self.member!r}, found={self.found})"
+    %}
+}
+#endif  // SWIGPYTHON
 // Python-only; see the note above.
 #ifdef SWIGPYTHON
 %extend pto::DataStore { %pythoncode "./ext/python/DataStore.py" }
@@ -353,5 +370,8 @@ TTTRLIB_DS_KEEP_ROOT(pto::DataStore::column_by_name)
 %template(PtoCueVector) std::vector<pto::PtoCue>;
 %template(PtoElementVector) std::vector<pto::Element>;
 %template(PtoProblemVector) std::vector<pto::Problem>;
+// File links: what verify_links and find_link_candidates return.
+%template(LinkCheckVector) std::vector<pto::LinkCheck>;
+%template(LinkCandidateVector) std::vector<pto::LinkCandidate>;
 
 #endif  // TTTRLIB_CORE_IS_IMPORTED

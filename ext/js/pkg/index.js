@@ -674,7 +674,7 @@ if (typeof native.pto_read_store === 'function') {
   /**
    * Read a range of events out of a photon object in a container.
    *
-   *   ptoEvents('run.pto|m001.ptu', 1_000_000, 1000)
+   *   ptoEvents('run.pto/m001.ptu', 1_000_000, 1000)
    *
    * With cues built over the object (`PtoFile#build_cues`) the decode starts at
    * the nearest cue at or before `firstEvent`; without them the payload is

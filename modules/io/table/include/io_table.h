@@ -37,14 +37,14 @@
  * \section table_spec The spec
  *
  * `spec` is `path` or `path|object`, the same form the TTTR readers already
- * take for `run.pto|m001.ptu`. A PTO has one addressing axis more than the
+ * take for `run.pto/m001.ptu`. A PTO has one addressing axis more than the
  * other two -- it holds many objects, each of which is a tree -- and the pipe
  * is where that axis goes. Everything after it is identical:
  *
  * ```
  * read_table("run.dstore",     "results", {"Tau"})
  * read_table("run.h5",         "results", {"Tau"})
- * read_table("run.pto|bursts", "results", {"Tau"})
+ * read_table("run.pto/bursts", "results", {"Tau"})
  * ```
  */
 #ifndef TTTRLIB_IO_TABLE_H

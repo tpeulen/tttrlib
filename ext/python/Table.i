@@ -31,7 +31,7 @@ def read_table(spec, group="", columns=None, first_row=0, n_rows=0):
 
         read_table("run.dstore",     group="results", columns=["Tau"])
         read_table("run.h5",         group="results", columns=["Tau"])
-        read_table("run.pto|bursts", group="results", columns=["Tau"])
+        read_table("run.pto/bursts", group="results", columns=["Tau"])
 
     :param spec: ``path``, or ``path|object`` for a store inside a PTO. A PTO
         holds many objects, each of which is a tree, and the pipe is where that

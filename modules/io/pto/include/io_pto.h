@@ -113,11 +113,11 @@ extern TTTRLIB_IO_PTO_API const char* const kTttrlibBanner;
  * Everything a container does is inherited from `pto::File`; see that class
  * for the contract (commit, update in place, compact, tags, cues, the lock).
  * This class adds the members that need a photon library behind them, and
- * overrides the two hooks the container leaves open: \ref classify, so that
- * \ref attach and \ref pto_bundle_files recognise a photon file by its bytes,
- * and \ref external_payload_path, so that an object recorded as a sidecar
- * reference (`_mmfdb_artifact.file_path`) streams from the file beside the
- * container.
+ * overrides the hook the container leaves open for format knowledge:
+ * \ref classify, so that \ref attach and \ref pto_bundle_files recognise a
+ * photon file by its bytes. External payloads are ptolib file links
+ * (`pto::File::add_link`), which the container itself resolves -- including
+ * the `_mmfdb_artifact.file_path` references of files written before links.
  */
 class PtoFile : public pto::File {
 public:
@@ -144,10 +144,15 @@ public:
                             const std::string& metadata_json = "");
 
     /*!
-     * \brief Add an object that references an external sidecar file via link / relative path.
+     * \brief Add a measurement that stays in its own file beside the container.
      *
-     * Creates an object entry without copying raw binary data into the container,
-     * attaching tags for "_mmfdb_artifact.file_path" and "_mmfdb_artifact.is_sidecar".
+     * A ptolib file link (`pto::File::add_link`: relative path, size, SHA-256,
+     * followed by every read), plus the mmfdb vocabulary a deposit record
+     * carries -- `_mmfdb_artifact.file_path` (the link's relative path) and
+     * `_mmfdb_artifact.is_sidecar = "true"`. Kept for callers of the mmfdb
+     * profile; anything else calls `add_link`.
+     *
+     * \return the uid, or 0 if the file is missing or unreadable (\ref error).
      */
     std::uint64_t add_sidecar_file(const std::string& kind, const std::string& encoding,
                                    const std::string& name, const std::string& file_path);
@@ -178,8 +183,6 @@ public:
     /// \ref pto_classify_path: the sniffers first, then the extension table.
     PtoFileType classify(const std::string& path) const override;
 
-    /// The `_mmfdb_artifact.file_path` tag, resolved beside the container.
-    std::string external_payload_path(std::uint64_t uid) const override;
 };
 
 /*!
@@ -261,7 +264,7 @@ private:
  * for an advisory index to be absent.
  *
  * `spec` is a container path, optionally naming an object after a `|`:
- * `run.pto|m001.ptu`. `n_events` of 0 means "to the end of the payload".
+ * `run.pto/m001.ptu`. `n_events` of 0 means "to the end of the payload".
  *
  * The same range is reachable through the reader-parameter mechanism, which is
  * what a binding will normally use and what \ref PtoFile registers a schema

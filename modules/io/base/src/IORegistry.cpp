@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
+#include <filesystem>
+#include <utility>
+#include "ptolib/ptolib.h"
 #include "TTTRFormat.h"
 #include "TTTRHeaderTypes.h"   // the container and record-type constants
 
@@ -299,14 +302,46 @@ std::vector<const FileFormat*> IORegistry::by_extension(const std::string& exten
     return out;
 }
 
-std::string subfile_path(const std::string& spec) {
-    const std::size_t bar = spec.rfind(kSubfileSeparator);
-    return bar == std::string::npos ? spec : spec.substr(0, bar);
+namespace {
+
+/// The address split by ptolib's rule, with the writer's fallback: when no
+/// prefix exists yet, the first component ending in `.pto` that is not an
+/// existing directory is the container to be created.
+std::pair<std::string, std::string> split_spec(const std::string& spec) {
+    const pto::Address a = pto::split_address(spec);
+    if (a.found) return {a.container, a.member};
+    std::size_t at = 0;
+    while (at <= spec.size()) {
+        std::size_t slash = spec.find_first_of("/\\", at);
+        if (slash == std::string::npos) slash = spec.size();
+        const std::string head = spec.substr(0, slash);
+        if (head.size() >= 4) {
+            std::string tail = head.substr(head.size() - 4);
+            std::transform(tail.begin(), tail.end(), tail.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            std::error_code ec;
+            const bool is_dir = std::filesystem::is_directory(head, ec);
+            if (tail == ".pto" && !is_dir) {
+                std::string member = slash < spec.size() ? spec.substr(slash + 1) : std::string();
+                while (!member.empty() && (member.back() == '/' || member.back() == '\\'))
+                    member.pop_back();
+                std::replace(member.begin(), member.end(), '\\', '/');
+                return {head, member};
+            }
+        }
+        at = slash + 1;
+    }
+    return {spec, std::string()};
 }
 
-std::string subfile_selector(const std::string& spec) {
-    const std::size_t bar = spec.rfind(kSubfileSeparator);
-    return bar == std::string::npos ? std::string() : spec.substr(bar + 1);
+}  // namespace
+
+std::string subfile_path(const std::string& spec) { return split_spec(spec).first; }
+
+std::string subfile_selector(const std::string& spec) { return split_spec(spec).second; }
+
+std::string subfile_join(const std::string& path, const std::string& member) {
+    return member.empty() ? path : path + "/" + member;
 }
 
 bool IORegistry::set_reader(const std::string& name,

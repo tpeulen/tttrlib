@@ -1,7 +1,7 @@
 """`tttr.write("run.pto")` — the container as a sink, not a wrapper.
 
 Until this landed a `.pto` could only *carry* a photon stream as an
-embedded vendor file reached through `run.pto|m001.ptu`; there was no writer at
+embedded vendor file reached through `run.pto/m001.ptu`; there was no writer at
 all, so the native photons table the reader already understood could only be
 produced by something else. These pin the writer against the reader that was
 built for it.
@@ -152,7 +152,7 @@ class TestASecondWriteAppends:
 
     def test_writing_twice_keeps_both(self, ptu, tmp_path):
         out = str(tmp_path / "multi.pto")
-        assert ptu.write(out + "|green")
+        assert ptu.write(out + "/green")
         assert ptu.write(out + "|red")
 
         f = tttrlib.PtoFile()
@@ -162,10 +162,10 @@ class TestASecondWriteAppends:
 
     def test_the_selector_names_the_object_and_reads_it_back(self, ptu, tmp_path):
         out = str(tmp_path / "multi.pto")
-        ptu.write(out + "|green")
+        ptu.write(out + "/green")
         ptu.write(out + "|red")
 
-        green = tttrlib.TTTR(out + "|green")
+        green = tttrlib.TTTR(out + "/green")
         assert len(green) == len(ptu)
         np.testing.assert_array_equal(
             np.asarray(green.macro_times), np.asarray(ptu.macro_times))
@@ -173,24 +173,25 @@ class TestASecondWriteAppends:
             ptu.header.macro_time_resolution, rel=1e-12)
 
     def test_only_one_file_is_created(self, ptu, tmp_path):
-        """The selector is not part of the filename. Before this was handled,
-        `write("run.pto|green")` found no extension on the whole string, fell
-        back to the SOURCE container and wrote a PTU into a file literally
-        named `run.pto|green` — the wrong format under the right name, with no
-        error."""
+        """The member is not part of the filename: `write("run.pto/green")`
+        creates run.pto and writes a photons object named green into it --
+        never a file or folder called green, and never a PTU under the name."""
         out = str(tmp_path / "multi.pto")
-        ptu.write(out + "|green")
+        ptu.write(out + "/green")
         assert os.listdir(tmp_path) == ["multi.pto"]
 
 
-class TestASelectorIsRefusedWhereItMeansNothing:
+class TestAMemberIsRefusedWhereItMeansNothing:
 
     def test_a_format_without_objects_rejects_one(self, ptu, tmp_path):
-        """A PTU holds one measurement and has nothing to name. Folding the
-        selector into the filename would produce a file with a '|' in its name
-        whose contents are not what the caller asked for."""
-        assert not ptu.write(str(tmp_path / "x.ptu") + "|sel")
-        assert not (tmp_path / "x.ptu|sel").exists()
+        """A PTU holds one measurement and has nothing to name: an address
+        reaching inside one (`x.ptu/sel`, x.ptu an existing file) is refused,
+        and the file is left as it was."""
+        target = tmp_path / "x.ptu"
+        assert ptu.write(str(target))
+        before = target.read_bytes()
+        assert not ptu.write(str(target) + "/sel")
+        assert target.read_bytes() == before
 
 
 class TestTheFormatTableAgrees:
