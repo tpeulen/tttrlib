@@ -2,17 +2,22 @@
 
 ## [Unreleased]
 
-- **Added: `StreamingPieBurstAnalyzer`, live PIE burst analysis.** Photons
-  pushed in chunks (`push_np(macro, micro, channel)`) are burst-searched with
-  the sliding-window rule, counted per detector and per PIE window, and
-  turned into raw and (optionally) accurate-FRET-corrected E and S; a 2-D E–S
-  histogram with marginals accumulates as bursts close, and `snapshot()` /
-  `revision()` serve a live view at display rate without rescanning photons.
-  Background is estimated live between bursts or set fixed. The burst table it
-  keeps is the batch table (`tttr sm`, ChiSurf's `generate_burst_dataframe`)
-  column for column, in any chunking; `from_setup()` builds it from the shared
-  ChiSurf/CMC channel definition. Header-only (`modules/streaming`), C++ test
-  in the header-only CI job.
+- **Added: `StreamingBurstAnalyzer`, live burst analysis for any detection
+  scheme.** Photons pushed in chunks (`push_np(macro, micro, channel)`) are
+  burst-searched (all-photon sliding window on chosen channels; DCBS declared,
+  not implemented yet), counted in every stream (detector x micro-time or
+  ALEX phase window), and turned into declared quantities: ratios
+  (proximity ratio, stoichiometry, three-colour variants), accurate-FRET
+  corrected E/S, steady-state anisotropy (G, l1, l2), mean micro times; any
+  number of 1-D/2-D histograms, a per-stream count-rate trace and per-stream
+  decays accumulate as it runs, and `snapshot()` / `revision()` serve a live
+  view at display rate without rescanning photons. Background per stream is
+  estimated live between bursts or fixed. The burst table is the batch table
+  (`tttr sm`, ChiSurf's `generate_burst_dataframe`) column for column, in any
+  chunking. `from_setup(setup, preset=...)` configures it from the shared
+  ChiSurf/CMC channel definition: `single_color`, `two_color`, `pie`, `alex`,
+  `mfd`, `three_color_pie`. Header-only (`modules/streaming`), C++ test in the
+  header-only CI job.
 
 - **Changed: data inside a container is addressed as a path, and the `|`
   selector is gone.** `TTTR("run.pto/m001.ptu")`, `read_table("run.pto/bursts")`

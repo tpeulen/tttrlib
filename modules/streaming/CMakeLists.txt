@@ -11,7 +11,7 @@
 #   StreamingDecayHistogram ↔  DecayHistogram (TCSPC microtime histogram)
 #   StreamingPhasor         ↔  DecayPhasor (FLIM phasor g, s)
 #   StreamingIntensityTrace ↔  compute_intensity_trace (MCS / intensity trace)
-#   StreamingPieBurstAnalyzer ↔ the batch burst table (`tttr sm`) + apparent_es / corrected_es
+#   StreamingBurstAnalyzer  ↔  the batch burst table (`tttr sm`) + its derived quantities
 #
 # The consumers are header-only. Most are std-only; StreamingCLSMImage is the
 # exception and deliberately so -- it delegates each completed frame to the

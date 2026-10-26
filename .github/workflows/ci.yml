@@ -1220,11 +1220,11 @@ jobs:
             c++ -std=c++17 -O1 -Wall -I"$M" -o "$out/$t" "test/cpp/$t.cpp"
             "$out/$t"
           done
-          # the live PIE burst analyzer: header-only, streaming include path
-          echo "== test_streaming_pie_burst_analyzer"
-          c++ -std=c++17 -O1 -Wall -Imodules/streaming/include -o "$out/test_streaming_pie_burst_analyzer" \
-            test/cpp/test_streaming_pie_burst_analyzer.cpp
-          "$out/test_streaming_pie_burst_analyzer"
+          # the live burst analyzer: header-only, streaming include path
+          echo "== test_streaming_burst_analyzer"
+          c++ -std=c++17 -O1 -Wall -Imodules/streaming/include -o "$out/test_streaming_burst_analyzer" \
+            test/cpp/test_streaming_burst_analyzer.cpp
+          "$out/test_streaming_burst_analyzer"
           # also reaches into the decay module's header-only templates
           echo "== test_ad_gradient"
           c++ -std=c++17 -O1 -Wall -I"$M" -I"$D" -o "$out/test_ad_gradient" test/cpp/test_ad_gradient.cpp
