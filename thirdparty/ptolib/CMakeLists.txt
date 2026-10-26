@@ -129,9 +129,11 @@ if(PTOLIB_BUILD_TESTS)
             "-DPTOLIB_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
             "-DPTOLIB_JSON_INCLUDE_DIR=${_ptolib_json_inc}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/installed_consumer.cmake")
-    foreach(t test_container test_datastore test_store_file test_stream_store test_simd test_codec test_codec_stream test_codec_capabilities)
+    foreach(t test_container test_datastore test_store_file test_stream_store test_simd test_codec test_codec_stream test_codec_capabilities test_address test_links)
         add_executable(${t} tests/${t}.cpp)
         target_link_libraries(${t} PRIVATE ptolib_impl)
+        # test_address reads the shared address table with the vendored JSON parser.
+        target_include_directories(${t} PRIVATE "${_ptolib_json_inc}")
         target_compile_definitions(${t} PRIVATE
             PTOLIB_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
             ${_ptolib_codec_defs})

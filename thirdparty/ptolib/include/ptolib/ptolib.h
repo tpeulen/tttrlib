@@ -3317,6 +3317,77 @@ struct PtoAnnotation {
  */
 static constexpr const char* kPtoSidecarTag = "pto.sidecar_of";
 
+/*!
+ * \name File links
+ *
+ * A **link** is an object of size zero whose payload is a file outside the
+ * container: the container records where the file is, how big it is and its
+ * SHA-256, and reads it on demand. It is how a project that references many
+ * measurements stays small instead of carrying a copy of each. A link is the
+ * container's own object kind, recorded in these reserved tags on the object:
+ *
+ * - `pto.link.path` (Text): the target, relative to the container's directory
+ *   (`/`-separated), or absolute when the target is on another volume;
+ * - `pto.link.size` (UInt): its size in bytes when linked;
+ * - `pto.link.sha256` (Text): its SHA-256, lowercase hex, computed once at
+ *   link time;
+ * - `pto.link.mtime` (Int): its modification time, seconds since 1970, when
+ *   known.
+ *
+ * \ref File::pack replaces a link by the target's bytes and keeps the record
+ * under `pto.packed.*` (same four names), so \ref File::unpack can write the
+ * file back out and restore the link.
+ * @{
+ */
+static constexpr const char* kPtoLinkPath = "pto.link.path";
+static constexpr const char* kPtoLinkSize = "pto.link.size";
+static constexpr const char* kPtoLinkSha256 = "pto.link.sha256";
+static constexpr const char* kPtoLinkMtime = "pto.link.mtime";
+static constexpr const char* kPtoPackedPath = "pto.packed.path";
+static constexpr const char* kPtoPackedSize = "pto.packed.size";
+static constexpr const char* kPtoPackedSha256 = "pto.packed.sha256";
+static constexpr const char* kPtoPackedMtime = "pto.packed.mtime";
+
+/// What a link records. \see File::link
+struct LinkInfo {
+    std::uint64_t uid = 0;
+    std::string path;       ///< as recorded: relative to the container's directory, or absolute
+    std::uint64_t size = 0;
+    std::string sha256;     ///< lowercase hex
+    long long mtime = 0;    ///< seconds since 1970; 0 when not recorded
+};
+
+/// Whether a link's target is still the file that was linked. \see File::verify_links
+enum class LinkStatus {
+    Ok = 0,           ///< found, same size (and same hash, when checked)
+    Missing = 1,      ///< neither at the recorded path nor beside the container
+    SizeChanged = 2,  ///< found, but not the size that was linked
+    HashChanged = 3,  ///< found, same size, different SHA-256
+};
+/// "ok", "missing", "size changed", "hash changed".
+const char* link_status_name(LinkStatus s);
+
+/// One link, checked. \see File::verify_links
+struct LinkCheck {
+    std::uint64_t uid = 0;
+    LinkStatus status = LinkStatus::Ok;
+    std::string path;       ///< as recorded
+    std::string resolved;   ///< the file found, or empty when missing
+};
+
+/// A file that may be a moved link target. \see File::find_link_candidates
+struct LinkCandidate {
+    std::string path;
+    std::uint64_t size = 0;
+    bool size_matches = false;   ///< the recorded size; a hash only says more on confirmation
+};
+
+/// The SHA-256 of a file, lowercase hex, read in blocks. Empty if it cannot be read.
+std::string sha256_file(const std::string& path);
+/// The SHA-256 of a buffer, lowercase hex.
+std::string sha256_hex(const unsigned char* data, std::size_t n);
+/// @}
+
 /// A run of free space inside the file. \see File::free_extents.
 struct PtoExtent {
     std::uint64_t offset = 0;
@@ -3344,6 +3415,7 @@ struct PtoObject {
 };
 
 class File;
+struct AddressTarget;   // File::open_address; defined with split_address below
 
 namespace detail {
 /// A `dstore` object being written at a container's tail: its header goes
@@ -3593,6 +3665,20 @@ public:
      * open, and so does the process ending, however it ends.
      */
     bool open(const std::string& filename, bool writable = false);
+
+    /*!
+     * \brief Open the container an address names and find its member.
+     *
+     * `address` is `<path>[/<member>...]` (\ref split_address); the container
+     * is opened as \ref open would, and the member resolved with \ref
+     * resolve_member into `target` when one is given.
+     *
+     * \return false, with \ref error saying why, when no prefix of the address
+     *         is an existing file, the container does not open, or the member
+     *         names no object in it.
+     */
+    bool open_address(const std::string& address, AddressTarget* target = nullptr,
+                      bool writable = false);
 
     /*!
      * \brief How a container is open. \see open
@@ -3994,6 +4080,82 @@ public:
      */
     virtual std::string external_payload_path(std::uint64_t uid) const;
 
+    // -- file links --------------------------------------------------------------
+
+    /*!
+     * \brief Add an object whose payload stays in a file outside the container.
+     *
+     * The target's path is recorded relative to the container's directory
+     * (absolute when it is on another volume), with its size, its SHA-256
+     * (read once, in blocks) and its modification time; see \ref kPtoLinkPath.
+     * \ref stream, \ref extract, \ref read and \ref File::open_address then
+     * read the target as if it were inside. Kind, encoding and media type are
+     * inferred like \ref attach when left empty; `name` defaults to the
+     * target's file name.
+     *
+     * \return the uid, or 0 if the target is missing or unreadable; see \ref error.
+     */
+    std::uint64_t add_link(const std::string& path, const std::string& name = "",
+                           const std::string& kind = "", const std::string& encoding = "",
+                           const std::string& media_type = "");
+    /// Whether `uid` is a link (\ref kPtoLinkPath).
+    bool is_link(std::uint64_t uid) const;
+    /// Whether `uid` is a packed link (\ref pack), whose record \ref unpack restores.
+    bool is_packed(std::uint64_t uid) const;
+    /// What a link records. \throws std::invalid_argument if `uid` is not a link.
+    LinkInfo link(std::uint64_t uid) const;
+    /*!
+     * \brief The file a link reads, checked by size.
+     *
+     * Looks at the recorded path (from the container's directory when it is
+     * relative), then for a file of the same name beside the container. The
+     * file found must have the recorded size -- never a silently different
+     * file; the hash is compared only by \ref verify_links.
+     *
+     * \return the path, or empty with `why` filled when given.
+     */
+    std::string resolve_link(std::uint64_t uid, std::string* why = nullptr) const;
+    /*!
+     * \brief Check every link: ok, missing, size changed, hash changed.
+     * \param hash false checks presence and size only (no file is read).
+     */
+    std::vector<LinkCheck> verify_links(bool hash = true) const;
+    /*!
+     * \brief Point a link at a new target -- a moved or renamed original.
+     *
+     * The new file must have the recorded size and SHA-256; a mismatch is
+     * refused (see \ref error) unless `force`, which records the new file's
+     * size, hash and modification time instead.
+     */
+    bool relink(std::uint64_t uid, const std::string& path, bool force = false);
+    /*!
+     * \brief Files under `root` that may be a link's moved target.
+     *
+     * Walks `root` recursively (unreadable folders are skipped) for files
+     * whose name is the target's file name, those with the recorded size
+     * first. Nothing is hashed: confirm a candidate with \ref relink, which
+     * checks the hash.
+     */
+    std::vector<LinkCandidate> find_link_candidates(std::uint64_t uid,
+                                                    const std::string& root) const;
+    /*!
+     * \brief Replace a link by its target's bytes, streamed into the container.
+     *
+     * The target must resolve and match its recorded SHA-256. The uid stays;
+     * the link record moves to `pto.packed.*` so \ref unpack can restore it.
+     */
+    bool pack(std::uint64_t uid);
+    /// \ref pack every link. False at the first that fails; see \ref error.
+    bool pack_all();
+    /*!
+     * \brief Write a packed object's bytes back out and make it a link again.
+     *
+     * \param to where to write; empty uses the recorded path (relative to the
+     *        container's directory). An existing file there must be the same
+     *        bytes (size and SHA-256), and is then kept rather than rewritten.
+     */
+    bool unpack(std::uint64_t uid, const std::string& to = "");
+
     /// The free space in the file. For tests, and for deciding whether a file
     /// has accumulated enough holes to be worth compacting.
     std::vector<PtoExtent> free_extents() const;
@@ -4096,6 +4258,68 @@ std::vector<PtoObject> pto_bundle_files(File& file,
 /// True for a file that begins with an EBML header whose DocType is "pto".
 /// Silent on any input, including a missing file.
 bool is_pto_file(const std::string& filename);
+
+// -- addresses ----------------------------------------------------------------
+
+/*!
+ * \brief A container file and the member path inside it, split out of an address.
+ *
+ * Data inside a container is addressed as a path, `<path>[/<member>...]`:
+ * `run.pto/m001.ptu`, `m000.pto/burstwise/bursts`, `proj.cs.pto/decay_green`.
+ *
+ * \par The rule
+ * The container is the **shortest leading prefix of the address that is an
+ * existing regular file**; everything after it is the member path, `""` for
+ * the whole container. A directory is never a container, whatever it is
+ * called, so `fake.pto/real.pto/run1` finds `real.pto` inside the directory
+ * `fake.pto`. The separator is `/` (on Windows `\` also separates, in the
+ * filesystem part); the member path always comes back with `/`. Nothing else
+ * separates: `|`, which earlier versions used as a selector, is an ordinary
+ * character of a file name, so `run.pto|m001.ptu` names no container.
+ *
+ * Resolution touches the filesystem, so an address is only an address of
+ * something that exists: `new/out.pto` with nothing on disk is not found, and a
+ * writer creating a container uses the plain path. The table every
+ * implementation runs is `tests/data/address_cases.json`.
+ */
+struct Address {
+    std::string container;  ///< the file part, as written; empty when not found
+    std::string member;     ///< the member path, `/`-joined; empty is the whole container
+    bool found = false;     ///< false when no prefix of the address is an existing file
+    explicit operator bool() const { return found; }
+};
+
+/// Split `address` into the container file and the member path. \see Address
+Address split_address(const std::string& address);
+
+/*!
+ * \brief What a member path names inside an open container.
+ *
+ * `uid` is the object; `rest` is what is left of the member path below it.
+ * Usually `rest` is empty. It is not when the object is itself a container
+ * stored as a member (`proj.cs.pto/m000.pto/burstwise/bursts` gives the
+ * object `m000.pto` and `rest` = `burstwise/bursts`): a File opens files, not
+ * payload regions, so opening the inner container and resolving `rest` there
+ * is the caller's next step. `uid` 0 with an empty `rest` is the whole
+ * container.
+ */
+struct AddressTarget {
+    std::uint64_t uid = 0;
+    std::string rest;
+};
+
+/*!
+ * \brief Resolve a member path inside an open container.
+ *
+ * An object whose name is the whole member path wins (the newest, as \ref
+ * File::find); otherwise the shortest leading `/`-prefix of the member path
+ * that names an object, with the remainder in \ref AddressTarget::rest -- the
+ * same shortest-prefix rule as \ref split_address, one level down.
+ *
+ * \return false, with `why` filled when given, if no prefix names an object.
+ */
+bool resolve_member(const File& file, const std::string& member, AddressTarget& target,
+                    std::string* why = nullptr);
 }  // namespace pto
 
 #endif  // PTOLIB_H

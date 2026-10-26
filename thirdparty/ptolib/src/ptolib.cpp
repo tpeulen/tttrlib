@@ -352,6 +352,113 @@ inline bool list_regular_files(const path& dir, std::vector<path>& out, std::err
     return true;
 }
 
+/// Every regular file under `dir`, recursively, skipping what cannot be read
+/// -- a search for a moved file, where one locked folder must not end it.
+inline void list_regular_files_tolerant(const path& dir, std::vector<path>& out) {
+    std::error_code ec;
+    std::vector<path> here;
+#ifdef _WIN32
+    WIN32_FIND_DATAW fd;
+    const std::wstring pattern = utf8_to_wide((dir / path("*")).string());
+    HANDLE h = FindFirstFileW(pattern.c_str(), &fd);
+    if (h == INVALID_HANDLE_VALUE) return;
+    do {
+        int n = WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, nullptr, 0, nullptr, nullptr);
+        std::string name(n > 0 ? n - 1 : 0, '\0');
+        if (n > 1) WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, &name[0], n, nullptr, nullptr);
+        if (name == "." || name == "..") continue;
+        const path child = dir / path(name);
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) list_regular_files_tolerant(child, out);
+        else out.push_back(child);
+    } while (FindNextFileW(h, &fd));
+    FindClose(h);
+#else
+    DIR* d = ::opendir(dir.string().c_str());
+    if (d == nullptr) return;
+    while (struct dirent* e = ::readdir(d)) {
+        const std::string name = e->d_name;
+        if (name == "." || name == "..") continue;
+        const path child = dir / path(name);
+        if (is_directory(child, ec)) list_regular_files_tolerant(child, out);
+        else if (is_regular_file(child, ec)) out.push_back(child);
+    }
+    ::closedir(d);
+#endif
+}
+
+/// `p` with "." and ".." resolved lexically and separators made `/`; a root stays.
+inline std::string lexically_normal(const std::string& p) {
+    std::string g = path(p).generic_string();
+    std::string root;
+    if (!g.empty() && g[0] == '/') root = "/";
+#ifdef _WIN32
+    if (g.size() >= 2 && std::isalpha(static_cast<unsigned char>(g[0])) && g[1] == ':') {
+        root = g.substr(0, 2) + "/";
+        g = g.substr(2);
+    }
+#endif
+    std::vector<std::string> out;
+    for (const std::string& part : split_path(g)) {
+        if (part == ".") continue;
+        if (part == "..") {
+            if (!out.empty() && out.back() != "..") out.pop_back();
+            else if (root.empty()) out.push_back(part);
+            continue;
+        }
+        out.push_back(part);
+    }
+    std::string s = root;
+    for (std::size_t i = 0; i < out.size(); i++) s += (i ? "/" : "") + out[i];
+    return s.empty() ? std::string(".") : s;
+}
+
+/// `p` made absolute against the working directory, normalised.
+inline std::string absolute(const std::string& p) {
+    if (path(p).is_absolute()) return lexically_normal(p);
+#ifdef _WIN32
+    wchar_t full[4096];
+    const DWORD n = GetFullPathNameW(utf8_to_wide(p).c_str(), 4096, full, nullptr);
+    if (n == 0 || n >= 4096) return lexically_normal(p);
+    int m = WideCharToMultiByte(CP_UTF8, 0, full, -1, nullptr, 0, nullptr, nullptr);
+    std::string s(m > 0 ? m - 1 : 0, '\0');
+    if (m > 1) WideCharToMultiByte(CP_UTF8, 0, full, -1, &s[0], m, nullptr, nullptr);
+    return lexically_normal(s);
+#else
+    char buf[4096];
+    if (::getcwd(buf, sizeof buf) == nullptr) return lexically_normal(p);
+    return lexically_normal(std::string(buf) + "/" + p);
+#endif
+}
+
+/// Modification time, seconds since 1970; 0 when it cannot be read.
+inline long long mtime_of(const path& p) {
+    stat_t st;
+    return stat_of(p, &st) ? static_cast<long long>(st.st_mtime) : 0;
+}
+
+/// Whether a file at `a` and the directory `b` (both existing, absolute) are on
+/// one volume -- whether a relative path between them can be written at all.
+inline bool same_volume(const std::string& a, const std::string& b) {
+#ifdef _WIN32
+    auto prefix = [](const std::string& s) {
+        std::string g = path(s).generic_string();
+        if (g.size() >= 2 && g[1] == ':') return std::string(1, static_cast<char>(std::tolower(static_cast<unsigned char>(g[0])))) + ":";
+        if (g.rfind("//", 0) == 0) {   // \\server\share
+            const std::size_t s1 = g.find('/', 2), s2 = s1 == std::string::npos ? s1 : g.find('/', s1 + 1);
+            std::string unc = g.substr(0, s2);
+            for (char& c : unc) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            return unc;
+        }
+        return std::string();
+    };
+    return prefix(a) == prefix(b);
+#else
+    stat_t sa, sb;
+    if (!stat_of(path(a), &sa) || !stat_of(path(b), &sb)) return true;
+    return sa.st_dev == sb.st_dev;
+#endif
+}
+
 }  // namespace fs
 
 }  // namespace detail
@@ -8059,11 +8166,18 @@ bool File::remove(std::uint64_t uid) {
     return m.fail("no object with that uid");
 }
 
+namespace {
+// Defined with the file links below: the file an object of size zero reads.
+std::string link_or_external(const File& f, std::uint64_t uid, std::string* why);
+}  // namespace
+
 std::vector<unsigned char> File::read_stored(std::uint64_t uid) const {
     const Impl::Slot* s = p_->find(uid);
     if (s == nullptr) throw std::runtime_error("no object with that uid");
     if (s->meta.size == 0) {
-        std::string sc = external_payload_path(uid);
+        std::string why;
+        std::string sc = link_or_external(*this, uid, &why);
+        if (sc.empty() && !why.empty()) throw std::runtime_error(why);
         if (!sc.empty() && detail::fs::exists(sc)) {
             FileHandle in;
             if (!in.open(sc, "rb"))
@@ -8154,7 +8268,7 @@ std::size_t File::read_at(std::uint64_t uid, std::uint64_t at,
     const Impl::Slot* s = m.find(uid);
     if (s == nullptr || n == 0) return 0;
     if (s->meta.size == 0) {
-        std::string sc = external_payload_path(uid);
+        std::string sc = link_or_external(*this, uid, nullptr);
         if (!sc.empty() && detail::fs::exists(sc)) {
             std::uintmax_t sz = detail::fs::file_size(sc);
             if (at >= sz) return 0;
@@ -8208,7 +8322,9 @@ bool File::stream_stored(std::uint64_t uid,
     if (s == nullptr) return m.fail("no object with that uid");
 
     if (s->meta.size == 0) {
-        std::string sc = external_payload_path(uid);
+        std::string why;
+        std::string sc = link_or_external(*this, uid, &why);
+        if (sc.empty() && !why.empty()) return m.fail(why);
         if (!sc.empty() && detail::fs::exists(sc)) {
             FileHandle in;
             if (!in.open(sc, "rb")) return m.fail("cannot open sidecar " + sc);
@@ -8257,7 +8373,9 @@ bool File::extract(std::uint64_t uid, const std::string& filename) const {
 
     const Impl::Slot* s = m.find(uid);
     if (s != nullptr && s->meta.size == 0) {
-        std::string sc = external_payload_path(uid);
+        std::string why;
+        std::string sc = link_or_external(*this, uid, &why);
+        if (sc.empty() && !why.empty()) return m.fail(why);
         if (!sc.empty() && detail::fs::exists(sc)) {
             std::error_code ec;
             detail::fs::path src(sc);
@@ -8426,6 +8544,7 @@ std::uint64_t File::ebml_offset() const { return p_->ebml_at; }
 PtoFileType File::classify(const std::string& path) const { return classify_by_extension(path); }
 
 std::string File::external_payload_path(std::uint64_t uid) const {
+    if (is_link(uid)) return resolve_link(uid);
     for (const auto& tag : tags_for(uid)) {
         if (tag.name == "_mmfdb_artifact.file_path" && tag.type == PtoType::Text) {
             detail::fs::path p(tag.text);
@@ -9097,6 +9216,520 @@ bool is_pto_file(const std::string& filename) {
     while (c.element(&cid, &d, &n))
         if (cid == kDocType) return get_text(d, n) == "pto";
     return false;
+}
+
+// --- addresses -------------------------------------------------------------------
+
+namespace {
+
+/// The member path as `/`-joined text: separators normalised, empty segments dropped.
+std::string clean_member(const std::string& text) {
+    std::string out;
+    std::string segment;
+    auto flush = [&]() {
+        if (segment.empty()) return;
+        if (!out.empty()) out += '/';
+        out += segment;
+        segment.clear();
+    };
+    for (char c : text) {
+        if (detail::fs::is_sep(c)) flush();
+        else segment += c;
+    }
+    flush();
+    return out;
+}
+
+}  // namespace
+
+Address split_address(const std::string& address) {
+    Address out;
+    // Every separator ends a candidate prefix, and so does the end of the text;
+    // the first candidate that is a regular file is the container.
+    for (std::size_t i = 0; i <= address.size(); i++) {
+        if (i < address.size() && !detail::fs::is_sep(address[i])) continue;
+        if (i == 0) continue;   // a leading separator is the root, never a file
+        const std::string prefix = address.substr(0, i);
+        std::error_code ec;
+        if (!detail::fs::is_regular_file(detail::fs::u8path(prefix), ec)) continue;
+        out.container = prefix;
+        out.member = i < address.size() ? clean_member(address.substr(i + 1)) : std::string();
+        out.found = true;
+        return out;
+    }
+    return out;
+}
+
+bool resolve_member(const File& file, const std::string& member, AddressTarget& target,
+                    std::string* why) {
+    target = AddressTarget();
+    const std::string path = clean_member(member);
+    if (path.empty()) return true;
+    if (const std::uint64_t uid = file.find(path)) {
+        target.uid = uid;
+        return true;
+    }
+    // The shortest leading prefix that names an object: a container stored as a
+    // member, whose own members are the rest.
+    for (std::size_t i = path.find('/'); i != std::string::npos; i = path.find('/', i + 1)) {
+        if (const std::uint64_t uid = file.find(path.substr(0, i))) {
+            target.uid = uid;
+            target.rest = path.substr(i + 1);
+            return true;
+        }
+    }
+    if (why) *why = "no object named '" + path + "' in " + file.filename();
+    return false;
+}
+
+bool File::open_address(const std::string& address, AddressTarget* target, bool writable) {
+    const Address a = split_address(address);
+    if (!a) {
+        p_->err = "no part of '" + address + "' is an existing file";
+        return false;
+    }
+    if (!open(a.container, writable)) return false;
+    AddressTarget found;
+    std::string why;
+    if (!resolve_member(*this, a.member, found, &why)) {
+        close();
+        p_->err = why;
+        return false;
+    }
+    // An address that goes on below a link goes on inside the linked file:
+    // `proj.cs.pto/m000.pto/burstwise/bursts` with m000.pto linked opens m000.pto.
+    while (found.uid != 0 && !found.rest.empty() && is_link(found.uid)) {
+        const std::string inner = resolve_link(found.uid, &why);
+        if (inner.empty()) { close(); p_->err = why; return false; }
+        const std::string rest = found.rest;
+        close();
+        if (!open(inner, writable)) return false;
+        if (!resolve_member(*this, rest, found, &why)) { close(); p_->err = why; return false; }
+    }
+    if (target) *target = found;
+    return true;
+}
+
+// --- file links ------------------------------------------------------------------
+
+namespace {
+
+/// SHA-256 (FIPS 180-4), fed in blocks.
+class Sha256 {
+public:
+    Sha256() {
+        static const std::uint32_t init[8] = {0x6a09e667u, 0xbb67ae85u, 0x3c6ef372u, 0xa54ff53au,
+                                              0x510e527fu, 0x9b05688cu, 0x1f83d9abu, 0x5be0cd19u};
+        std::memcpy(h_, init, sizeof h_);
+    }
+    void update(const unsigned char* p, std::size_t n) {
+        bits_ += static_cast<std::uint64_t>(n) * 8u;
+        while (n > 0) {
+            const std::size_t take = std::min<std::size_t>(64 - used_, n);
+            std::memcpy(buf_ + used_, p, take);
+            used_ += take;
+            p += take;
+            n -= take;
+            if (used_ == 64) { block(buf_); used_ = 0; }
+        }
+    }
+    std::string hex() {
+        const std::uint64_t bits = bits_;
+        const unsigned char one = 0x80;
+        update(&one, 1);
+        const unsigned char zero = 0;
+        while (used_ != 56) update(&zero, 1);
+        unsigned char len[8];
+        for (int i = 0; i < 8; i++) len[i] = static_cast<unsigned char>(bits >> (56 - 8 * i));
+        update(len, 8);
+        static const char* digits = "0123456789abcdef";
+        std::string out;
+        for (std::uint32_t w : h_)
+            for (int i = 3; i >= 0; i--) {
+                const unsigned char b = static_cast<unsigned char>(w >> (8 * i));
+                out += digits[b >> 4];
+                out += digits[b & 15];
+            }
+        return out;
+    }
+
+private:
+    static std::uint32_t rotr(std::uint32_t x, int n) { return (x >> n) | (x << (32 - n)); }
+    void block(const unsigned char* p) {
+        static const std::uint32_t k[64] = {
+            0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u, 0x3956c25bu, 0x59f111f1u, 0x923f82a4u, 0xab1c5ed5u,
+            0xd807aa98u, 0x12835b01u, 0x243185beu, 0x550c7dc3u, 0x72be5d74u, 0x80deb1feu, 0x9bdc06a7u, 0xc19bf174u,
+            0xe49b69c1u, 0xefbe4786u, 0x0fc19dc6u, 0x240ca1ccu, 0x2de92c6fu, 0x4a7484aau, 0x5cb0a9dcu, 0x76f988dau,
+            0x983e5152u, 0xa831c66du, 0xb00327c8u, 0xbf597fc7u, 0xc6e00bf3u, 0xd5a79147u, 0x06ca6351u, 0x14292967u,
+            0x27b70a85u, 0x2e1b2138u, 0x4d2c6dfcu, 0x53380d13u, 0x650a7354u, 0x766a0abbu, 0x81c2c92eu, 0x92722c85u,
+            0xa2bfe8a1u, 0xa81a664bu, 0xc24b8b70u, 0xc76c51a3u, 0xd192e819u, 0xd6990624u, 0xf40e3585u, 0x106aa070u,
+            0x19a4c116u, 0x1e376c08u, 0x2748774cu, 0x34b0bcb5u, 0x391c0cb3u, 0x4ed8aa4au, 0x5b9cca4fu, 0x682e6ff3u,
+            0x748f82eeu, 0x78a5636fu, 0x84c87814u, 0x8cc70208u, 0x90befffau, 0xa4506cebu, 0xbef9a3f7u, 0xc67178f2u};
+        std::uint32_t w[64];
+        for (int i = 0; i < 16; i++)
+            w[i] = (std::uint32_t(p[4 * i]) << 24) | (std::uint32_t(p[4 * i + 1]) << 16) |
+                   (std::uint32_t(p[4 * i + 2]) << 8) | std::uint32_t(p[4 * i + 3]);
+        for (int i = 16; i < 64; i++) {
+            const std::uint32_t s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
+            const std::uint32_t s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
+            w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+        }
+        std::uint32_t a = h_[0], b = h_[1], c = h_[2], d = h_[3], e = h_[4], f = h_[5], g = h_[6], h = h_[7];
+        for (int i = 0; i < 64; i++) {
+            const std::uint32_t t1 = h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + k[i] + w[i];
+            const std::uint32_t t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+            h = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+        }
+        h_[0] += a; h_[1] += b; h_[2] += c; h_[3] += d; h_[4] += e; h_[5] += f; h_[6] += g; h_[7] += h;
+    }
+    std::uint32_t h_[8];
+    unsigned char buf_[64] = {};
+    std::size_t used_ = 0;
+    std::uint64_t bits_ = 0;
+};
+
+const PtoTag* tag_named(const std::vector<PtoTag>& tags, const char* name) {
+    for (const PtoTag& t : tags)
+        if (t.name == name) return &t;
+    return nullptr;
+}
+
+/// The record under one prefix ("pto.link." or "pto.packed."), from an object's tags.
+bool read_record(const std::vector<PtoTag>& tags, bool packed, LinkInfo& out) {
+    const PtoTag* p = tag_named(tags, packed ? kPtoPackedPath : kPtoLinkPath);
+    if (p == nullptr || p->type != PtoType::Text) return false;
+    out.path = p->text;
+    if (const PtoTag* t = tag_named(tags, packed ? kPtoPackedSize : kPtoLinkSize)) out.size = t->u;
+    if (const PtoTag* t = tag_named(tags, packed ? kPtoPackedSha256 : kPtoLinkSha256)) out.sha256 = t->text;
+    if (const PtoTag* t = tag_named(tags, packed ? kPtoPackedMtime : kPtoLinkMtime)) out.mtime = t->i;
+    return true;
+}
+
+/// The container's directory, absolute.
+std::string container_dir(const File& f) {
+    return detail::fs::u8path(detail::fs::absolute(f.filename())).parent_path().generic_string();
+}
+
+/// The target as a link records it: relative to `dir`, absolute across volumes.
+std::string recorded_path(const std::string& target_abs, const std::string& dir) {
+    if (!detail::fs::same_volume(target_abs, dir)) return target_abs;
+    std::error_code ec;
+    return detail::fs::relative(detail::fs::u8path(target_abs), detail::fs::u8path(dir), ec)
+            .generic_string();
+}
+
+struct Located {
+    LinkStatus status = LinkStatus::Missing;
+    std::string path;
+    std::uint64_t size = 0;
+};
+
+/// Where a link's target is: the recorded path, then the same name beside the container.
+Located locate_target(const File& f, const LinkInfo& li) {
+    Located out;
+    const std::string dir = container_dir(f);
+    const detail::fs::path recorded = detail::fs::u8path(li.path);
+    std::vector<std::string> tries;
+    tries.push_back(recorded.is_absolute() ? recorded.string() : (detail::fs::u8path(dir) / recorded).string());
+    const std::string beside = (detail::fs::u8path(dir) / recorded.filename()).string();
+    if (beside != tries[0]) tries.push_back(beside);
+    for (const std::string& t : tries) {
+        std::error_code ec;
+        if (!detail::fs::is_regular_file(detail::fs::u8path(t), ec)) continue;
+        out.path = t;
+        out.size = static_cast<std::uint64_t>(detail::fs::file_size(detail::fs::u8path(t), ec));
+        out.status = out.size == li.size ? LinkStatus::Ok : LinkStatus::SizeChanged;
+        return out;
+    }
+    return out;
+}
+
+/// Write a link record under one prefix, replacing whatever both prefixes held.
+void write_record(File& f, std::uint64_t uid, bool packed, const LinkInfo& li) {
+    for (const char* n : {kPtoLinkPath, kPtoLinkSize, kPtoLinkSha256, kPtoLinkMtime,
+                          kPtoPackedPath, kPtoPackedSize, kPtoPackedSha256, kPtoPackedMtime})
+        f.clear_tags(uid, n);
+    PtoTag t;
+    t.target = uid;
+    t.name = packed ? kPtoPackedPath : kPtoLinkPath; t.type = PtoType::Text; t.text = li.path;
+    f.add_tag(t);
+    t = PtoTag(); t.target = uid;
+    t.name = packed ? kPtoPackedSize : kPtoLinkSize; t.type = PtoType::UInt; t.u = li.size;
+    f.add_tag(t);
+    t = PtoTag(); t.target = uid;
+    t.name = packed ? kPtoPackedSha256 : kPtoLinkSha256; t.type = PtoType::Text; t.text = li.sha256;
+    f.add_tag(t);
+    if (li.mtime != 0) {
+        t = PtoTag(); t.target = uid;
+        t.name = packed ? kPtoPackedMtime : kPtoLinkMtime; t.type = PtoType::Int; t.i = li.mtime;
+        f.add_tag(t);
+    }
+}
+
+/// The file an object of size zero reads: a link's checked target, or the
+/// application's reference (external_payload_path). Empty, with `why` filled
+/// for a link that does not resolve -- an error, never an empty payload.
+std::string link_or_external(const File& f, std::uint64_t uid, std::string* why) {
+    if (f.is_link(uid)) return f.resolve_link(uid, why);
+    return f.external_payload_path(uid);
+}
+
+}  // namespace
+
+const char* link_status_name(LinkStatus s) {
+    switch (s) {
+        case LinkStatus::Ok: return "ok";
+        case LinkStatus::Missing: return "missing";
+        case LinkStatus::SizeChanged: return "size changed";
+        case LinkStatus::HashChanged: return "hash changed";
+    }
+    return "?";
+}
+
+std::string sha256_hex(const unsigned char* data, std::size_t n) {
+    Sha256 h;
+    h.update(data, n);
+    return h.hex();
+}
+
+std::string sha256_file(const std::string& path) {
+    FileHandle in;
+    if (!in.open(path, "rb")) return std::string();
+    std::error_code ec;
+    std::uint64_t left = static_cast<std::uint64_t>(detail::fs::file_size(detail::fs::u8path(path), ec));
+    if (ec) return std::string();
+    Sha256 h;
+    std::vector<unsigned char> chunk(1u << 20);
+    while (left > 0) {
+        const std::size_t take = static_cast<std::size_t>(left < chunk.size() ? left : chunk.size());
+        if (!in.read(chunk.data(), take)) return std::string();
+        h.update(chunk.data(), take);
+        left -= take;
+    }
+    return h.hex();
+}
+
+std::uint64_t File::add_link(const std::string& path, const std::string& name,
+                             const std::string& kind, const std::string& encoding,
+                             const std::string& media_type) {
+    Impl& m = *p_;
+    m.err.clear();
+    std::error_code ec;
+    if (!detail::fs::is_regular_file(detail::fs::u8path(path), ec)) {
+        m.fail("cannot link " + path + ": not a file");
+        return 0;
+    }
+    LinkInfo li;
+    li.size = static_cast<std::uint64_t>(detail::fs::file_size(detail::fs::u8path(path), ec));
+    li.sha256 = sha256_file(path);
+    if (li.sha256.empty()) { m.fail("cannot read " + path); return 0; }
+    li.mtime = detail::fs::mtime_of(detail::fs::u8path(path));
+    li.path = recorded_path(detail::fs::absolute(path), container_dir(*this));
+    const PtoFileType t = classify(path);
+    const std::string label = name.empty() ? detail::fs::u8path(path).filename().string() : name;
+    const std::uint64_t uid = m.emit_object(kind.empty() ? t.kind : kind,
+                                            encoding.empty() ? t.encoding : encoding, label, 0, 0,
+                                            [](FileHandle&) { return true; },
+                                            media_type.empty() ? t.media_type : media_type);
+    if (uid == 0) return 0;
+    write_record(*this, uid, false, li);
+    return uid;
+}
+
+bool File::is_link(std::uint64_t uid) const {
+    for (const PtoTag& t : p_->tags)
+        if (t.target == uid && t.name == kPtoLinkPath) return true;
+    return false;
+}
+
+bool File::is_packed(std::uint64_t uid) const {
+    for (const PtoTag& t : p_->tags)
+        if (t.target == uid && t.name == kPtoPackedPath) return true;
+    return false;
+}
+
+LinkInfo File::link(std::uint64_t uid) const {
+    LinkInfo li;
+    if (!read_record(tags_for(uid), false, li))
+        throw std::invalid_argument("object " + std::to_string(uid) + " is not a link");
+    li.uid = uid;
+    return li;
+}
+
+std::string File::resolve_link(std::uint64_t uid, std::string* why) const {
+    LinkInfo li;
+    if (!read_record(tags_for(uid), false, li)) {
+        if (why) *why = "object " + std::to_string(uid) + " is not a link";
+        return std::string();
+    }
+    const Located at = locate_target(*this, li);
+    if (at.status == LinkStatus::Ok) return at.path;
+    if (why) {
+        if (at.status == LinkStatus::Missing)
+            *why = "linked file missing: " + li.path + " (not at the recorded path, not beside " +
+                   filename() + ")";
+        else
+            *why = "linked file changed: " + at.path + " is " + std::to_string(at.size) +
+                   " bytes, " + std::to_string(li.size) + " were linked";
+    }
+    return std::string();
+}
+
+std::vector<LinkCheck> File::verify_links(bool hash) const {
+    std::vector<LinkCheck> out;
+    for (const PtoObject& o : objects()) {
+        LinkInfo li;
+        if (!read_record(tags_for(o.uid), false, li)) continue;
+        LinkCheck c;
+        c.uid = o.uid;
+        c.path = li.path;
+        const Located at = locate_target(*this, li);
+        c.status = at.status;
+        c.resolved = at.path;
+        if (c.status == LinkStatus::Ok && hash && !li.sha256.empty() &&
+            sha256_file(at.path) != li.sha256)
+            c.status = LinkStatus::HashChanged;
+        out.push_back(c);
+    }
+    return out;
+}
+
+bool File::relink(std::uint64_t uid, const std::string& path, bool force) {
+    Impl& m = *p_;
+    m.err.clear();
+    if (!m.writable) return m.fail("opened read-only");
+    LinkInfo li;
+    if (!read_record(tags_for(uid), false, li)) return m.fail("object " + std::to_string(uid) + " is not a link");
+    std::error_code ec;
+    if (!detail::fs::is_regular_file(detail::fs::u8path(path), ec)) return m.fail(path + " is not a file");
+    const std::uint64_t size = static_cast<std::uint64_t>(detail::fs::file_size(detail::fs::u8path(path), ec));
+    const std::string sha = sha256_file(path);
+    if (sha.empty()) return m.fail("cannot read " + path);
+    if ((size != li.size || sha != li.sha256) && !force)
+        return m.fail(path + " is not the linked file (" +
+                      (size != li.size ? std::to_string(size) + " bytes, " + std::to_string(li.size) + " linked"
+                                       : std::string("a different SHA-256")) +
+                      "); relink with force to use it anyway");
+    li.path = recorded_path(detail::fs::absolute(path), container_dir(*this));
+    li.size = size;
+    li.sha256 = sha;
+    li.mtime = detail::fs::mtime_of(detail::fs::u8path(path));
+    write_record(*this, uid, false, li);
+    return true;
+}
+
+std::vector<LinkCandidate> File::find_link_candidates(std::uint64_t uid,
+                                                      const std::string& root) const {
+    std::vector<LinkCandidate> out;
+    LinkInfo li;
+    if (!read_record(tags_for(uid), false, li)) return out;
+    const std::string want = detail::fs::u8path(li.path).filename().string();
+    std::vector<detail::fs::path> files;
+    detail::fs::list_regular_files_tolerant(detail::fs::u8path(root), files);
+    for (const detail::fs::path& p : files) {
+        if (p.filename().string() != want) continue;
+        std::error_code ec;
+        LinkCandidate c;
+        c.path = p.string();
+        c.size = static_cast<std::uint64_t>(detail::fs::file_size(p, ec));
+        c.size_matches = !ec && c.size == li.size;
+        out.push_back(c);
+    }
+    std::stable_sort(out.begin(), out.end(), [](const LinkCandidate& a, const LinkCandidate& b) {
+        if (a.size_matches != b.size_matches) return a.size_matches;
+        return a.path < b.path;
+    });
+    return out;
+}
+
+bool File::pack(std::uint64_t uid) {
+    Impl& m = *p_;
+    m.err.clear();
+    if (!m.writable) return m.fail("opened read-only");
+    LinkInfo li;
+    if (!read_record(tags_for(uid), false, li)) return m.fail("object " + std::to_string(uid) + " is not a link");
+    std::string why;
+    const std::string path = resolve_link(uid, &why);
+    if (path.empty()) return m.fail(why);
+    if (!li.sha256.empty() && sha256_file(path) != li.sha256)
+        return m.fail("linked file changed: " + path + " has a different SHA-256 than was linked");
+    Impl::Slot* s = m.find(uid);
+    if (s == nullptr) return m.fail("no object with that uid");
+    if (s->shared)
+        return m.fail("object shares its Attachments element with others; compact() to a new file first");
+    const PtoObject old = s->meta;
+    const std::uint64_t old_at = s->elem_at;
+    const std::uint64_t old_bytes = s->elem_bytes + s->slack_bytes;
+
+    // The bytes go in first, under a fresh uid; only then does the link go and
+    // the object take its uid back -- a failed copy leaves the link as it was.
+    FileHandle in;
+    if (!in.open(path, "rb")) return m.fail("cannot open " + path);
+    const std::uint64_t n = li.size;
+    const std::uint64_t made = m.emit_object(
+            old.kind, old.encoding, old.name, n, 0,
+            [&](FileHandle& out) {
+                std::vector<unsigned char> chunk(1u << 20);
+                std::uint64_t left = n;
+                while (left > 0) {
+                    const std::size_t take = static_cast<std::size_t>(left < chunk.size() ? left : chunk.size());
+                    if (!in.read(chunk.data(), take)) return m.fail("could not read " + path);
+                    if (!out.write(chunk.data(), take)) return m.fail("write failed");
+                    left -= take;
+                }
+                return true;
+            },
+            old.media_type, old.rows, old.raw_size);
+    if (made == 0) return false;
+    for (std::size_t i = 0; i < m.slots.size(); i++)
+        if (m.slots[i].meta.uid == uid) { m.slots.erase(m.slots.begin() + i); break; }
+    m.release(old_at, old_bytes);
+    Impl::Slot* fresh = m.find(made);
+    fresh->meta.uid = uid;
+    fresh->meta.description = old.description;
+    Buf u;
+    u.uint_elem_fixed(kFileUID, uid, kUidOctets);
+    if (!m.f.at(fresh->att_size_at + kWideSize, u.b.data(), u.b.size())) return m.fail("write failed");
+    m.dirty = true;
+    write_record(*this, uid, true, li);
+    return true;
+}
+
+bool File::pack_all() {
+    for (const PtoObject& o : objects())
+        if (is_link(o.uid) && !pack(o.uid)) return false;
+    return true;
+}
+
+bool File::unpack(std::uint64_t uid, const std::string& to) {
+    Impl& m = *p_;
+    m.err.clear();
+    if (!m.writable) return m.fail("opened read-only");
+    LinkInfo li;
+    if (!read_record(tags_for(uid), true, li))
+        return m.fail("object " + std::to_string(uid) + " is not a packed link");
+    const std::string dir = container_dir(*this);
+    std::string dest = to;
+    if (dest.empty()) {
+        const detail::fs::path r = detail::fs::u8path(li.path);
+        dest = r.is_absolute() ? r.string() : (detail::fs::u8path(dir) / r).string();
+    }
+    std::error_code ec;
+    if (detail::fs::exists(detail::fs::u8path(dest))) {
+        const std::uint64_t size = static_cast<std::uint64_t>(detail::fs::file_size(detail::fs::u8path(dest), ec));
+        if (size != li.size || sha256_file(dest) != li.sha256)
+            return m.fail(dest + " exists and is not the packed file; unpack elsewhere");
+    } else {
+        const detail::fs::path parent = detail::fs::u8path(dest).parent_path();
+        if (!parent.empty() && !detail::fs::create_directories(parent, ec))
+            return m.fail("cannot create " + parent.string() + ": " + ec.message());
+        if (!extract(uid, dest)) return false;
+    }
+    if (!update(uid, nullptr, 0)) return false;
+    li.path = recorded_path(detail::fs::absolute(dest), dir);
+    li.mtime = detail::fs::mtime_of(detail::fs::u8path(dest));
+    write_record(*this, uid, false, li);
+    return true;
 }
 // --- bundling files ------------------------------------------------------------
 

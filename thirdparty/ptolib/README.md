@@ -72,6 +72,24 @@ pto::pto_read_store(g, g.find("bursts"), back, {"tau"});   // one column: one se
 back.select_expression("tau > 2.5 and tau < 4");           // a bit mask, SIMD
 ```
 
+A **file link** keeps a payload outside the container -- recorded by relative
+path, size and SHA-256 -- so a project referencing many measurements stays
+small; `stream`, `extract` and `open_address` read the target as if it were
+inside, `verify_links` reports missing or changed targets, `relink` repairs a
+moved one, and `pack`/`unpack` switch between linked and embedded
+(`docs/pto.rst`, "File links").
+
+An object is also reachable by an **address**, a path that continues into the
+container: `run.pto/bursts`, `proj.cs.pto/m000.pto/burstwise/bursts`. The
+container is the shortest leading part that is an existing file; the rest names
+the object (`docs/pto.rst`, "Addressing data inside a container").
+
+```cpp
+pto::File h;
+pto::AddressTarget t;
+h.open_address("run.pto/bursts", &t);   // t.uid is the "bursts" store
+```
+
 A file written by an append-only writer (one SeekHead, all objects in one
 `Attachments`) opens read-only and reads like any other; to edit it,
 `compact()` it to a new file first.
@@ -243,8 +261,10 @@ compiler macros for the artifact, separate from the CMake provider settings.
 ## Tools
 
 - `pto` -- `ls | tree | info | tags | cat | extract | verify | pack | add |
-  columns | groups | head | bundle | ui`. `pto FILE.pto` lists it; `pto verify
-  FILE.pto` checks the framing with this reader's own walker.
+  link | relink | locate | embed | unembed | columns | groups | head | bundle | ui`.
+  `pto FILE.pto` lists it; `pto verify FILE.pto` checks the framing with this
+  reader's own walker and every file link's target. A container argument may be
+  an address, `FILE.pto/<member>`.
 - `ptoview` -- a terminal viewer over a container's table of contents.
 - `pto_ebml_check` (option `PTOLIB_BUILD_EBML_CHECK`, needs libebml 1.x) --
   validates a container with the reference EBML implementation, which is the
