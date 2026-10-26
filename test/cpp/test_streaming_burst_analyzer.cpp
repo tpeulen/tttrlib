@@ -14,8 +14,7 @@
 //   - histograms hold every in-range burst; burst decays sum to burst counts;
 //   - DCBS raises; clear() and replay give the same table.
 //
-//     c++ -std=c++17 -O2 -I modules/streaming/include \
-//         -o t test/cpp/test_streaming_burst_analyzer.cpp && ./t
+//     c++ -std=c++17 -O2 -I modules/streaming/include -o t test/cpp/test_streaming_burst_analyzer.cpp && ./t
 //
 // Exit status is the number of failed checks. Written 2026-10-26.
 #include <algorithm>

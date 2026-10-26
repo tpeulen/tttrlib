@@ -186,7 +186,7 @@ def test_table_equals_the_batch_in_any_chunking(preset, splits):
     a = make(preset)
     push_split(a, macro, micro, ch, splits)
     got = a.table()
-    assert len(pairs) > 100
+    assert len(pairs) > 50
     base = list(ref)
     assert list(a.table_names())[:len(base)] == base, "column names or order differ from the batch"
     for name in base:

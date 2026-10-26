@@ -399,7 +399,8 @@
             a.add_ratio("Stoichiometry", [dd, da], [dd, da, aa], bg)
             hists += [("Proximity Ratio", 50, -0.1, 1.1, "Stoichiometry", 50, -0.1, 1.1)]
             if factors is not None:
-                f = dict(gamma=1.0, beta=1.0, alpha=0.0, delta=0.0, **factors)
+                f = {"gamma": 1.0, "beta": 1.0, "alpha": 0.0, "delta": 0.0}
+                f.update(factors)
                 a.add_corrected_fret("FRET Efficiency", "Stoichiometry (corrected)", dd, da, aa,
                                      f["gamma"], f["beta"], f["alpha"], f["delta"], bg)
                 hists += [("FRET Efficiency", 50, -0.1, 1.1, "Stoichiometry (corrected)", 50, -0.1, 1.1)]
