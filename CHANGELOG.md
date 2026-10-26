@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+- **Added: `StreamingPieBurstAnalyzer`, live PIE burst analysis.** Photons
+  pushed in chunks (`push_np(macro, micro, channel)`) are burst-searched with
+  the sliding-window rule, counted per detector and per PIE window, and
+  turned into raw and (optionally) accurate-FRET-corrected E and S; a 2-D E–S
+  histogram with marginals accumulates as bursts close, and `snapshot()` /
+  `revision()` serve a live view at display rate without rescanning photons.
+  Background is estimated live between bursts or set fixed. The burst table it
+  keeps is the batch table (`tttr sm`, ChiSurf's `generate_burst_dataframe`)
+  column for column, in any chunking; `from_setup()` builds it from the shared
+  ChiSurf/CMC channel definition. Header-only (`modules/streaming`), C++ test
+  in the header-only CI job.
+
 - **Changed: data inside a container is addressed as a path, and the `|`
   selector is gone.** `TTTR("run.pto/m001.ptu")`, `read_table("run.pto/bursts")`
   and every other reader and writer take `<path>[/<member>...]` by ptolib's rule

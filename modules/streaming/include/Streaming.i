@@ -13,6 +13,7 @@
 #include "StreamingBurstDetector.h"
 #include "StreamingDecayHistogram.h"
 #include "StreamingIntensityTrace.h"
+#include "StreamingPieBurstAnalyzer.h"
 %}
 
 // Map exception translations.
@@ -77,6 +78,7 @@
 %include "StreamingBurstDetector.h"
 %include "StreamingDecayHistogram.h"
 %include "StreamingIntensityTrace.h"
+%include "StreamingPieBurstAnalyzer.h"
 
 %extend tttrlib::StreamingCorrelator {
     // One chunk, one call. `st_n_weights == 0` means unit weights and
@@ -276,6 +278,121 @@
     def __repr__(self):
         return (f"StreamingIntensityTrace(bin_width={self.bin_width():.3e} s, "
                 f"bins={self.n_bins()}, photons={self.photon_count()})")
+    %}
+#endif
+}
+
+%extend tttrlib::StreamingPieBurstAnalyzer {
+    // One chunk, one call. `st_n_microtimes == 0` means micro time 0 and
+    // `st_n_channels == 0` means routing channel 0 for every photon.
+    void push_arrays(
+        unsigned long long* st_macro_times, int st_n_macro_times,
+        unsigned short* st_microtimes, int st_n_microtimes,
+        int* st_channels, int st_n_channels
+    ) {
+        if (st_n_microtimes != 0 && st_n_microtimes != st_n_macro_times)
+            throw std::invalid_argument("push_arrays: micro times and macro times differ in length");
+        if (st_n_channels != 0 && st_n_channels != st_n_macro_times)
+            throw std::invalid_argument("push_arrays: channels and macro times differ in length");
+        $self->push_photons(
+            reinterpret_cast<const uint64_t*>(st_macro_times),
+            st_n_microtimes ? reinterpret_cast<const uint16_t*>(st_microtimes) : nullptr,
+            st_n_channels ? st_channels : nullptr,
+            st_n_macro_times);
+    }
+
+#ifdef SWIGPYTHON
+    %pythoncode %{
+    def push_np(self, macro_times, micro_times=None, channels=None):
+        """Push a whole chunk of photons in one call into C++."""
+        import numpy as np
+        mt = np.ascontiguousarray(macro_times, dtype=np.uint64)
+        mi = (np.empty(0, dtype=np.uint16) if micro_times is None
+              else np.ascontiguousarray(micro_times, dtype=np.uint16))
+        ch = (np.empty(0, dtype=np.int32) if channels is None
+              else np.ascontiguousarray(channels, dtype=np.int32))
+        self.push_arrays(mt, mi, ch)
+
+    @classmethod
+    def from_setup(cls, setup, donor="green", acceptor="red", prompt="prompt",
+                   delay="delayed", min_photons=20, window_photons=10,
+                   window_time=5e-4, macro_time_resolution=None,
+                   micro_time_resolution=None):
+        """Build an analyzer from a ChiSurf/CMC channel definition.
+
+        `setup` is the shared detector-setup dict: ``detectors`` (name ->
+        ``chs`` and optional ``micro_time_ranges``), ``windows`` (name ->
+        [lo, hi]) and ``tttr_reading`` (``macro_time_resolution`` and
+        ``micro_time_resolution`` in ns, used when the arguments are None).
+        `delay` may be None for donor excitation only (no S).
+        """
+        reading = setup.get("tttr_reading") or {}
+        if macro_time_resolution is None:
+            macro_time_resolution = float(reading.get("macro_time_resolution", 0.0)) * 1e-9
+        if micro_time_resolution is None:
+            micro_time_resolution = float(reading.get("micro_time_resolution", 0.0)) * 1e-9
+        a = cls(int(min_photons), int(window_photons), float(window_time),
+                float(macro_time_resolution), float(micro_time_resolution))
+        for name, d in (setup.get("detectors") or {}).items():
+            ranges = [int(x) for r in (d.get("micro_time_ranges") or []) for x in r]
+            a.add_detector(str(name), [int(c) for c in d.get("chs", [])], ranges)
+        for name, (lo, hi) in (setup.get("windows") or {}).items():
+            a.add_window(str(name), int(lo), int(hi))
+        a.set_pie_roles(donor, acceptor, prompt, delay or "")
+        return a
+
+    @property
+    def histogram(self):
+        """The E-S histogram, shape (n_e, n_s): rows are E bins, columns S bins."""
+        import numpy as np
+        return np.asarray(self.es_histogram(), dtype=float).reshape(
+            self.histogram_n_e(), self.histogram_n_s())
+
+    @property
+    def e_edges(self):
+        import numpy as np
+        return np.asarray(self.histogram_e_edges(), dtype=float)
+
+    @property
+    def s_edges(self):
+        import numpy as np
+        return np.asarray(self.histogram_s_edges(), dtype=float)
+
+    def snapshot(self):
+        """Everything a live view draws, as numpy arrays (cheap: no photon rescan)."""
+        import numpy as np
+        return {
+            "revision": int(self.revision()),
+            "bursts": int(self.burst_count()),
+            "photons": int(self.photon_count()),
+            "elapsed_s": float(self.elapsed_seconds()),
+            "burst_rate_hz": float(self.burst_rate_hz()),
+            "background_cps": np.asarray(self.background_rates(), dtype=float),
+            "histogram": self.histogram,
+            "e_marginal": np.asarray(self.e_marginal(), dtype=float),
+            "s_marginal": np.asarray(self.s_marginal(), dtype=float),
+            "e_edges": self.e_edges,
+            "s_edges": self.s_edges,
+        }
+
+    _INT_COLUMNS = ("First Photon", "Last Photon", "Number of Photons")
+
+    def table(self):
+        """The burst table as {column: numpy array}, in the batch table's names
+        and order; photon indices and counts are int64."""
+        import numpy as np
+        out = {}
+        for name in self.table_names():
+            col = np.asarray(self.table_column(name), dtype=float)
+            if name.startswith(self._INT_COLUMNS) or "(photons)" in name:
+                col = col.astype(np.int64)
+            out[name] = col
+        return out
+
+    def __repr__(self):
+        return (f"StreamingPieBurstAnalyzer(L={self.min_photons()}, m={self.window_photons()}, "
+                f"T={self.window_time():.3g} s, bursts={self.burst_count()}, "
+                f"photons={self.photon_count()})")
     %}
 #endif
 }

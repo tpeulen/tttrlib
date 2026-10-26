@@ -669,6 +669,13 @@ IF(TTTRLIB_BUILD_CPP_TESTS)
         ADD_TEST(NAME ${_cpp_test} COMMAND ${_cpp_test})
     ENDFOREACH()
 
+    # the streaming consumers are header-only too, with their own include path
+    ADD_EXECUTABLE(test_streaming_pie_burst_analyzer
+        "${PROJECT_SOURCE_DIR}/test/cpp/test_streaming_pie_burst_analyzer.cpp")
+    TARGET_INCLUDE_DIRECTORIES(test_streaming_pie_burst_analyzer
+        PRIVATE "${PROJECT_SOURCE_DIR}/modules/streaming/include")
+    ADD_TEST(NAME test_streaming_pie_burst_analyzer COMMAND test_streaming_pie_burst_analyzer)
+
     # test_ad_gradient also exercises DecayFit23's objective (fconv_per_cs_ad,
     # Wcm_ad/log_m_ext_ad), which are header-only templates in the decay
     # module -- so it needs that include path too, on top of modules/math's.

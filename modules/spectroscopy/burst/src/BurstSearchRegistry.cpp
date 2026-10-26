@@ -102,7 +102,7 @@ void register_builtin_burst_searches() {
             }
           }
         })SCHEMA";
-        d.extra_json = R"JSON({"api": ["TTTR.burst_search", "TTTR.burst_search_sliding_window", "StreamingBurstDetector"]})JSON";
+        d.extra_json = R"JSON({"api": ["TTTR.burst_search", "TTTR.burst_search_sliding_window", "StreamingBurstDetector", "StreamingPieBurstAnalyzer"]})JSON";
         register_burst_search(d,
         [](TTTR& d, int L, int m, double T, double, double) {
             return d.burst_search_sliding_window(L, m, T);
