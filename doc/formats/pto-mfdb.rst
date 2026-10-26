@@ -390,6 +390,39 @@ hash, and the writing application's version. A reader finding a profile *read*
 version above its own refuses the file; a higher *write* version is accepted and
 unknown tags are skipped, exactly as EBML already treats unknown elements.
 
+Linked or embedded: what an object holds
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Every data object of a PTO file — a measurement container (``.pto``) and a ChiSurf project
+(``.cs.pto``, profile ``ChiSurf.Project``) alike — is one of two things, and the reader does not care which:
+
+- **embedded**: the bytes are inside the container (streamed in, verbatim for raw instrument data);
+- **linked**: a size-0 object carrying a ptolib **file link** — ``pto.link.path`` (relative to the
+  container's folder; absolute only on another volume), ``pto.link.size``, ``pto.link.sha256``,
+  ``pto.link.mtime``, and for a remote target ``pto.link.uri`` (``mmfdb://artifact/<id>[?server=<host>]``,
+  later ``https://``). A file that replaced a URI keeps the URI as fallback.
+
+Reads follow a link transparently (``stream``, ``extract``, ``open_address``); size is checked on every open and
+sha256 on ``verify``; a missing or changed target is an error naming it, never empty data. Embedding a link
+(``pack``, ChiSurf "Embed in project" / "Make self-contained") moves the bytes in and keeps the record as
+``pto.packed.*``; ``unpack`` writes them out and restores the link; ``relink`` points a link at a moved original
+(size + sha256 checked). A ChiSurf project links its workspace items by default (slim, no duplicated
+measurements) and embeds on request; the Zenodo export refuses a project that still links unless the user
+overrides explicitly. Remote targets resolve in two phases — prefetch into a cache keyed by sha256, then a
+cache-only read — the same on desktop and in the web release. The older ``_mmfdb_artifact.is_sidecar`` /
+``file_path`` tags are still read; new files write ptolib links. Design and UI:
+*data workspace*.
+
+Addressing what is inside
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Anything inside a PTO file is named like a file in a folder: ``measurement.pto/m001.ptu``,
+``measurement.pto/<run>/<table>``, ``project.cs.pto/<dataset>`` (``@<uid>`` for a stable reference), nested
+``project.cs.pto/m000.pto/<run>/<table>``. The container is the shortest leading prefix that is an existing
+regular file; the rest is the member path; an address through a link continues inside the link's target.
+The old ``path|member`` selector is gone. Conformance table: ptolib ``tests/data/address_cases.json``, run by
+ptolib (C++/Python), tttrlib and ChiSurf.
+
 Rules
 -----
 
