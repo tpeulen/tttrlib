@@ -99,3 +99,23 @@ def test_trajectory_reporter_and_hdf5(tmp_path):
         assert set(g.keys()) >= {"frame", "id", "x", "y", "z"}
         assert g["x"].shape[0] == len(fr)
         assert np.allclose(np.asarray(g["x"]), np.asarray(eng.trajectory_x()))
+
+
+def test_engines_built_from_a_config_are_owned_and_freed():
+    """from_json/from_dict hand Python an engine it owns, so dropping it frees it.
+
+    ``%newobject`` once sat after the header include in Sim.i, where SWIG ignores
+    it: the engine came back with ``thisown`` False and never died, leaking its
+    photon buffers and state log on every run (~620 MB per smFRET simulation).
+    """
+    import gc
+    import weakref
+
+    cfg = tttrlib.SimEngine.default_json()
+    for engine in (tttrlib.SimEngine.from_json(cfg), tttrlib.SimEngine.from_dict(json.loads(cfg))):
+        assert engine.thisown
+        destroyed = []
+        weakref.finalize(engine, destroyed.append, True)
+        del engine
+        gc.collect()
+        assert destroyed

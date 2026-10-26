@@ -393,9 +393,13 @@ namespace tttrlib {
     }
 }
 
-%include "SimEngine.h"
-
+// Before the header: %newobject only applies to declarations SWIG parses after it. Placed
+// after the include it was ignored, from_json returned an engine Python did not own
+// (thisown False), and every engine built from a config leaked with its photon buffers and
+// state log (~620 MB per smFRET simulation with the state log on).
 %newobject tttrlib::SimEngine::from_json;   // Python owns the returned engine
+
+%include "SimEngine.h"
 
 // ---------------------------------------------------------------------------------
 // NumPy-friendly vector members.
