@@ -305,6 +305,7 @@ def simulated_pie():
     return macro[order], micro[order], ch[order]
 
 
+@pytest.mark.heavy
 def test_simulated_pie_populations_are_recovered(simulated_pie):
     macro, micro, ch = simulated_pie
     setup = {"detectors": {"green": {"chs": [0]}, "red": {"chs": [1]}},
