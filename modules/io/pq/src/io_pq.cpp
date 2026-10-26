@@ -76,9 +76,11 @@ if (is_verbose()) {
             if (TagHead.Typ == tyEmpty8) {
                 add_tag(json_data, key, nullptr, TagHead.Typ, TagHead.Idx);
             } else if (TagHead.Typ == tyBool8) {
-                add_tag(json_data, key, *(bool *) &(TagHead.TagValue), TagHead.Typ, TagHead.Idx);
+                // PicoQuant writes true as all ones in the 8-byte value; any non-zero value is true.
+                add_tag(json_data, key, TagHead.TagValue != 0, TagHead.Typ, TagHead.Idx);
             } else if (TagHead.Typ == tyInt8 || TagHead.Typ == tyBitSet64 || TagHead.Typ == tyColor8) {
-                add_tag(json_data, key, *(int *) &(TagHead.TagValue), TagHead.Typ, TagHead.Idx);
+                // The full 64-bit value: an int cast truncated large integer tags.
+                add_tag(json_data, key, (int64_t) TagHead.TagValue, TagHead.Typ, TagHead.Idx);
             } else if (TagHead.Typ == tyFloat8) {
                 add_tag(json_data, key, *(double *) &(TagHead.TagValue), TagHead.Typ, TagHead.Idx);
             } else if (TagHead.Typ == tyTDateTime) {

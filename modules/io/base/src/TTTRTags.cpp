@@ -32,7 +32,12 @@ void add_tag(
     } else if (type == tyBool8) {
         tag["value"] = any_cast<bool>(value);
     } else if ((type == tyInt8) || (type == tyBitSet64) || (type == tyColor8)) {
-        tag["value"] = any_cast<int>(value);
+        // The PTU reader passes the full 64-bit value; other writers pass an int.
+        if (value.type() == typeid(int64_t)) {
+            tag["value"] = any_cast<int64_t>(value);
+        } else {
+            tag["value"] = any_cast<int>(value);
+        }
     } else if ((type == tyFloat8) || (type == tyTDateTime)) {
         tag["value"] = any_cast<double>(value);
     } else if (type == tyFloat8Array) {
