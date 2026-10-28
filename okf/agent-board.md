@@ -125,6 +125,30 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
+- **T-20261028-PARITY-ULP · [tttrlib] 'bit-identical to scipy' signal/ndimage parity tests fail by 1-few ulp on CI (all OSes)**
+  - Status: 🆕 open
+  - Owner: —
+  - Opened: 2026-10-28 · Picked: — · Done: —
+  - Why: unmasked once test_embedding stopped aborting the misc group (52bbb2210). Run 40720098835: win
+    test_signal_parity lfilter[14,18,19] + savgol (10 cases, 1e-16 abs); osx adds test_ndimage_parity gaussian_family /
+    correlate1d_extension; lnx ~90 cases (lfilter, splrep/splev, ndimage correlate/spline/linkage) plus
+    test_cluster boruvka_vs_prim and kinetics test_gopich_szabo leak. The claim holds only against the dev scipy/compiler.
+  - Done when: misc group green on lnx/osx/win (either exact arithmetic order matched, or a documented ulp bound).
+  - Touching: test/python/misc/test_{signal,ndimage}_parity.py, modules/math/src/{Signal,NdImageOps}.cpp.
+
+- **T-20261028-PTO-ADDR-TESTS · [tttrlib] toplevel tests still use the removed '|' container selector (all OSes; Windows crashes)**
+  - Status: 🆕 open
+  - Owner: —
+  - Opened: 2026-10-28 · Picked: — · Done: —
+  - Why: since adbdfdf53 (addresses are paths, '|' gone) CI runs 40706312103/40720098835 fail on lnx/osx/win:
+    test_conformance[pto.a_range_of_an_embedded_photon_stream] and test_pto::test_a_set_stays_tied_to_its_spc
+    ("could not read events from ...run.pto|raw/...spc"), test_pto_write_native::test_writing_twice_keeps_both
+    (second write lost; on Windows the toplevel pytest dies with 0xC0000409 there), test_pto_address_links::
+    test_a_link_records_path_size_and_hash (Windows only); plus test_module_readmes (math/README.md lacks
+    Signal.cpp/.h, io/README.md lacks `mat`) and test_registry_completeness (unregistered public symbols).
+  - Done when: the toplevel group passes in Build & Test (all OSes) and Pip Test win.
+  - Touching: test/python/test_pto*.py, conformance cases, modules/io/pto, modules/math/README.md, modules/io/README.md, registry.
+
 - **T-20261007-W7-INTEGRATION · [chisurf] open plugin acceptance gate**
   - Status: ⏳ advertised, source implementation complete
   - Owner: unassigned; integrate after ordered W1/W6/W0 owners
@@ -1204,6 +1228,19 @@ are still claims and still binding.
   - Progress: chimol `db07093` (reference-viewer arg binding, Python escape, alias, load/fetch); probe 45→22 failing. 12 reference pages + ~140 junk headers in `~/dev/chimol/okf/references/pymol/`. Stopped early (user saving credits). Next: `index.md` "Where to pick this up" there (setting levels first).
 
 ## Resolved
+
+- **T-20261028-WIN-TESTS · [tttrlib] Windows pip test: tsne bad input aborts; split-before-fill intensity is garbage**
+  - Status: ✅ done 2026-10-28 — 52bbb2210, 31fbb32cb; both tests PASS in Pip Test win py3.12 (run 40720098835)
+  - Owner: opus-5.5/win-test-fixes
+  - Opened/Picked: 2026-10-28
+  - Why: CI run 40706312103 Pip Test win py3.12 (also lnx/win Build & Test): test_embedding::test_bad_input_raises_value_error
+    "Fatal Python error: Aborted"; test_deferred_split_channel_layout::test_explicit_split_updates_layout_before_fill[False].
+  - Done when: both pass on macOS and in a dispatched Windows py3.12 Pip Build/Test win run.
+  - Touching: ext/python/NdImage.i, ext/python/Signal.i, modules/imaging/clsm/src/CLSMImage.cpp (get_intensity_t),
+    test/python/test_cpp_errors_raise_not_abort.py.
+  - Progress: 52bbb2210 (NdImage.i/Signal.i bare `%exception;` -> standard handler, guard test), 31fbb32cb
+    (get_intensity_t calloc). macOS: clsm 290 passed, embedding/ndimage/signal/cpp_errors 188 passed. Windows
+    run 40720098835: both PASS. Pip Test win still red from T-20261028-PTO-ADDR-TESTS and T-20261028-PARITY-ULP.
 
 - **T-20261020-W16-WP9K · [imp.bff+tttrlib] detailed-balance lattice flux, grid lifetimes, donor decay**
   - Status: ✅ done 2026-10-20 — tttrlib 6097ec431, imp.bff b44fb744e. 16+2 new tests green, GPU 7/7 (scratch-built plugin), quenching/abi/vendored suites green except a pre-existing ptolib vendoring drift. arm64 build tree rebuilt once, 10:44-10:50 (lib 10:47:02, __init__.py 10:47:45, _IMP_bff.so 10:49:58). Resume: imp.bff okf/quest-site-kernels.md item 2. Files released.
