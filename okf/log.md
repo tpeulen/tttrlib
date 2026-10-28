@@ -1,5 +1,18 @@
 # Bundle update log
 
+## 2026-10-28 — PTU reader: 32-bit records without the BitsPerRecord tag
+
+- `read_ptu_header` (`modules/io/pq/src/io_pq.cpp`) left
+  `TTResultFormat_BitsPerRecord` unset when a file lacks it, so
+  `get_bytes_per_record()` was 0 and the file read as zero records with no
+  message. Every PicoQuant PTU record type is 32 bit; the reader now adds 32
+  (verbose note). A missing `MeasDesc_BinningFactor` is no longer reported as
+  an ERROR (optional tag; no binning). Test:
+  `test/python/tttr/test_ptu_minimal_header.py` (fails on the previous build,
+  passes now; `test/python/tttr` 702 passed). The arm64 env's installed
+  tttrlib (0.27.0) predates this, the HHT3v2 overflow fix and the T2 channel
+  numbering (ec1104585): reinstall to pick them up.
+
 ## 2026-10-28 — HHT3v2: an overflow record with count 0 is one overflow
 
 - `RecordProcessor<PQ_RECORD_TYPE_HHT3v2>` added `1024 * n_sync`, so a

@@ -162,13 +162,25 @@ if (is_verbose()) {
         tttr_record_type = PQ_RECORD_TYPE_HHT3v2;
     }
 
-    try {
-        int bining_factor = get_tag(json_data, "MeasDesc_BinningFactor")["value"];
-        if (bining_factor < 1) bining_factor = 1;
-        add_tag(json_data, TTTRNMicroTimes, 32768 / bining_factor, tyInt8, true);
-    } catch (...) {
-        std::cerr << "ERROR: MeasDesc_BinningFactor not found." << std::endl;
-}
+    // Optional tag (absent e.g. in T2 files and from other writers): no binning.
+    int bining_factor = 1;
+    if (find_tag(json_data, "MeasDesc_BinningFactor") >= 0) {
+        try {
+            bining_factor = get_tag(json_data, "MeasDesc_BinningFactor")["value"];
+        } catch (...) {
+            bining_factor = 1;
+        }
+    }
+    if (bining_factor < 1) bining_factor = 1;
+    add_tag(json_data, TTTRNMicroTimes, 32768 / bining_factor, tyInt8, true);
+
+    // Every PicoQuant PTU record type is 32 bit. A file without the tag (a
+    // hand-made or third-party writer) was read as zero records, silently.
+    if (find_tag(json_data, TTTRTagBits) < 0) {
+        if (is_verbose())
+            std::clog << "-- PTU without " << TTTRTagBits << ": 32 bit records" << std::endl;
+        add_tag(json_data, TTTRTagBits, 32, tyInt8);
+    }
     return static_cast<size_t>(ftell64(fpin));
 }
 

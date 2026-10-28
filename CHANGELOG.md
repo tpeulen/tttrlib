@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- **Fixed: a PTU without `TTResultFormat_BitsPerRecord` read as zero records,
+  silently.** Every PicoQuant PTU record type is 32 bit; the PTU reader now
+  assumes 32 when the tag is absent (hand-made files, third-party writers).
+  A missing `MeasDesc_BinningFactor` (optional, e.g. T2) no longer prints
+  `ERROR: MeasDesc_BinningFactor not found.`; it means no binning.
+  `test/python/tttr/test_ptu_minimal_header.py`. Found writing HydraHarp 400
+  FIFO words to PTU for a decoder cross-check (phacq).
+
 - **Fixed: HydraHarp V2 T3 (HHT3v2) overflow records with a count of 0 are
   one overflow.** The reader added `1024 * n_sync`, so a count-0 overflow
   record added nothing and every macro time after it came out 1024 syncs
