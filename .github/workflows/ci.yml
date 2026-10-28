@@ -10,6 +10,13 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      py_versions:
+        description: >-
+          Space-separated Python versions overriding the branch's default set
+          (e.g. "3.12" to get a cp312 Windows wheel off dev). Empty keeps the default.
+        required: false
+        default: ''
   # Nightly, for the checks that are too expensive to sit on every push but too
   # useful to see for the first time at release. Currently just the bioconda
   # gate, which builds against a recipe this repository does not own.
@@ -25,7 +32,7 @@ on:
 # main and tags are exempt: a release build has to finish even if another push
 # lands while it runs.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && 'dispatch' || 'auto' }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
 
 env:
@@ -126,6 +133,11 @@ jobs:
           else
             IS_MAIN=false; VERSIONS="${{ env.DEFAULT_PYTHON }}"
             SRC_OSES="ubuntu-latest"; LANE=fast
+          fi
+          # A manual dispatch may ask for other interpreters than the branch's
+          # default set -- e.g. one cp312 wheel off dev for a lab machine.
+          if [[ -n "${{ inputs.py_versions }}" ]]; then
+            VERSIONS="${{ inputs.py_versions }}"
           fi
           echo "is_main=$IS_MAIN" >> $GITHUB_OUTPUT
           # dev keeps the packaging jobs that are cheap to keep honest --
