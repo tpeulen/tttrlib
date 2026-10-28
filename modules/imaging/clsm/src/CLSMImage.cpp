@@ -3292,9 +3292,12 @@ void CLSMImage::get_intensity_t(T **output, int *dim1, int *dim2, int *dim3) {
         std::clog << "-- Total number of pixels: " << n_pixel_total << std::endl;
     }
     
-    // Allocate output array for all frames
-    auto *t = (T *) malloc(n_pixel_total * sizeof(T));
-    
+    // Allocate output array for all frames, zeroed: a frame without lines or
+    // pixels (e.g. right after split_frames_by_channel, before any fill)
+    // copies nothing below, and its block must read as zero counts rather
+    // than whatever the allocator handed back (it did on Linux/MSVC).
+    auto *t = (T *) calloc(std::max(n_pixel_total, size_t(1)), sizeof(T));
+
     // Configure OpenMP for parallel intensity computation
 #ifndef _WIN32
     int num_threads = tttrlib::cpu_features::configure_openmp(is_verbose());
