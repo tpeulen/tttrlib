@@ -161,7 +161,9 @@ struct RecordProcessor<PQ_RECORD_TYPE_HHT3v2> {
         rec.allbits = TTTRRecord;
         
         if ((rec.bits.channel == 0x3F) && (rec.bits.special == 1)) {
-            overflow_counter += T3WRAPAROUND * rec.bits.n_sync;
+            // n_sync holds the overflow count; 0 is a single overflow (the
+            // old-style record), as in PicoQuant's Read_PTU.py and GENERIC_T3
+            overflow_counter += T3WRAPAROUND * (rec.bits.n_sync == 0 ? 1 : rec.bits.n_sync);
             return false;
         }
         

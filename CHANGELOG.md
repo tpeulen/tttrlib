@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- **Fixed: HydraHarp V2 T3 (HHT3v2) overflow records with a count of 0 are
+  one overflow.** The reader added `1024 * n_sync`, so a count-0 overflow
+  record added nothing and every macro time after it came out 1024 syncs
+  early. PicoQuant's Read_PTU.py, tttrlib's own GENERIC_T3 reader and the
+  independent `ptufile` decoder all read it as one wrap; HHT3v2 now does too.
+  tttrlib's writer never emits count-0 records, so its round-trips are
+  unchanged. Found decoding a HydraHarp 400's FIFO words (phacq);
+  `test/python/tttr/test_hht3v2_overflow.py`.
+
 - **Changed (breaking): HT2-family T2 input channels are now numbered from 1,
   routing channel 0 is the sync input — PicoQuant's own convention.** All
   three reference demos shipped with SymPhoTime 64 (Read_PTU.py, Read_PTU.m

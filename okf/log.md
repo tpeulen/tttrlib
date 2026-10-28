@@ -1,5 +1,18 @@
 # Bundle update log
 
+## 2026-10-28 — HHT3v2: an overflow record with count 0 is one overflow
+
+- `RecordProcessor<PQ_RECORD_TYPE_HHT3v2>` added `1024 * n_sync`, so a
+  count-0 overflow record (the old single-overflow form) added nothing and
+  shifted every later macro time by 1024 syncs. Now `n_sync == 0 ? 1 :
+  n_sync`, as GENERIC_T3, PicoQuant's Read_PTU.py and ptufile 2026.10.16
+  (cross-checked on the same words). Writers never emit count 0, so
+  round-trips are unchanged. Found decoding HydraHarp 400 FIFO words for
+  phacq's native HH400 driver, where tttrlib and an independent decode
+  otherwise agreed exactly (2,005,951 real T2 records, 20k synthetic T2/T3
+  with photons, markers, multi-count overflows). Test:
+  `test/python/tttr/test_hht3v2_overflow.py`.
+
 ## 2026-10-26 — T2 input channels shift to PicoQuant's numbering (inputs from 1, 0 = sync)
 
 - Every PicoQuant reference decoder shipped with SymPhoTime 64 v2.11
