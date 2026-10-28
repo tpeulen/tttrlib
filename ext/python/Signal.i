@@ -37,4 +37,20 @@
 
 %include "Signal.h"
 
-%exception;
+// Restore the global handler rather than clearing it. A bare `%exception;`
+// resets to NOTHING, so every interface included after this one (Signal.i,
+// Embedding.i) lost its handler and a C++ throw -- tsne_embed's
+// std::invalid_argument for perplexity >= n_samples -- aborted the
+// interpreter instead of raising ValueError. Keep this body identical to
+// MicrotimeLinearization.i's.
+%exception {
+    try {
+        $action
+    } catch (const std::invalid_argument& e) {
+        SWIG_exception(SWIG_ValueError, e.what());
+    } catch (const std::exception& e) {
+        SWIG_exception(SWIG_RuntimeError, e.what());
+    } catch (...) {
+        SWIG_exception(SWIG_UnknownError, "Unknown exception");
+    }
+}

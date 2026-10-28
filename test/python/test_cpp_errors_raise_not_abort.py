@@ -15,6 +15,8 @@ below sit after the last such clear in the include order and are the ones that
 lose their handler first; each call here throws in C++ on purpose.
 """
 
+import pathlib
+import re
 import unittest
 
 import numpy as np
@@ -41,6 +43,27 @@ class TestCppErrorsRaiseRatherThanAbort(unittest.TestCase):
         # TTTR is wrapped in the same after-the-clear region.
         with self.assertRaises(Exception):
             tttrlib.TTTR("/nonexistent/path/definitely_not_a_photon_file.xyz")
+
+    def test_tsne_perplexity_above_n_samples_is_a_value_error(self):
+        # Embedding.i sat after the bare clears in NdImage.i and Signal.i.
+        with self.assertRaises(ValueError):
+            tttrlib.tsne(np.random.default_rng(0).normal(size=(50, 3)), perplexity=60)
+
+
+class TestNoInterfaceClearsTheGlobalHandler(unittest.TestCase):
+    """The runtime cases above only probe a few subsystems; this probes all."""
+
+    def test_no_python_interface_ends_with_a_bare_clear(self):
+        root = pathlib.Path(__file__).resolve().parents[2] / "ext" / "python"
+        if not root.is_dir():
+            self.skipTest("interface sources are not beside the tests")
+        offenders = [
+            f"{path.relative_to(root)}:{n}"
+            for path in sorted(root.rglob("*.i"))
+            for n, line in enumerate(path.read_text(errors="replace").splitlines(), 1)
+            if re.fullmatch(r"\s*%exception\s*;\s*", line)
+        ]
+        self.assertEqual(offenders, [], "restore the standard %exception handler instead of `%exception;`")
 
 
 if __name__ == "__main__":
