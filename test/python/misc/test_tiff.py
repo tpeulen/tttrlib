@@ -313,3 +313,98 @@ def test_we_read_tifffiles_imagej_hyperstack(tmp_path):
     assert meta["axes"] == "TZCYX"
     assert tuple(meta["shape"]) == arr.shape
     np.testing.assert_array_equal(tttrlib.imread(path), arr)
+
+
+# ---------------------------------------------------------------------------
+# imappend: streaming page append for recordings that must not hold the whole
+# stack in memory. A file created by appending is BigTIFF; appending to an
+# existing file keeps its format; pages read back as unlabelled "IYX".
+# ---------------------------------------------------------------------------
+
+
+def test_append_creates_and_extends_a_gray_stack(tmp_path):
+    path = str(tmp_path / "stream.tif")
+    pages = [_sample(np.uint16, (9, 7)) for _ in range(3)]
+    for page in pages:
+        tttrlib.imappend(path, page)
+    back = tttrlib.imread(path)
+    assert back.shape == (3, 9, 7)
+    for d, page in enumerate(pages):
+        np.testing.assert_array_equal(back[d], page)
+    meta = tttrlib.tiff_metadata(path)
+    assert meta["axes"] == "IYX"
+    assert meta["shape"] == (3, 9, 7)
+
+
+def test_appended_file_is_bigtiff_when_created(tmp_path):
+    # A recording's final size is unknown when the first page lands, so a file
+    # created by appending must not carry classic TIFF's 4 GiB offset limit.
+    path = tmp_path / "big.tif"
+    tttrlib.imappend(path, _sample(np.uint8, (5, 6)))
+    assert path.read_bytes()[:4] == b"II+\x00"       # BigTIFF version 43
+
+
+def test_append_extends_an_imwrite_stack_in_its_own_format(tmp_path):
+    path = str(tmp_path / "stack.tif")
+    first = _sample(np.uint8, (2, 6, 8))
+    tttrlib.imwrite(path, first)                     # classic TIFF
+    later = _sample(np.uint8, (6, 8))
+    tttrlib.imappend(path, later)
+    assert (tmp_path / "stack.tif").read_bytes()[:4] == b"II*\x00"   # still classic
+    back = tttrlib.imread(path)
+    assert back.shape == (3, 6, 8)
+    np.testing.assert_array_equal(back[:2], first)
+    np.testing.assert_array_equal(back[2], later)
+
+
+@pytest.mark.parametrize("compression", COMPRESSIONS)
+def test_append_compressions_round_trip(tmp_path, compression):
+    path = str(tmp_path / f"app_{compression}.tif")
+    pages = [_sample(np.uint16, (7, 5)) for _ in range(2)]
+    for page in pages:
+        tttrlib.imappend(path, page, compression=compression)
+    back = tttrlib.imread(path)
+    for d, page in enumerate(pages):
+        np.testing.assert_array_equal(back[d], page)
+
+
+def test_append_rgb_pages(tmp_path):
+    # imread/tiff_info are single-channel by design, so RGB pages are verified
+    # through Pillow (a reader every desktop has).
+    from PIL import Image
+
+    path = tmp_path / "rgb.tif"
+    pages = [_sample(np.uint8, (6, 5, 3)) for _ in range(2)]
+    for page in pages:
+        tttrlib.imappend(path, page)
+    image = Image.open(path)
+    count = 0
+    while True:
+        image.seek(count)
+        np.testing.assert_array_equal(np.asarray(image), pages[count])
+        count += 1
+        try:
+            image.seek(count)
+        except EOFError:
+            break
+    assert count == 2
+
+
+def test_append_rejects_pages_that_are_not_images(tmp_path):
+    path = str(tmp_path / "bad.tif")
+    with pytest.raises(ValueError):
+        tttrlib.imappend(path, np.zeros(8, dtype=np.uint8))          # 1-D
+    with pytest.raises(ValueError):
+        tttrlib.imappend(path, np.zeros((8, 8, 4), dtype=np.uint8))  # 4 samples
+    with pytest.raises(ValueError):
+        tttrlib.imappend(path, np.zeros((2, 8, 8), dtype=np.uint8))  # not RGB
+    assert not (tmp_path / "bad.tif").exists()       # nothing half-written
+
+
+def test_append_dtype_promotion(tmp_path):
+    path = str(tmp_path / "prom.tif")
+    page = _sample(np.int16, (6, 6))
+    tttrlib.imappend(path, page)                     # int16 -> int32 on disk
+    back = tttrlib.imread(path)
+    assert back.dtype == np.int32
+    np.testing.assert_array_equal(back.astype(np.int16), page)

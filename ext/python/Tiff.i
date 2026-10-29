@@ -28,6 +28,15 @@
 %apply (float*          IN_ARRAY3, int DIM1, int DIM2, int DIM3) {(float*          data, int n_frames, int height, int width)}
 %apply (double*         IN_ARRAY3, int DIM1, int DIM2, int DIM3) {(double*         data, int n_frames, int height, int width)}
 
+// Appends consume one page as (data, height, width); the samples-per-pixel and
+// compression arguments follow the typemap's integers.
+%apply (unsigned char*  IN_ARRAY2, int DIM1, int DIM2) {(unsigned char*  data, int height, int width)}
+%apply (unsigned short* IN_ARRAY2, int DIM1, int DIM2) {(unsigned short* data, int height, int width)}
+%apply (unsigned int*   IN_ARRAY2, int DIM1, int DIM2) {(unsigned int*   data, int height, int width)}
+%apply (int*            IN_ARRAY2, int DIM1, int DIM2) {(int*            data, int height, int width)}
+%apply (float*          IN_ARRAY2, int DIM1, int DIM2) {(float*          data, int height, int width)}
+%apply (double*         IN_ARRAY2, int DIM1, int DIM2) {(double*         data, int height, int width)}
+
 // Wrap the enum, TiffInfo struct, tiff_info(), tiff_dtype() and the templates.
 %include "TiffArrayIO.h"
 
@@ -50,6 +59,13 @@
 %template(tiff_write_i32) tttrlib::write_tiff<int>;
 %template(tiff_write_f32) tttrlib::write_tiff<float>;
 %template(tiff_write_f64) tttrlib::write_tiff<double>;
+
+%template(tiff_append_u8)  tttrlib::append_tiff<unsigned char>;
+%template(tiff_append_u16) tttrlib::append_tiff<unsigned short>;
+%template(tiff_append_u32) tttrlib::append_tiff<unsigned int>;
+%template(tiff_append_i32) tttrlib::append_tiff<int>;
+%template(tiff_append_f32) tttrlib::append_tiff<float>;
+%template(tiff_append_f64) tttrlib::append_tiff<double>;
 #else
 %template(_tiff_read_u8)   tttrlib::read_tiff<unsigned char>;
 %template(_tiff_read_u16)  tttrlib::read_tiff<unsigned short>;
@@ -64,6 +80,13 @@
 %template(_tiff_write_i32) tttrlib::write_tiff<int>;
 %template(_tiff_write_f32) tttrlib::write_tiff<float>;
 %template(_tiff_write_f64) tttrlib::write_tiff<double>;
+
+%template(_tiff_append_u8)  tttrlib::append_tiff<unsigned char>;
+%template(_tiff_append_u16) tttrlib::append_tiff<unsigned short>;
+%template(_tiff_append_u32) tttrlib::append_tiff<unsigned int>;
+%template(_tiff_append_i32) tttrlib::append_tiff<int>;
+%template(_tiff_append_f32) tttrlib::append_tiff<float>;
+%template(_tiff_append_f64) tttrlib::append_tiff<double>;
 #endif
 
 // ---- Single, auto-dispatching user interface (Python) -----------------------
@@ -91,6 +114,15 @@ _TIFF_WRITERS = {
     "int32":   _tiff_write_i32,
     "float32": _tiff_write_f32,
     "float64": _tiff_write_f64,
+}
+
+_TIFF_APPENDERS = {
+    "uint8":   _tiff_append_u8,
+    "uint16":  _tiff_append_u16,
+    "uint32":  _tiff_append_u32,
+    "int32":   _tiff_append_i32,
+    "float32": _tiff_append_f32,
+    "float64": _tiff_append_f64,
 }
 
 
@@ -308,5 +340,52 @@ def imwrite(path, data, compression="lzw", axes=None, resolution=None, metadata=
             raise TypeError("unsupported array dtype for TIFF: %s" % a.dtype)
     a = _np.ascontiguousarray(a)
     writer(path, a, compression, description, x_res, y_res)
+
+
+def imappend(path, page, compression="none"):
+    """Append one page to a (multi-page) TIFF file, creating the file when it
+    does not exist.
+
+    ``page`` is a 2-D grayscale image or an ``(height, width, 3)`` interleaved
+    RGB image; any dtype :func:`imwrite` supports works, and pages appended to
+    one file must share it. A file created by appending is BigTIFF, so a
+    recording that keeps appending cannot outgrow the 4 GiB classic-TIFF offset
+    limit; an existing file is appended to in its own format. Pages carry no
+    ImageJ hyperstack description, so the stack reads back as unlabelled pages
+    (``"IYX"`` via :func:`tiff_metadata`; RGB pages need a reader that supports
+    them, as :func:`imread` is single-channel). Use this to stream frames of a
+    recording to disk instead of holding the whole stack in memory for
+    :func:`imwrite`.
+
+    ``compression`` is one of ``"none"`` (default), ``"lzw"``, ``"packbits"``
+    or ``"deflate"``. ``path`` may be a string or any ``os.PathLike``.
+    """
+    path = _os.fspath(path)
+    a = _np.ascontiguousarray(page)
+    if a.ndim == 2:
+        spp = 1
+    elif a.ndim == 3 and a.shape[2] == 3:
+        spp = 3
+    else:
+        raise ValueError(
+            "imappend expects a 2-D grayscale page or an (h, w, 3) RGB page, got %dD"
+            % a.ndim)
+    appender = _TIFF_APPENDERS.get(a.dtype.name)
+    if appender is None:
+        kind = a.dtype.kind
+        if kind == "f":
+            a, appender = a.astype(_np.float64), _tiff_append_f64
+        elif kind == "i":
+            a, appender = a.astype(_np.int32), _tiff_append_i32
+        elif kind in ("u", "b"):
+            a, appender = a.astype(_np.uint32), _tiff_append_u32
+        else:
+            raise TypeError("unsupported array dtype for TIFF: %s" % a.dtype)
+    a = _np.ascontiguousarray(a)
+    height, width = a.shape[0], a.shape[1]
+    # the binding takes a 2-D page; an RGB page rides as (h, w*spp) rows, which
+    # is the interleaved layout the writer writes with samples_per_pixel = spp
+    page = a if spp == 1 else a.reshape(height, width * spp)
+    appender(path, page, spp, compression)
 %}
 #endif

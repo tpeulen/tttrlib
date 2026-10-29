@@ -88,6 +88,24 @@ void write_tiff(const std::string& path, T* data,
                 const std::string& description = "",
                 double x_resolution = 0.0, double y_resolution = 0.0);
 
+/// Append one page to a (multi-page) TIFF file, creating the file when it does
+/// not exist. Each page becomes its own directory, so a recording can store
+/// frames as they arrive instead of assembling the whole stack in memory first.
+///
+/// \p data is one height x \p width block of \p samples_per_pixel interleaved
+/// samples per pixel (1 grayscale, 3 RGB), so \p width counts *samples per
+/// row*, not pixels -- the NumPy binding hands a 2-D array whose widths are
+/// exactly these rows. The pixel type T is the same set write_tiff() supports.
+/// A file created by appending is BigTIFF, so a growing recording cannot hit
+/// the 4 GiB classic-TIFF offset limit; an existing file is appended to in
+/// whatever format it already has, and every page must share the pixel type of
+/// the first. Appended pages carry no ImageJ hyperstack description, so the
+/// stack reads back as unlabelled pages ("IYX").
+template <typename T>
+void append_tiff(const std::string& path, T* data,
+                 int height, int width, int samples_per_pixel,
+                 const std::string& compression = "none");
+
 } // namespace tttrlib
 
 #endif // TTTRLIB_TIFFARRAYIO_H

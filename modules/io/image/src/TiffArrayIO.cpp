@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <sys/stat.h>
 
 namespace tttrlib {
 
@@ -354,6 +355,76 @@ void write_tiff_impl(const std::string& path, T* data,
     }
 }
 
+// Append one page as its own directory. A recording calls this per arriving
+// frame, so unlike write_tiff_impl() nothing may depend on knowing the page
+// count up front: no ImageJ hyperstack description (it lives on page one and
+// cannot be added after the fact), and a file created here is BigTIFF from the
+// first page because the stack's final size is unknown.
+template <typename T>
+void append_tiff_impl(const std::string& path, T* data,
+                      int height, int width, int samples_per_pixel,
+                      const std::string& compression) {
+    if (!data) throw std::invalid_argument("tiff: null input data");
+    if (height <= 0 || width <= 0)
+        throw std::invalid_argument("tiff: array dimensions must be positive");
+    if (samples_per_pixel != 1 && samples_per_pixel != 3)
+        throw std::invalid_argument("tiff: append supports 1 or 3 samples per pixel");
+    if (width % samples_per_pixel != 0)
+        throw std::invalid_argument("tiff: the row length must divide by the samples per pixel");
+
+    TiffHandlerGuard hg;
+    const uint16_t comp = parse_compression(compression);
+    if (!TIFFIsCODECConfigured(comp)) {
+        throw std::runtime_error("tiff: compression '" + compression +
+            "' is not available in this build (rebuild with WITH_TIFF_ZLIB for deflate)");
+    }
+    // "a" appends directories in the file's own format; the "8" flag asks for
+    // BigTIFF when the file has to be created. An existing empty file (a failed
+    // recording, say) carries no format, so it is treated as not existing.
+    struct stat st {};
+    const char* mode = (::stat(path.c_str(), &st) == 0 && st.st_size > 0) ? "a" : "a8";
+    TiffFile f(path, mode);
+    TIFF* tif = f.tif;
+
+    const uint16_t sample_format = sample_format_of<T>();
+    const uint16_t bits = static_cast<uint16_t>(sizeof(T) * 8);
+    const size_t row_samples = static_cast<size_t>(width);  // interleaved samples per row
+    std::vector<T> row(row_samples); // scratch: codecs may edit the scanline in place
+
+    TIFFSetField(tif, TIFFTAG_IMAGEWIDTH,
+                 static_cast<uint32_t>(width / samples_per_pixel));
+    TIFFSetField(tif, TIFFTAG_IMAGELENGTH,     static_cast<uint32_t>(height));
+    TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE,   bits);
+    TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, static_cast<uint16_t>(samples_per_pixel));
+    TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT,    sample_format);
+    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC,
+                 samples_per_pixel == 3 ? PHOTOMETRIC_RGB : PHOTOMETRIC_MINISBLACK);
+    TIFFSetField(tif, TIFFTAG_PLANARCONFIG,    PLANARCONFIG_CONTIG);
+    TIFFSetField(tif, TIFFTAG_ORIENTATION,     ORIENTATION_TOPLEFT);
+    TIFFSetField(tif, TIFFTAG_COMPRESSION,     comp);
+    TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP,
+                 TIFFDefaultStripSize(tif, static_cast<uint32_t>(height)));
+    if (comp == COMPRESSION_LZW || comp == COMPRESSION_ADOBE_DEFLATE) {
+        TIFFSetField(tif, TIFFTAG_PREDICTOR,
+            sample_format == SAMPLEFORMAT_IEEEFP ? PREDICTOR_FLOATINGPOINT
+                                                 : PREDICTOR_HORIZONTAL);
+    }
+    TIFFSetField(tif, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
+
+    for (int r = 0; r < height; ++r) {
+        std::memcpy(row.data(), data + static_cast<size_t>(r) * row_samples,
+                    row_samples * sizeof(T));
+        if (TIFFWriteScanline(tif, row.data(), static_cast<uint32_t>(r), 0) < 0) {
+            std::string why = g_tiff_last_error.empty() ? "scanline write failed" : g_tiff_last_error;
+            throw std::runtime_error("tiff: " + why);
+        }
+    }
+    if (!TIFFWriteDirectory(tif)) {
+        std::string why = g_tiff_last_error.empty() ? "directory write failed" : g_tiff_last_error;
+        throw std::runtime_error("tiff: " + why);
+    }
+}
+
 } // namespace
 
 namespace tttrlib {
@@ -398,6 +469,13 @@ void write_tiff(const std::string& path, T* data,
                        x_resolution, y_resolution);
 }
 
+template <typename T>
+void append_tiff(const std::string& path, T* data,
+                 int height, int width, int samples_per_pixel,
+                 const std::string& compression) {
+    append_tiff_impl<T>(path, data, height, width, samples_per_pixel, compression);
+}
+
 // Explicit instantiations - one binding entry point per pixel type. The single
 // public template above is what users call; these give the linker the six
 // concrete symbols the SWIG %template wrappers bind to.
@@ -414,6 +492,13 @@ template void write_tiff<uint32_t>(const std::string&, uint32_t*, int, int, int,
 template void write_tiff<int32_t> (const std::string&, int32_t*,  int, int, int, const std::string&, const std::string&, double, double);
 template void write_tiff<float>   (const std::string&, float*,    int, int, int, const std::string&, const std::string&, double, double);
 template void write_tiff<double>  (const std::string&, double*,   int, int, int, const std::string&, const std::string&, double, double);
+
+template void append_tiff<uint8_t> (const std::string&, uint8_t*,  int, int, int, const std::string&);
+template void append_tiff<uint16_t>(const std::string&, uint16_t*, int, int, int, const std::string&);
+template void append_tiff<uint32_t>(const std::string&, uint32_t*, int, int, int, const std::string&);
+template void append_tiff<int32_t> (const std::string&, int32_t*,  int, int, int, const std::string&);
+template void append_tiff<float>   (const std::string&, float*,    int, int, int, const std::string&);
+template void append_tiff<double>  (const std::string&, double*,   int, int, int, const std::string&);
 
 } // namespace tttrlib
 
@@ -433,6 +518,8 @@ void read_tiff(const std::string&, T**, int*, int*, int*) { tiff_disabled(); }
 template <typename T>
 void write_tiff(const std::string&, T*, int, int, int, const std::string&,
                 const std::string&, double, double) { tiff_disabled(); }
+template <typename T>
+void append_tiff(const std::string&, T*, int, int, int, const std::string&) { tiff_disabled(); }
 
 template void read_tiff<uint8_t> (const std::string&, uint8_t**,  int*, int*, int*);
 template void read_tiff<uint16_t>(const std::string&, uint16_t**, int*, int*, int*);
@@ -447,6 +534,13 @@ template void write_tiff<uint32_t>(const std::string&, uint32_t*, int, int, int,
 template void write_tiff<int32_t> (const std::string&, int32_t*,  int, int, int, const std::string&, const std::string&, double, double);
 template void write_tiff<float>   (const std::string&, float*,    int, int, int, const std::string&, const std::string&, double, double);
 template void write_tiff<double>  (const std::string&, double*,   int, int, int, const std::string&, const std::string&, double, double);
+
+template void append_tiff<uint8_t> (const std::string&, uint8_t*,  int, int, int, const std::string&);
+template void append_tiff<uint16_t>(const std::string&, uint16_t*, int, int, int, const std::string&);
+template void append_tiff<uint32_t>(const std::string&, uint32_t*, int, int, int, const std::string&);
+template void append_tiff<int32_t> (const std::string&, int32_t*,  int, int, int, const std::string&);
+template void append_tiff<float>   (const std::string&, float*,    int, int, int, const std::string&);
+template void append_tiff<double>  (const std::string&, double*,   int, int, int, const std::string&);
 
 } // namespace tttrlib
 
