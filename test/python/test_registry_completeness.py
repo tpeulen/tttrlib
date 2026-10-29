@@ -41,6 +41,12 @@ def _public_surface():
 # Not algorithms. Each group says why. Adding to this list is a reviewable
 # statement that the symbol computes nothing a user would look up by name.
 PLUMBING = {
+    "detector-setup reading (the channel definition's dict; ChannelSetup.py)": {
+        "setup_definition", "setup_detectors", "setup_gates", "setup_windows",
+        "setup_micro_time_resolution", "setup_macro_time_resolution", "setup_channel_map",
+        "rescale_micro_time_ranges", "ranges_to_inclusive", "ranges_from_inclusive",
+        "micro_time_mask", "polarization_channels",
+    },
     "photon-stream data model": {
         "TTTR", "TTTRHeader", "TTTRDecodeState", "TTTRStreamWriter", "RecordStreamWriter",
         "ContainerRecords", "PhotonSink", "PhotonStreamHub",

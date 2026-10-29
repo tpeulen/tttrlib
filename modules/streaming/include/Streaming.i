@@ -362,18 +362,11 @@
         """
         if preset not in cls.PRESETS:
             raise ValueError(f"unknown preset {preset!r}; one of {cls.PRESETS}")
-        reading = setup.get("tttr_reading") or {}
-        # The setup's reading routine, in the units the detector-setup editors write: the
-        # macro time in ns, the micro time in ps (an explicit "micro_time_resolution_unit"
-        # of "ns" reads the micro time as ns).
+        # the reading routine, in the units the setup editors write (ChannelSetup.py)
         if macro_time_resolution is None:
-            macro_time_resolution = float(reading.get("macro_time_resolution", 0.0)) * 1e-9
+            macro_time_resolution = setup_macro_time_resolution(setup) or 0.0
         if micro_time_resolution is None:
-            unit = str(reading.get("micro_time_resolution_unit", "ps")).lower()
-            scale = {"ps": 1e-12, "ns": 1e-9, "s": 1.0}.get(unit)
-            if scale is None:
-                raise ValueError(f"micro_time_resolution_unit {unit!r}: one of ps, ns, s")
-            micro_time_resolution = float(reading.get("micro_time_resolution", 0.0)) * scale
+            micro_time_resolution = setup_micro_time_resolution(setup) or 0.0
         a = cls(float(macro_time_resolution), float(micro_time_resolution))
         detectors = dict(setup.get("detectors") or {})
         for name, d in detectors.items():

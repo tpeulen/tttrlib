@@ -150,10 +150,11 @@ public:
     void select_count_rate(TTTR* tttr, double time_window, int n_ph_max, bool invert);
 
     /*!
-     * Masks outside the provides micro time ranges
+     * Masks every photon outside the micro-time ranges: a photon stays selected when
+     * ``start <= micro_time < stop`` for one of the half-open ranges (a detector setup's
+     * windows and gates); no ranges masks nothing.
      * @param tttr
-     * @param micro_time_ranges
-     * @param mask
+     * @param micro_time_ranges half-open [start, stop) micro-time channel ranges
      */
     void select_microtime_ranges(TTTR* tttr,
             std::vector<std::pair<int,int>> micro_time_ranges =

@@ -190,6 +190,11 @@ def experimental(cls):
 %include "SpectralCrosstalk.i"
 %include "BackgroundEstimation.i"
 %include "AccurateFret.i"
+
+#ifdef SWIGPYTHON
+// Reading a detector setup (channel definition): one reader for tttrlib, ChiSurf and ndXplorer
+%pythoncode "./ext/python/ChannelSetup.py"
+#endif
 #endif
 #ifndef TTTRLIB_WITHOUT_DECAY
 %include "BlindIRF.i"

@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+- **Added: reading a detector setup (`ChannelSetup.py`).** `setup_detectors`, `setup_gates`,
+  `setup_windows`, `setup_micro_time_resolution` (ps, or `micro_time_resolution_unit`),
+  `setup_macro_time_resolution`, `setup_channel_map` (window x detector streams),
+  `rescale_micro_time_ranges` (another channel width or binning), `ranges_to_inclusive` /
+  `ranges_from_inclusive` (half-open setup ranges vs the inclusive ranges of BVA, TwoCDE,
+  BurstFeature and CLSMImage.fill), `micro_time_mask`, `polarization_channels`: the one reader
+  `StreamingBurstAnalyzer.from_setup`, ChiSurf and ndXplorer use. `test/python/tttr/test_channel_setup.py`.
+
+- **Fixed: `TTTRMask.select_microtime_ranges` dropped the first channel of every range.** Its
+  ranges were open at both ends (`(2, 5)` kept channels 3 and 4); they are half-open
+  `[start, stop)` now, as a setup's windows and gates (`(2, 5)` keeps 2, 3, 4).
+
 - **Fixed: `StreamingBurstAnalyzer.from_setup` read `tttr_reading.micro_time_resolution`
   as nanoseconds.** The detector-setup editors (ChiSurf, CMC) write it in picoseconds, so a
   32 ps channel became 32 ns whenever the resolution was not passed explicitly. It is read

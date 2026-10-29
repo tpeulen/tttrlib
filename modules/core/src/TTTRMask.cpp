@@ -91,8 +91,10 @@ void TTTRMask::select_microtime_ranges(
 
     // Mark valid ranges in bitmap using memset for contiguous ranges
     for (const auto& r : micro_time_ranges) {
-        int start = std::max(0, r.first + 1);  // Exclusive lower bound
-        int end = std::min(MICROTIME_MAX - 1, r.second - 1);  // Exclusive upper bound
+        // half-open [first, second), as a detector setup's windows and gates (the lower bound
+        // used to be exclusive too, which dropped the first channel of every range)
+        int start = std::max(0, r.first);
+        int end = std::min(MICROTIME_MAX - 1, r.second - 1);
         if (end >= start) {
             std::memset(&micro_time_valid[start], 1, end - start + 1);
         }
