@@ -95,7 +95,7 @@ def rescale_micro_time_ranges(ranges, from_resolution, to_resolution):
 
     if isinstance(ranges, dict):
         return {
-            str(k): ([one(r) for r in v] if v and isinstance(v[0], (list, tuple)) else one(v))
+            str(k): ([one(r) for r in v] if not v or isinstance(v[0], (list, tuple)) else one(v))
             for k, v in ranges.items()
         }
     return [one(r) for r in (ranges or [])]
@@ -149,9 +149,10 @@ def setup_channel_map(setup, ungated_means_all=False, per_detector_without_windo
     return out
 
 
-def polarization_channels(detector):
+def polarization_channels(detector, single_is_both=True):
     """A detector's ``(parallel, perpendicular)`` routing channels: explicit ``ch_p`` / ``ch_s``,
-    else ``chs`` split even (parallel) / odd (perpendicular); a single channel is both."""
+    else ``chs`` split even (parallel) / odd (perpendicular). A single channel is both with
+    *single_is_both* (intensity images), else parallel only (VV/VH histograms, MLE)."""
     ch_p = [int(x) for x in (detector.get("ch_p") or [])]
     ch_s = [int(x) for x in (detector.get("ch_s") or [])]
     if ch_p or ch_s:
@@ -159,4 +160,4 @@ def polarization_channels(detector):
     chs = [int(x) for x in (detector.get("chs") or [])]
     if not chs:
         return [], []
-    return chs[::2], (chs[1::2] if len(chs) > 1 else chs)
+    return chs[::2], (chs[1::2] if len(chs) > 1 else (chs if single_is_both else []))

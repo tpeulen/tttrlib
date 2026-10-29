@@ -54,6 +54,8 @@ def test_channel_map_and_polarization():
     assert set(per) == {"green", "red"}
     assert tttrlib.polarization_channels({"chs": [0, 8]}) == ([0], [8])
     assert tttrlib.polarization_channels({"chs": [3]}) == ([3], [3])
+    assert tttrlib.polarization_channels({"chs": [3]}, single_is_both=False) == ([3], [])
+    assert tttrlib.rescale_micro_time_ranges({"g": []}, 50e-12, 32e-12) == {"g": []}
 
 
 def test_from_setup_reads_the_same_units():
