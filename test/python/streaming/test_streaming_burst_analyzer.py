@@ -333,6 +333,23 @@ def test_live_background_per_stream():
     assert all(bg[s] < 3000 for s in bg)
 
 
+def test_setup_reading_units_are_the_editors():
+    """A setup's reading routine: macro time in ns, micro time in ps -- what the detector-setup
+    editors write (a 32 ps channel used to become 32 ns)."""
+    setup = {**SETUPS["pie"], "tttr_reading": {"macro_time_resolution": 12.5,
+                                                "micro_time_resolution": 32.0}}
+    a = tttrlib.StreamingBurstAnalyzer.from_setup(setup, preset="pie")
+    assert a.macro_time_resolution() == pytest.approx(12.5e-9)
+    assert a.micro_time_resolution() == pytest.approx(32e-12)
+    ns = {**setup, "tttr_reading": {**setup["tttr_reading"], "micro_time_resolution": 0.032,
+                                    "micro_time_resolution_unit": "ns"}}
+    a = tttrlib.StreamingBurstAnalyzer.from_setup(ns, preset="pie")
+    assert a.micro_time_resolution() == pytest.approx(32e-12)
+    with pytest.raises(ValueError):
+        tttrlib.StreamingBurstAnalyzer.from_setup(
+            {**setup, "tttr_reading": {"micro_time_resolution_unit": "fortnights"}}, preset="pie")
+
+
 def test_setup_rules():
     a = make("pie")
     a.push_np(np.array([1, 2, 3], np.uint64), np.zeros(3, np.uint16), np.zeros(3, np.int32))

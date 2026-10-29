@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- **Fixed: `StreamingBurstAnalyzer.from_setup` read `tttr_reading.micro_time_resolution`
+  as nanoseconds.** The detector-setup editors (ChiSurf, CMC) write it in picoseconds, so a
+  32 ps channel became 32 ns whenever the resolution was not passed explicitly. It is read
+  in ps now; `micro_time_resolution_unit: "ns"` (or `"s"`) in the reading routine keeps a
+  setup written in another unit. The macro time stays ns.
+  `test/python/streaming/test_streaming_burst_analyzer.py::test_setup_reading_units_are_the_editors`.
+
 - **Fixed: a PTU without `TTResultFormat_BitsPerRecord` read as zero records,
   silently.** Every PicoQuant PTU record type is 32 bit; the PTU reader now
   assumes 32 when the tag is absent (hand-made files, third-party writers).

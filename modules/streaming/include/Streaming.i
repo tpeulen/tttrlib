@@ -327,8 +327,10 @@
         `setup` is the shared detector-setup dict: ``detectors`` (name ->
         ``chs``, optional ``micro_time_ranges``, ``g_factor``/``l1``/``l2``),
         ``windows`` (name -> [lo, hi] micro-time channels), ``tttr_reading``
-        (``macro_time_resolution``/``micro_time_resolution`` in ns, used when
-        the arguments are None), and setup-level ``g_factor``/``l1``/``l2``.
+        (``macro_time_resolution`` in ns and ``micro_time_resolution`` in ps, as
+        the detector-setup editors write them -- ``micro_time_resolution_unit``
+        ``"ns"`` overrides the latter; used when the arguments are None), and
+        setup-level ``g_factor``/``l1``/``l2``.
 
         `preset` chooses the streams, quantities and histograms:
 
@@ -361,10 +363,17 @@
         if preset not in cls.PRESETS:
             raise ValueError(f"unknown preset {preset!r}; one of {cls.PRESETS}")
         reading = setup.get("tttr_reading") or {}
+        # The setup's reading routine, in the units the detector-setup editors write: the
+        # macro time in ns, the micro time in ps (an explicit "micro_time_resolution_unit"
+        # of "ns" reads the micro time as ns).
         if macro_time_resolution is None:
             macro_time_resolution = float(reading.get("macro_time_resolution", 0.0)) * 1e-9
         if micro_time_resolution is None:
-            micro_time_resolution = float(reading.get("micro_time_resolution", 0.0)) * 1e-9
+            unit = str(reading.get("micro_time_resolution_unit", "ps")).lower()
+            scale = {"ps": 1e-12, "ns": 1e-9, "s": 1.0}.get(unit)
+            if scale is None:
+                raise ValueError(f"micro_time_resolution_unit {unit!r}: one of ps, ns, s")
+            micro_time_resolution = float(reading.get("micro_time_resolution", 0.0)) * scale
         a = cls(float(macro_time_resolution), float(micro_time_resolution))
         detectors = dict(setup.get("detectors") or {})
         for name, d in detectors.items():
