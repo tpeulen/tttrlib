@@ -72,3 +72,45 @@ def test_mask_keeps_the_half_open_range():
     m = tttrlib.TTTRMask()
     m.select_microtime_ranges(t, [(2, 5)])
     assert list(m.get_indices(True)) == [2, 3, 4]
+
+
+# --- the windows record: windows and gates with the channel width they are in ----------------------
+
+def test_record_from_setup_carries_the_width():
+    rec = tttrlib.setup_micro_time_windows(SETUP)
+    assert rec == {"windows": {"prompt": [0, 2048], "delayed": [2048, 4096]},
+                   "gates": {"green": [[0, 2048]]}, "micro_time_resolution_ps": pytest.approx(50.0)}
+    assert tttrlib.is_micro_time_windows(rec)
+    assert not tttrlib.is_micro_time_windows({"prompt": [0, 10]})
+
+
+def test_record_converts_to_the_data_width_exactly():
+    # SPC-130 50 ps x 4096 setup applied to a 32 ps HydraHarp stream: the same time spans
+    rec = tttrlib.setup_micro_time_windows(SETUP)
+    at = tttrlib.micro_time_windows_at(rec, 32e-12)
+    assert at["micro_time_resolution_ps"] == pytest.approx(32.0)
+    assert at["windows"] == {"prompt": [0, 3200], "delayed": [3200, 6400]}
+    assert at["gates"] == {"green": [[0, 3200]]}
+    # same width: unchanged; unknown width: cannot convert, stays raw
+    assert tttrlib.micro_time_windows_at(rec, 50e-12) == rec
+    raw = tttrlib.micro_time_windows({"prompt": [0, 10]})
+    assert raw["micro_time_resolution_ps"] is None
+    assert tttrlib.micro_time_windows_at(raw, 32e-12) == raw
+
+
+def test_bare_windows_are_refused():
+    with pytest.raises(TypeError):
+        tttrlib.as_micro_time_windows({"prompt": [0, 2048]})
+    with pytest.raises(TypeError):
+        tttrlib.micro_time_windows({"prompt": 5})
+    assert tttrlib.as_micro_time_windows(None) == tttrlib.micro_time_windows()
+
+
+def test_record_back_into_a_setup():
+    rec = tttrlib.micro_time_windows({"prompt": [0, 10]}, {"red": [[5, 9]]}, 16.0)
+    s = tttrlib.micro_time_windows_setup(rec, SETUP)
+    assert s["windows"] == {"prompt": [0, 10]}
+    assert s["detectors"]["red"]["micro_time_ranges"] == [[5, 9]]
+    assert "micro_time_ranges" not in s["detectors"]["green"]
+    assert tttrlib.setup_micro_time_resolution(s) == pytest.approx(16e-12)
+    assert tttrlib.setup_micro_time_windows(s) == rec

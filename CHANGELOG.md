@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- **Added: windows travel with their channel width (`ChannelSetup.py`).** One record,
+  `{"windows", "gates", "micro_time_resolution_ps"}` (`micro_time_windows`,
+  `setup_micro_time_windows`), converted exactly to a data stream's channel width
+  (`micro_time_windows_at`) and written back into a setup (`micro_time_windows_setup`);
+  `as_micro_time_windows` refuses bare `{name: [start, stop]}` windows. A width of `None` is
+  "raw channels" (an analysis stored before the width was recorded).
+
 - **Added: reading a detector setup (`ChannelSetup.py`).** `setup_detectors`, `setup_gates`,
   `setup_windows`, `setup_micro_time_resolution` (ps, or `micro_time_resolution_unit`),
   `setup_macro_time_resolution`, `setup_channel_map` (window x detector streams),

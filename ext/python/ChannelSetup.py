@@ -161,3 +161,109 @@ def polarization_channels(detector, single_is_both=True):
     if not chs:
         return [], []
     return chs[::2], (chs[1::2] if len(chs) > 1 else (chs if single_is_both else []))
+
+
+# --- micro-time windows: windows and gates together with the channel width they are in -------------
+#
+# Windows and gates are channel numbers, and a channel number means nothing without its width: the
+# same "prompt 0-2048" is the first half of a 50 ps x 4096 SPC-130 range and the first 65 ns of a
+# 32 ps HydraHarp range. So wherever windows travel between a setup, a GUI, settings, a stored
+# analysis and an analysis call, they travel as one record:
+#
+#     {"windows": {name: [start, stop)},
+#      "gates": {detector: [[start, stop), ...]},
+#      "micro_time_resolution_ps": 32.0}        # None: the width is not known ("raw" channels)
+#
+# A record without a width (``None``) is honest about not knowing it -- an analysis stored before
+# the width was recorded -- and is applied as raw channels; whoever applies it says so.
+
+
+def micro_time_windows(windows=None, gates=None, micro_time_resolution_ps=None):
+    """The record windows and gates travel in (see above): half-open integer ranges, a ``None``
+    window left out, a non-positive width read as unknown (``None``)."""
+    win = {}
+    for k, v in dict(windows or {}).items():
+        if isinstance(v, (list, tuple)) and len(v) >= 2 and None not in v[:2]:
+            win[str(k)] = [int(v[0]), int(v[1])]
+        elif v is not None:
+            raise TypeError(f"window {k!r}: [start, stop) expected, got {v!r}")
+    gat = {}
+    for k, rs in dict(gates or {}).items():
+        ranges = [[int(r[0]), int(r[1])] for r in (rs or [])]
+        if ranges:
+            gat[str(k)] = ranges
+    width = float(micro_time_resolution_ps) if micro_time_resolution_ps else 0.0
+    return {"windows": win, "gates": gat,
+            "micro_time_resolution_ps": width if width > 0 else None}
+
+
+def is_micro_time_windows(value):
+    """Whether *value* is a windows record (has ``windows`` and ``micro_time_resolution_ps``)."""
+    return (isinstance(value, dict) and "windows" in value
+            and "micro_time_resolution_ps" in value)
+
+
+def as_micro_time_windows(value):
+    """*value* as a windows record; raises ``TypeError`` for bare ``{name: [start, stop]}``
+    windows, which do not say which channel width they are in. ``None`` is the empty record."""
+    if value is None:
+        return micro_time_windows()
+    if not is_micro_time_windows(value):
+        raise TypeError(
+            "micro-time windows travel with their channel width: "
+            "{'windows': ..., 'gates': ..., 'micro_time_resolution_ps': ...} "
+            "(tttrlib.micro_time_windows / setup_micro_time_windows), got " + repr(value)[:120])
+    return micro_time_windows(value.get("windows"), value.get("gates"),
+                              value.get("micro_time_resolution_ps"))
+
+
+def setup_micro_time_windows(setup):
+    """A setup's windows and detector gates with the channel width they are in (the record)."""
+    width = setup_micro_time_resolution(setup)
+    return micro_time_windows(setup_windows(setup), setup_gates(setup),
+                              width * 1e12 if width else None)
+
+
+def micro_time_windows_at(record, micro_time_resolution):
+    """*record* in channels of *micro_time_resolution* (s): the same time spans, bounds rounded to
+    the nearest channel, and the record says the new width. A record of unknown width is returned
+    unchanged (its channels cannot be converted; it stays ``None``)."""
+    rec = as_micro_time_windows(record)
+    src = rec["micro_time_resolution_ps"]
+    if not src or not micro_time_resolution or micro_time_resolution <= 0:
+        return rec
+    dst_ps = float(micro_time_resolution) * 1e12
+    if abs(src / dst_ps - 1.0) <= 1e-9:
+        return rec
+    return micro_time_windows(
+        rescale_micro_time_ranges(rec["windows"], src * 1e-12, micro_time_resolution),
+        rescale_micro_time_ranges(rec["gates"], src * 1e-12, micro_time_resolution),
+        dst_ps,
+    )
+
+
+def micro_time_windows_setup(record, setup=None):
+    """*setup* (or an empty one) with the record's windows, its gates on the setup's detectors
+    (a detector the record gives no gate is ungated) and ``tttr_reading.micro_time_resolution``
+    set to the record's width (ps; left out when the width is unknown)."""
+    rec = as_micro_time_windows(record)
+    s = setup_definition(setup)
+    s["windows"] = {k: list(v) for k, v in rec["windows"].items()}
+    detectors = {}
+    for name, info in (s.get("detectors") or {}).items():
+        d = dict(info) if isinstance(info, dict) else {}
+        gates = rec["gates"].get(str(name))
+        if gates:
+            d["micro_time_ranges"] = [list(r) for r in gates]
+        else:
+            d.pop("micro_time_ranges", None)
+        detectors[name] = d
+    s["detectors"] = detectors
+    reading = dict(s.get("tttr_reading") or {})
+    reading.pop("micro_time_resolution_unit", None)
+    if rec["micro_time_resolution_ps"]:
+        reading["micro_time_resolution"] = rec["micro_time_resolution_ps"]
+    else:
+        reading.pop("micro_time_resolution", None)
+    s["tttr_reading"] = reading
+    return s

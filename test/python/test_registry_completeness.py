@@ -45,7 +45,9 @@ PLUMBING = {
         "setup_definition", "setup_detectors", "setup_gates", "setup_windows",
         "setup_micro_time_resolution", "setup_macro_time_resolution", "setup_channel_map",
         "rescale_micro_time_ranges", "ranges_to_inclusive", "ranges_from_inclusive",
-        "micro_time_mask", "polarization_channels",
+        "micro_time_mask", "polarization_channels", "micro_time_windows",
+        "is_micro_time_windows", "as_micro_time_windows", "setup_micro_time_windows",
+        "micro_time_windows_at", "micro_time_windows_setup",
     },
     "photon-stream data model": {
         "TTTR", "TTTRHeader", "TTTRDecodeState", "TTTRStreamWriter", "RecordStreamWriter",
