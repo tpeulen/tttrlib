@@ -118,7 +118,10 @@ const char* const kTcspcCalibrationEntry = R"JSON({
       },
       "color": {
         "type": "string",
+        "description": "Detector, named emission|excitation (G|G donor, R|G acceptor); green/red are the historic names",
         "enum": [
+          "G|G",
+          "R|G",
           "green",
           "red"
         ]
@@ -199,7 +202,7 @@ const char* const kMleGreenEntry = R"JSON({
       },
       "color": {
         "type": "string",
-        "default": "green"
+        "default": "G|G"
       },
       "n_bins": {
         "type": "integer",
@@ -298,7 +301,7 @@ const char* const kMleRedEntry = R"JSON({
       },
       "color": {
         "type": "string",
-        "default": "red"
+        "default": "R|G"
       },
       "n_bins": {
         "type": "integer",

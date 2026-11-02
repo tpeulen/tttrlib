@@ -908,8 +908,8 @@ int write_tttr_into_pto(void*, const char* path_c, void* tttr, void* header_v) {
 
     const std::string spec = path_c == nullptr ? "" : path_c;
     const std::string path = subfile_path(spec);
-    // The member names the object, so `run.pto/green` writes a photons
-    // object called "green" -- the same spelling that reads it back.
+    // The member names the object, so `run.pto/donor` writes a photons
+    // object called "donor" -- the same spelling that reads it back.
     const std::string sel = subfile_selector(spec);
     const std::string name = sel.empty() ? "photons" : sel;
 

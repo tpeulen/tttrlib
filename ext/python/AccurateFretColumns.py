@@ -5,21 +5,27 @@ import re as _afret_re
 
 #: Column-name fragments (lower case) identifying each channel role. Matched in
 #: order, exact match first, so a more specific name wins over a substring.
+#: Detectors are named ``emission|excitation``: ``G|G`` (donor), ``R|G`` (FRET
+#: acceptor), ``R|R`` (acceptor directly excited); the historic ``green`` /
+#: ``red`` / ``yellow`` spellings follow, for tables written before the names.
 BURST_COLUMN_HINTS = {
-    "i_dd": ("i_dd", "i11", "green count rate", "f_dexc_dem", "sg", "number of photons (green)",
+    "i_dd": ("i_dd", "i11", "g|g count rate", "number of photons (g|g)", "prompt g|g",
+             "green count rate", "f_dexc_dem", "sg", "number of photons (green)",
              "ngreen", "n green", "donor donor"),
-    "i_da": ("i_da", "i12", "red count rate", "f_dexc_aem", "sr", "number of photons (red)",
+    "i_da": ("i_da", "i12", "r|g count rate", "number of photons (r|g)", "prompt r|g",
+             "red count rate", "f_dexc_aem", "sr", "number of photons (red)",
              "nred", "n red", "donor acceptor"),
-    "i_aa": ("i_aa", "i22", "delayed yellow", "yellow count rate", "f_aexc_aem", "sy",
+    "i_aa": ("i_aa", "i22", "r|r count rate", "number of photons (r|r)", "delayed r|r",
+             "delayed yellow", "yellow count rate", "f_aexc_aem", "sy",
              "number of photons (yellow)", "nyellow", "n yellow", "acceptor acceptor"),
-    "tau_f": ("tau_f", "tau (green)", "taud(a)", "lifetime green", "green lifetime",
+    "tau_f": ("tau_f", "tau (g|g)", "tau (green)", "taud(a)", "lifetime green", "green lifetime",
               "donor lifetime", "tau green"),
 }
 
 #: Name fragments that mark a detector or an excitation window donor- or acceptor-side.
 BURST_DETECTOR_ROLE_WORDS = {
-    "donor": ("green", "donor", "prompt", "d"),
-    "acceptor": ("red", "acceptor", "delay", "delayed", "yellow", "a"),
+    "donor": ("g|g", "green", "donor", "prompt", "d"),
+    "acceptor": ("r|g", "r|r", "red", "acceptor", "delay", "delayed", "yellow", "a"),
 }
 
 _AFRET_GATED = _afret_re.compile(
@@ -79,8 +85,8 @@ def gated_stream_columns(names):
     w_donor, w_acceptor = pick("donor", windows), pick("acceptor", windows)
     d_donor = pick("donor", detectors)
     acceptors = [d for d in detectors if _afret_role_of(d) == "acceptor"]
-    d_da = acceptors[0] if acceptors else ""
-    d_aa = next(iter(acceptors[1:]), d_da)
+    d_da = "r|g" if "r|g" in acceptors else (acceptors[0] if acceptors else "")
+    d_aa = "r|r" if "r|r" in acceptors else next(iter(a for a in acceptors if a != d_da), d_da)
     out = {}
     for role, key in (("i_dd", (w_donor, d_donor)), ("i_da", (w_donor, d_da)),
                       ("i_aa", (w_acceptor, d_aa))):

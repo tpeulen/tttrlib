@@ -20,6 +20,26 @@ def test_gated_photon_columns_win_and_aa_uses_the_second_acceptor_detector():
                    "tau_f": "<tauD(A)>x"}
 
 
+#: The same table under the detector names emission|excitation.
+NAMED = ["Number of Photons (G|G)", "Number of Photons (R|G)", "Number of Photons (R|R)",
+         "S prompt G|G (photons) | 616-3784", "S prompt R|G (photons) | 616-3784",
+         "S prompt R|R (photons) | 616-3784", "S delayed G|G (photons) | 4278-7762",
+         "S delayed R|G (photons) | 4278-7762", "S delayed R|R (photons) | 4278-7762",
+         "G|G Count Rate (KHz)", "Tau (G|G)"]
+
+
+def test_detector_names_map_onto_the_roles():
+    got = tttrlib.guess_burst_columns(NAMED)
+    assert got == {"i_dd": "S prompt G|G (photons) | 616-3784",
+                   "i_da": "S prompt R|G (photons) | 616-3784",
+                   "i_aa": "S delayed R|R (photons) | 4278-7762",
+                   "tau_f": "Tau (G|G)"}
+    plain = ["G|G Count Rate (KHz)", "R|G Count Rate (KHz)", "R|R Count Rate (KHz)", "Tau (G|G)"]
+    assert tttrlib.guess_burst_columns(plain) == {
+        "i_dd": "G|G Count Rate (KHz)", "i_da": "R|G Count Rate (KHz)",
+        "i_aa": "R|R Count Rate (KHz)", "tau_f": "Tau (G|G)"}
+
+
 def test_plain_names_and_extra_hints():
     names = ["i_dd", "i_da", "i_aa", "det0_life"]
     assert tttrlib.guess_burst_columns(names, {"tau_f": ("det0_life",)})["tau_f"] == "det0_life"

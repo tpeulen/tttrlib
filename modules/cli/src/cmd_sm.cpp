@@ -30,8 +30,9 @@
 //
 // Which columns a burst table has is a property of the *instrument*, so it is
 // read from `--setup` (chiSurf's detector_setups.json) and nothing here knows
-// what "green" means. A setup whose detectors are `green` and `red` produces
-// `Duration (green) (ms)`; one whose detectors are `parallel` and
+// what "G|G" means. A setup whose detectors are `G|G` and `R|G` (emission|
+// excitation; the historic `green` and `red`) produces `Duration (G|G) (ms)`
+// (`Duration (green) (ms)`); one whose detectors are `parallel` and
 // `perpendicular` produces `Duration (parallel) (ms)`; a four-channel MFD setup
 // produces four sets. Without a setup only the aggregate columns are written,
 // which is the single-colour / "I just want bursts" path.
@@ -966,7 +967,7 @@ std::vector<MleRow> fit_bursts(
 /// BVA and 2CDE need to know which detector is the donor and which the
 /// acceptor, and that is not derivable from a channel number. `--donor`/
 /// `--acceptor` say it; failing that the conventional names are tried, so the
-/// usual green/red setup needs no extra flags and an unconventional one is
+/// usual G|G / R|G setup (or the historic green/red) needs no extra flags and an unconventional one is
 /// simply not given the companions rather than given wrong ones.
 const DetectorDef* pick_stream(const DetectorSetup& setup,
                                const std::string& explicit_name,
@@ -1513,8 +1514,8 @@ int tttrlib::cli::cmd_sm(int argc, char** argv) {
         const DetectorDef* donor = nullptr;
         const DetectorDef* acceptor = nullptr;
         if (have_setup && companions) {
-            donor = pick_stream(setup, donor_name, {"green", "donor", "dd", "green_par"});
-            acceptor = pick_stream(setup, acceptor_name, {"red", "acceptor", "da", "red_par"});
+            donor = pick_stream(setup, donor_name, {"g|g", "green", "donor", "dd", "green_par"});
+            acceptor = pick_stream(setup, acceptor_name, {"r|g", "red", "acceptor", "da", "red_par"});
             if ((!donor_name.empty() && donor == nullptr) ||
                 (!acceptor_name.empty() && acceptor == nullptr)) {
                 std::cerr << "error: --donor/--acceptor names no detector in setup '"
