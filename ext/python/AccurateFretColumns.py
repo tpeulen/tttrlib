@@ -28,8 +28,10 @@ BURST_DETECTOR_ROLE_WORDS = {
     "acceptor": ("r|g", "r|r", "red", "acceptor", "delay", "delayed", "yellow", "a"),
 }
 
+#: ``S {window} {detector} (photons|kHz) | lo:hi``; a table written before ranges were
+#: spelled ``lo:hi`` says ``lo-hi``, and is read as well.
 _AFRET_GATED = _afret_re.compile(
-    r"^s\s+(?P<middle>.+?)\s+\((?P<unit>khz|photons)\)\s*\|\s*\d+\s*-\s*\d+$")
+    r"^s\s+(?P<middle>.+?)\s+\((?P<unit>khz|photons)\)\s*\|\s*\d+\s*[:-]\s*\d+$")
 _AFRET_DETECTOR = _afret_re.compile(r"^number of photons \((?P<detector>.+)\)$")
 
 
@@ -46,7 +48,7 @@ def _afret_role_of(name):
 def gated_stream_columns(names):
     """The ALEX/PIE channels among a burst table's window x detector columns.
 
-    ``S {window} {detector} (photons|kHz) | r0-r1`` columns are matched against
+    ``S {window} {detector} (photons|kHz) | r0:r1`` columns are matched against
     the detectors named by ``Number of Photons ({detector})``. Photon counts win
     over rates (E and S are count ratios). The acceptor-excitation channel
     prefers a second acceptor detector when the setup lists one (the Seidel

@@ -332,7 +332,7 @@ std::string column_unit(const std::string& label) {
     std::string name, inside;
 
     // `Name | unit`, and the one label that carries both conventions at once:
-    // `S prompt green (kHz) | 0-2048`, where the bar separates a *range* and the
+    // `S prompt G|G (kHz) | 0:2048`, where the bar separates a *range* and the
     // unit is in the bracket to its left.
     const std::size_t bar = label.find('|');
     if (bar != std::string::npos) {
@@ -1480,8 +1480,9 @@ int tttrlib::cli::cmd_sm(int argc, char** argv) {
         for (std::size_t w = 0; w < win_names.size(); ++w) {
             for (std::size_t d = 0; d < n_det; ++d) {
                 const std::string stream = "S " + win_names[w] + " " + masks[d].name;
+                // a range is written lo:hi
                 const std::string range = " | " + std::to_string(win_ranges[w].first) +
-                                          "-" + std::to_string(win_ranges[w].second);
+                                          ":" + std::to_string(win_ranges[w].second);
                 add_f64(store, stream + " (kHz)" + range, wd_rate[w * n_det + d]);
                 add_i64(store, stream + " (photons)" + range, wd_n[w * n_det + d]);
                 add_f64(store, stream + " (ms)" + range, wd_dur[w * n_det + d]);

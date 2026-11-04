@@ -52,3 +52,16 @@ def test_report_names_every_factor():
     text = tttrlib.calibration_report(r, ["seeded by hand"])
     for key in ("alpha", "delta", "gamma", "beta", "converged", "! seeded by hand"):
         assert key in text
+
+
+def test_a_range_written_lo_colon_hi_is_a_gated_stream():
+    """Ranges are written ``lo:hi``; a table written before says ``lo-hi`` and reads the same."""
+    import tttrlib
+
+    for sep in (":", "-"):
+        names = ["Number of Photons (G|G)", "Number of Photons (R|G)", "Number of Photons (R|R)",
+                 f"S prompt G|G (photons) | 616{sep}3784", f"S prompt R|G (photons) | 616{sep}3784",
+                 f"S delayed R|R (photons) | 4278{sep}7762", "G|G Count Rate (KHz)"]
+        got = tttrlib.guess_burst_columns(names)
+        assert got["i_dd"] == f"S prompt G|G (photons) | 616{sep}3784", sep
+        assert got["i_aa"] == f"S delayed R|R (photons) | 4278{sep}7762", sep

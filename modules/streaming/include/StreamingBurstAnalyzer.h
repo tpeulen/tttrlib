@@ -400,7 +400,8 @@ public:
         for (const auto& w : windows_)
             for (const auto& d : detectors_) {
                 const std::string stream = "S " + w.name + " " + d.name;
-                const std::string range = " | " + std::to_string(w.lo) + "-" + std::to_string(w.hi);
+                // a range is written lo:hi
+                const std::string range = " | " + std::to_string(w.lo) + ":" + std::to_string(w.hi);
                 n.push_back(stream + " (kHz)" + range);
                 n.push_back(stream + " (photons)" + range);
                 n.push_back(stream + " (ms)" + range);

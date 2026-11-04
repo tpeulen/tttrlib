@@ -513,7 +513,7 @@ def test_columns_carry_their_unit(two_detector):
 
 
 def test_a_window_rate_carries_its_unit(sim_file, tmp_path):
-    """`S prompt green (kHz) | 0-2048` says kHz, and the bar is a range."""
+    """`S prompt green (kHz) | 0:2048` says kHz, and the bar is a range (written lo:hi)."""
     setup = tmp_path / "pie.json"
     setup.write_text(json.dumps({
         "last_used": "PIE",
@@ -526,8 +526,8 @@ def test_a_window_rate_carries_its_unit(sim_file, tmp_path):
     _run("sm", str(sim_file), "--setup", str(setup), *_SEARCH,
          "--output", str(pto))
     units = _columns_and_units(pto)
-    assert units["S prompt green (kHz) | 0-2048"] == "kilohertz"
-    assert units["S prompt red (kHz) | 0-2048"] == "kilohertz"
+    assert units["S prompt green (kHz) | 0:2048"] == "kilohertz"
+    assert units["S prompt red (kHz) | 0:2048"] == "kilohertz"
 
 
 def test_extending_a_container_does_not_add_a_second_primary(sim_file, tmp_path):
