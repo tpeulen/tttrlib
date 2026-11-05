@@ -92,6 +92,9 @@ from tttrlib.kernels import *
 %include "DecayConvolution.i"
 %include "DecayFit.i"
 #endif
+#ifndef TTTRLIB_WITHOUT_BURSTPIPELINE
+%include "BurstPipeline.i"
+#endif
 
 // The monolith sees stdint.i once, at the very end, through Sim.i (see the note
 // at the top of misc_types.i on why not earlier): SWIG resolves the typedefs

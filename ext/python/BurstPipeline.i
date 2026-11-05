@@ -57,4 +57,24 @@
 
 %include "BurstPipeline.h"
 
-%exception;
+// %exception is global: end this scope by restoring the library-wide handler
+// (MicrotimeLinearization.i installs it, every later interface relies on it),
+// never by clearing it to nothing -- see the note at the bottom of Fdc2D.i and
+// tools/check_exception_handlers.py. Keep this body identical to that one.
+%exception {
+    try {
+        $action
+    } catch (const std::invalid_argument& e) {
+        SWIG_exception(SWIG_ValueError, e.what());
+    } catch (const std::exception& e) {
+        SWIG_exception(SWIG_RuntimeError, e.what());
+    } catch (...) {
+        SWIG_exception(SWIG_UnknownError, "Unknown exception");
+    }
+}
+
+%clear (long long **view, int *n);
+%clear (int **view, int *n);
+%clear (long long *first, int n_first);
+%clear (long long *last, int n_last);
+%clear (double *backgrounds, int n_rows, int n_cols);
