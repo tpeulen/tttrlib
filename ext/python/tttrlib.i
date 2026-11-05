@@ -284,6 +284,11 @@ def experimental(cls):
 %include "Sim.i"
 #endif
 
+/* Fused burst pipeline: search, features, decays, fits in one native pass */
+#ifndef TTTRLIB_WITHOUT_BURSTPIPELINE
+%include "BurstPipeline.i"
+#endif
+
 /* Streaming / online analysis */
 #ifndef TTTRLIB_WITHOUT_STREAMING
 %include "Streaming.i"
