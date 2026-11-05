@@ -10,4 +10,5 @@ add_subdirectory(pda)
 add_subdirectory(kinetics)
 add_subdirectory(fluctuation)
 add_subdirectory(corrections)
+add_subdirectory(burstpipeline)
 
