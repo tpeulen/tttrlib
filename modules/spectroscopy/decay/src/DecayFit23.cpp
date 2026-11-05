@@ -202,6 +202,29 @@ inline T decay23_rho_ad(const T& tau, const T& r0, const T& r_value) {
     return rh;
 }
 
+/*! `Bexpected*log(Bexpected) - loggammaf(Bexpected+1)`, 0 for no background. */
+inline double softbifl_value(double bexpected) {
+    return bexpected > 0. ? bexpected * std::log(bexpected) - loggammaf(bexpected + 1.) : 0.;
+}
+
+/*! The soft-BIFL term at \p gamma (scalar). */
+inline double softbifl_term(double gamma, double B) { return softbifl_value(gamma * B); }
+
+/*!
+ * The soft-BIFL term at \p gamma, with its derivative carried through. loggammaf
+ * has no dual form, so d/dgamma is a central difference of the scalar term --
+ * one function of one variable, far below the optimiser's own tolerance.
+ */
+template <class G>
+tttrlib::Dual<G> softbifl_term(const tttrlib::Dual<G>& gamma, double B) {
+    const double g = gamma.val;
+    const double h = 1e-6 * std::max(1.0, std::fabs(g));
+    const double d = (softbifl_value((g + h) * B) - softbifl_value((g - h) * B)) / (2. * h);
+    G grad = gamma.grad;
+    grad *= d;
+    return tttrlib::Dual<G>(softbifl_value(g * B), grad);
+}
+
 /*!
  * @brief `DecayFit23::modelf` + `normM` + `Wcm`, templated for an exact
  * gradient via forward-mode AD (`tttrlib::Dual<GradVec<4>>`, Dual.h/GradVec.h)
@@ -222,17 +245,23 @@ inline T decay23_rho_ad(const T& tau, const T& r0, const T& r_value) {
  *    `fit_settings.p2s_twoIstar` is off; the caller falls back to central
  *    differences otherwise.
  *
- * `softbifl_correction` is `Bexpected*log(Bexpected) - loggammaf(Bexpected+1)`
- * when the soft-BIFL term is active, `0.0` otherwise -- a data-only constant
- * (see DecayFit23::targetf), passed in rather than recomputed so this stays a
- * pure function of `param`.
+ * With \p softbifl the soft-BIFL term `Bexpected*log(Bexpected) -
+ * loggammaf(Bexpected+1)` is subtracted, `Bexpected = gamma * B` with \p B the
+ * background integral -- exactly as DecayFit23::targetf does it. It is computed
+ * here from *this* gamma. It used to be passed in as a "data-only constant"
+ * read from the thread_local `fit_signals.Bexpected`, but Bexpected follows
+ * gamma, a fitted parameter: the gradient path scored with whatever gamma the
+ * last targetf call (or the previous burst on the same thread) had left there,
+ * and had no gamma derivative of the term at all. That made a burst's result
+ * depend on the burst fitted before it on its worker thread (soft BIFL on, P+2S
+ * off, the only combination that takes this path).
  */
 template <typename T>
 T decay23_cost(const T param[4], bool fixedrho,
                double Sp, double Ss, double Bp, double Bs,
                const int* counts, const double* irf, const double* bg,
                int Nchannels, double dt, const double* corrections,
-               double softbifl_correction) {
+               bool softbifl, double B) {
     const T tau = soft_floor_ad(param[0], kMinTau);
     const T gamma = clamp_value_ad(param[1], kMinGamma, kMaxGamma);
     const T r0 = param[2];
@@ -283,7 +312,7 @@ T decay23_cost(const T param[4], bool fixedrho,
     for (int i = 0; i < 2 * Nchannels; i++) model[i] *= Sexp;
 
     T w = Wcm_ad(counts, model.data(), Nchannels);
-    w = w - softbifl_correction;
+    if (softbifl) w = w - softbifl_term(gamma, B);
     return w / double(Nchannels);
 }
 
@@ -316,17 +345,11 @@ double decay23_gradient(double* x, double* grad_out, void* pv) {
     Dual4 xd[4];
     for (int j = 0; j < 4; ++j) xd[j] = Dual4(x[j], Grad4::Unit(j));
 
-    const double softbifl_correction =
-            (fit_settings.softbifl && fit_signals.Bexpected > 0.)
-            ? fit_signals.Bexpected * std::log(fit_signals.Bexpected) -
-              loggammaf(fit_signals.Bexpected + 1.)
-            : 0.0;
-
     const Dual4 r = decay23_cost<Dual4>(
             xd, fit_settings.fixedrho != 0,
             fit_signals.Sp, fit_signals.Ss, fit_signals.Bp, fit_signals.Bs,
             p->counts, irf, bg, Nchannels, p->dt, corrections,
-            softbifl_correction);
+            fit_settings.softbifl != 0, fit_signals.B);
 
     for (int j = 0; j < 4; ++j) grad_out[j] = r.grad[j];
     return r.val;

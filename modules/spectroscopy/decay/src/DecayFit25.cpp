@@ -71,6 +71,11 @@ double DecayFit25::targetf(double* x, void* pv)
             *corrections = const_cast<double *>(p->corrections), *M = p->model();
 
     correct_input(x, xm, corrections, 0);
+    // Bexpected = gamma * B at *this* gamma (correct_input just set it). fit()
+    // takes it once before any gamma is set, and fit_corrections is thread_local:
+    // the soft-BIFL term scored every fit with the previous fit's final gamma on
+    // that thread, and a thread's first fit with gamma = 0 (term off).
+    if (softbifl) fit_signals.Bexpected = fit_corrections.gamma * fit_signals.B;
     DecayFit23::modelf(xm, irf, bg, Nchannels, p->dt, corrections, M);
     fit_signals.normM(M, Nchannels);
 

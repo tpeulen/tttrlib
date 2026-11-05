@@ -227,20 +227,40 @@ Two things not to undo:
   and are never minimised, and changing them would move numbers the reference
   tests pin for no benefit to any optimiser.
 
-## `DecayFit23` state between fits
+## Fit2x state between fits: nothing carries from one fit to the next
 
-The kernels keep their corrections (gamma among them), settings and signal integrals in
-`thread_local` state, so a worker thread carries them from one burst to the next. Each `fit`
-and `evaluate` therefore sets everything it reads from its own start values before using it.
+The Fit2x kernels keep their corrections (gamma among them), settings and signal integrals in
+`thread_local` state, and a worker thread fits burst after burst. A value read from that state
+must therefore be set from the current fit first. Three were not (found 2026-11-05):
 
-`Bexpected = gamma * B`, the soft-BIFL expected background, used to be taken before gamma was
-set, so it held the previous fit's gamma. No result was found to differ, because the objective
-recomputes it. Still, a burst's start state depended on the burst fitted before it on the same
-thread.
+- **fit23, soft BIFL with P+2S off (the exact-gradient path).** `decay23_gradient` subtracted
+  the soft-BIFL term `Bexpected*log(Bexpected) - loggammaf(Bexpected+1)` as a constant read
+  from `fit_signals.Bexpected`. But `Bexpected = gamma * B` follows gamma, a fitted parameter:
+  the gradient scored with whatever gamma the last objective call, or the previous burst on
+  the thread, had left there, and it had no gamma derivative of the term at all.
+  - `decay23_cost` now computes the term from its own gamma, with a central-difference
+    derivative, since `loggammaf` has no dual form.
+  - `fit`/`evaluate` also set gamma before `Bexpected` is first taken.
+- **fit25, soft BIFL.** Its objective used `log(Bexpected)` with `Bexpected` taken once at
+  `fit` start, before any gamma was set: the previous fit's final gamma. A thread's first fit
+  got gamma 0, which switched the term off. The objective now recomputes it at its own gamma.
+- **fit26.** `fit` normalised the problem's IRF and background in place. The next row of a
+  batch normalised the normalised copy again, an ulp off each time, so a row depended on how
+  many rows its worker had fitted. The patterns are now restored when the fit returns.
 
-`test/python/decayfit/test_fit23_order_independence.py` checks that `fit`, `evaluate` and
-`fit_many` give results independent of the fit before them, for every combination of soft
-BIFL, P+2S and parameter links.
+Measured on DNA13bp_3 (21 808 bursts × 3 detectors, ChiSurf's `run_batch`). Before the fix,
+1 vs 4 vs 8 threads changed 95 / 88 rows with soft BIFL and P+2S off, and 802 / 754 rows with
+fit25 and soft BIFL. A shuffled burst order changed 13 356 and 25 491 rows. Default options,
+and soft BIFL with P+2S on, were already bit-identical. After the fix see ChiSurf's
+`okf/references/known-issues.md`.
+
+Not fixed, and recorded there too: fit24's `correct_input` never sets the corrections' gamma,
+so its `Bexpected` stays 0 and its soft-BIFL term is never applied. This is deterministic, but
+it is not what the flag says.
+
+`test/python/decayfit/test_fit2x_order_independence.py` checks fit23 through fit26 for soft
+BIFL × P+2S: a single fit, a score and a batch. The batch rows must be bit-identical at 1, 4
+and 8 threads, in a shuffled order, and alone; and a fit must leave the caller's IRF unchanged.
 
 ## Bounds in `DecayFit23`: one mechanism, and why the clamps stay
 

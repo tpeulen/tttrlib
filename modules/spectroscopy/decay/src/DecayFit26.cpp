@@ -3,9 +3,9 @@
 #include "Verbose.h"
 
 #include <limits>
+#include <vector>
 
 
-static thread_local double Sp, Ss, Bp, Bs;
 void DecayFit26::correct_input(double* x, double* xm)
 {
 if (is_verbose()) {
@@ -97,7 +97,17 @@ double DecayFit26::fit(double* x, short* fixed, DecayFitContext* p)
 
     const int *expdata = p->counts;
     int Nchannels = 2 * p->n_bins;
-    double *irf = const_cast<double *>(p->irf()), *bg = const_cast<double *>(p->background()), *M = p->model();
+    // The two patterns are normalised for the fit *in the problem* (targetf reads
+    // them from there), and put back when the fit returns. They used to stay
+    // normalised: the next row of a batch normalised the already-normalised
+    // copy again, an ulp off each time, so a row's result depended on how many
+    // rows its worker had fitted before it -- on the thread count.
+    struct Restore {
+        DecayFitProblem *problem;
+        std::vector<double> irf, bg;
+        ~Restore() { if (problem) { problem->irf = irf; problem->background = bg; } }
+    } restore{p->problem, p->problem->irf, p->problem->background};
+    double *irf = p->problem->irf.data(), *bg = p->problem->background.data(), *M = p->model();
     for(i=0; i<Nchannels; i++)
     {
         s1 += irf[i];
