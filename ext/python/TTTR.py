@@ -21,6 +21,19 @@ def micro_times(self):
 def macro_times(self):
     return self.get_macro_times()
 
+def data(self, *args):
+    """The columnar table the events live in (macro time, micro time, routing channel, event
+    type): a column's ``numpy()`` is a zero-copy view of the photons.
+
+    The store is a reference into this TTTR, so it keeps this TTTR alive -- and with it every
+    column and view taken from it (``DataStore.__getitem__`` chains a column to its ``_store``).
+    Without that, ``t.data()["macro_time"].numpy()`` outlived a ``t`` that went out of scope and
+    read freed memory.
+    """
+    store = _tttrlib.TTTR_data(self, *args)
+    store._store = self
+    return store
+
 def apply_channel_luts(self, channel_luts, channel_shifts=None):
     """
     Apply channel LUTs and shifts to this TTTR object.
