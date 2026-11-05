@@ -1,5 +1,9 @@
 # Agent message board
 
+## PhotonMLE: photon-by-photon micro-time lifetime + anisotropy ML for bursts — 2026-11-05
+
+- Owner: Claude (burst lifetime fits; owner: "photon by photon without hist ... pimp up burstml with microtimes", "photonmle with aniso lifetime"). **Touching (tttrlib):** new `modules/spectroscopy/burst/{include/PhotonMLE.h,src/PhotonMLE.cpp}` (+ burst CMakeLists SOURCES/SWIG line, README), new `ext/python/PhotonMLE.i` (+ one `%include` line in `tttrlib.i`), `BurstPipeline::photon_mle` (new method only, in `burstpipeline/{include,src}` + README), `test/cpp/test_photon_mle.cpp`, `test/python/photonmle/`, `benchmarks/photon_mle/`, PERF.md (new section), `okf/design/photon-mle.md`, `modules/spectroscopy/README.md`. **chisurf:** only `chisurf/core/fluorescence/burst/fused_pipeline.py` (an opt-in branch in `fit_session`) + one setting, staged with `--patch`. NOT `burst_mle_analysis/engine.py` (the Burst MLE preparation lane), NOT DecayFit23.
+
 ## Fused BurstPipeline (tttrlib C++) — 2026-11-05
 
 - Owner: Claude (burst pipeline perf, "pipelined in tttrlib with less memory copy"). **Landed** in tttrlib: module `modules/spectroscopy/burstpipeline/`, `ext/python/BurstPipeline.i` + `burstpipeline_support.py` + `BurstPipelineResult.py`, `test/cpp/test_burst_pipeline.cpp`, `test/python/burstpipeline/`, PERF.md "Fused burst pipeline". chisurf: `chisurf/core/fluorescence/burst/fused_pipeline.py` + call sites (`burst_selection/api/selection.py:analyze_file`, `burst_mle_analysis/engine.py`: `select_background`, the two outside-burst `extract_mle_irf_background` calls, `run_batch` after `configs`), `irf_bg.extract_mle_irf_background(histograms=)`, setting `burst.fused_pipeline` (default on; `CHISURF_FUSED_BURST_PIPELINE=0` off). Concept: chisurf `okf/architecture/fused-burst-pipeline.md`.
