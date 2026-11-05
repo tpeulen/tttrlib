@@ -138,6 +138,7 @@ markers = [
   "correlator: correlation / FCS",
   "decayfit: fluorescence decay fitting",
   "burstfilter: burst search, selection and filtering",
+  "burstpipeline: the fused burst pipeline (search, features, decays, fits)",
   "bva: burst variance analysis",
   "twocde: two-channel kernel density estimator",
   "hmm: photon-by-photon hidden Markov models",

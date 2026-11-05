@@ -707,6 +707,14 @@ IF(TTTRLIB_BUILD_CPP_TESTS)
         PRIVATE "${PROJECT_SOURCE_DIR}/modules/math/include"
                 "${PROJECT_SOURCE_DIR}/modules/util/include")
     ADD_TEST(NAME test_decay_likelihood COMMAND test_decay_likelihood)
+
+    # test_burst_pipeline is not header-only: it runs the fused pipeline against
+    # the unfused one built from the library's own pieces, so it links the modules.
+    IF(WITH_BURSTPIPELINE)
+        ADD_EXECUTABLE(test_burst_pipeline "${PROJECT_SOURCE_DIR}/test/cpp/test_burst_pipeline.cpp")
+        tttrlib_link_all_modules(test_burst_pipeline)
+        ADD_TEST(NAME test_burst_pipeline COMMAND test_burst_pipeline)
+    ENDIF()
 ENDIF()
 
 # Module headers, for the targets declared BELOW this line only.
