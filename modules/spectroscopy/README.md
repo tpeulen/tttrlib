@@ -12,3 +12,4 @@ Top-level module directory for single-molecule spectroscopy submodules.
 - **`kinetics`**: Continuous-time Markov chain utilities and Gopich-Szabo photon-by-photon likelihood.
 - **`fluctuation`**: Photon counting histogram (PCH) and FIDA distributions.
 - **`corrections`**: Spectral crosstalk correction, background estimation, maximum entropy inversion.
+- **`burstpipeline`**: The fused burst pipeline: search, selection, burst table, CSR per-burst decays, strict background and per-burst fits in a few native calls, with zero-copy result views (depends on `burst` and `decay`).
