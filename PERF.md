@@ -653,6 +653,95 @@ The point is the shape, not the ratio: the cost no longer grows with the length
 of the acquisition. What is left is dominated by the per-photon Python call
 (~0.011 s of the 0.060 s here).
 
+## Fused burst pipeline
+
+`BurstPipeline` (`modules/spectroscopy/burstpipeline`) is ChiSurf's burst pipeline as three
+native calls per measurement:
+
+- the search, selection, burst table and per-burst decays;
+- the strict background selection;
+- the per-burst fits.
+
+ChiSurf's Python path crossed into Python between every one of those stages. The design is the
+ChiSurf OKF concept `okf/architecture/fused-burst-pipeline.md`.
+
+**How it was measured.**
+
+- Date and machine: 2026-11-05 on `ssh home` (48-core x86_64 Linux). The machine is shared, at
+  load 20-40.
+- Data: DNA13bp_3.ptu, which has 12.0 M photons. It was analysed with setup RVZMT150 (3
+  detectors, 4 channels, 2 PIE windows), CUSUM/SPRT on the detector subset, and 21 808 bursts.
+- Build: tttrlib built without LTO (`~/bp/site_dev`). Both paths use the same build, so the
+  comparison isolates the pipeline.
+- Runs: each mode is its own process, three runs, alternating. The tables give the median.
+- The driver is ChiSurf's `build_tools/dev_utils/fused_pipeline_equivalence.py`. Its `run`
+  sub-command takes `--mode python|fused`, and `compare` and `figure` work on the outputs.
+- The fits use 8 threads in both modes (`CHISURF_FIT_WORKERS=8`).
+
+| Stage (median of 3) | Python path | Fused | Peak RSS over the stage start, Python → fused |
+|---|---:|---:|---:|
+| search + burst table + write the run (plugin `search_task`) | 6.37 s | 3.70 s | 0.51 → 0.33 GB |
+| raw search + table only (`apply_photon_filters`…`generate_burst_dataframe` vs one `run`) | 2.87 s | 0.92 s | 0.28 → 0.14 GB |
+| Burst MLE: background outside the bursts | 2.27 s | 0.64 s | 0.27 → 0.24 GB |
+| Burst MLE: strict background selection | 12.53 s | 2.38 s | 0.98 → 0.00 GB |
+| Burst MLE: `run_batch` (decays + fits of 21 808 bursts × 3 detectors) | 12.37 s | 11.95 s | 0.20 → 0.18 GB |
+| **the five MLE-side and search stages** (with the run read, 0.45 s both) | **34.0 s** | **19.1 s** | process peak **0.82 → 0.65 GB** |
+
+What the numbers mean:
+
+- **The native pass is 0.54 s for 12 M photons.** It covers classification, search, selection,
+  features and CSR decays (`stats()["seconds"]["pass"]`), plus 0.11 s to store the columns.
+  - It holds at most 2.1 M photon codes and 2.0 M subset photons at once (2 × the 1 M chunk).
+    The Python path holds whole-file arrays.
+  - The rest of the plugin's search stage is the container write and the window pre-flight;
+    neither is pipeline work.
+- **The strict selection is 5.3× faster and allocates nothing.** The Python path builds float64
+  copies of the macro times and an N-length mask for every threshold it tries. The fused path
+  makes 2 streaming passes per threshold and returns histograms.
+- **`run_batch` is now the fit itself:** 10.7 s native fit, 0.74 s row assembly.
+  - `fit_many` on threads had already removed the process pool. What is left is DecayFit23's
+    own cost, about 3 ms per 1000-channel fit on one core.
+  - The fused fit gains nothing over `Fit2x.fit_many` on threads because it runs the same
+    `DecayFitModel::fit` per row. It only stops building the dense 21 808 × 1000 decay matrix and
+    passing it through `.tolist()`.
+
+Equivalence, from `compare` and ChiSurf's `test/core/test_fused_burst_pipeline.py`:
+
+- 77 of the 79 output columns are bit-identical:
+  - the burst table (every declared column);
+  - the strict and outside-burst background patterns;
+  - every fit parameter, 2I*, r_scatter, r_experimental and rejection code.
+- The other two are the tail-fit lifetimes (`Tau (R|G)`, `tau1 (R|G)`), which differ by at most
+  3e-15 relative because the sum runs in a different order.
+- The strict selection agrees: 7 iterations, 15 photons kept, the same warning, rate 3.5042497
+  vs 3.5042497 kHz.
+  - The gap quantiles are taken from a counting histogram of tick gaps rather than from float
+    gaps, which leaves a relative difference of 6e-11.
+
+![Wall time and peak RSS per stage, Python path vs fused](benchmarks/plots/fused_burst_pipeline.png)
+
+**Crossings.** These were counted with `run --count`, which profiles every C-call into
+`_tttrlib`. It also wraps the TTTR photon-array getters and `TTTR.__getitem__` to add up the
+bytes they copy out.
+
+| Stage | Python → C++ calls, all code in the stage: Python / fused | of which the pipeline's | photon bytes copied out of tttrlib: Python / fused |
+|---|---:|---:|---:|
+| search (plugin) | 203 226 / 203 279 | 2 + one per column view | 150.6 MB / 24.1 MB |
+| background outside the bursts | 44 033 / 44 018 | 3 | 287.8 MB / 0 |
+| strict background selection | 41 / 36 | 8 (one per tightening) | 132.4 MB / 0 |
+| `run_batch` | 65 924 / 66 002 | 10 per file | 185.5 MB / 149.4 MB |
+
+What is left in the "all code" counts is not the pipeline:
+
+- The ~200 k calls of the search stage, and the 197 k of reading the run back, are the burst
+  table's container writer and reader.
+- The 24 MB still copied in the search is `windows_preflight` reading `micro_times`.
+- The 149 MB in `run_batch` is its preamble, before the fused fits. That is `burst_decay_of`'s
+  `tttr[idx]` and the shift refinement, which runs the Python decay per detector.
+
+These are listed in the ChiSurf concept as the next steps.
+
+
 ## Dense linear algebra — the shared math kernels
 
 Every ported spectroscopy algorithm sits on two headers: `modules/math/Mat.h`

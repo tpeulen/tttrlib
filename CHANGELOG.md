@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+- **Added: `BurstPipeline`, a fused burst analysis in one native pass
+  (`modules/spectroscopy/burstpipeline`).**
+  - `run(tttr)` does the following in one call, with the configuration given once as JSON:
+    - classifies every photon once into detectors, PIE windows and polarisation;
+    - runs the CUSUM/SPRT or sliding-window search on the detector subset;
+    - applies ChiSurf's selection mask (delta-T, gap fill, minimum size);
+    - writes the burst-table features and one CSR micro-time decay row per burst and decay group.
+  - `fit(result, config)` fits those decays in place on worker threads (fit23..26 or the tail
+    estimate, with ChiSurf's rejection codes). The dense decay matrix is never built.
+  - `StrictBackground` is ChiSurf's strict background-photon selection. It returns the kept
+    photons' histograms instead of a mask.
+  - Every column is a zero-copy NumPy view that keeps the result alive.
+  - Progress and cancel are atomics, and the calls release the GIL.
+  - Tests: `test/cpp/test_burst_pipeline.cpp` and `test/python/burstpipeline/`.
+  - Numbers: PERF.md, section "Fused burst pipeline".
+
 - **Added: windows travel with their channel width (`ChannelSetup.py`).** One record,
   `{"windows", "gates", "micro_time_resolution_ps"}` (`micro_time_windows`,
   `setup_micro_time_windows`), converted exactly to a data stream's channel width
