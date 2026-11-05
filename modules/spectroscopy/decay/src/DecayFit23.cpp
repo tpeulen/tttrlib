@@ -538,6 +538,9 @@ double DecayFit23::evaluate(double *x, short *fixed, DecayFitContext *p) {
     fit_settings.p2s_twoIstar = (x[5] > 0.);
     fit_signals.corrections = &fit_corrections;
     fit_settings.fixedrho = fixed[3];
+    // gamma of *this* x before Bexpected = gamma * B is taken: fit_corrections is
+    // thread_local, so otherwise it holds the previous fit's gamma
+    fit_corrections.set_gamma(sanitise_parameters(x).gamma);
     fit_signals.compute_signal_and_background(p->counts, p->background(), p->n_bins);
     return DecayFit23::targetf(x, p);
 }
@@ -572,6 +575,11 @@ double DecayFit23::fit(double *x, short *fixed, DecayFitContext *p) {
     double *corrections = const_cast<double *>(p->corrections), *M = p->model();
     const int *expdata = p->counts;
     int Nchannels = p->n_bins;
+    // gamma of this fit's start before Bexpected = gamma * B is taken: fit_corrections
+    // is thread_local and still holds the previous fit's gamma here, so a burst's
+    // starting objective (and anything reading Bexpected before the first targetf)
+    // depended on the burst fitted before it on the same thread
+    fit_corrections.set_gamma(sanitise_parameters(x).gamma);
     fit_signals.compute_signal_and_background(expdata, p->background(), Nchannels);
     correct_input(x, xm, corrections, 1);
 

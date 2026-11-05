@@ -227,6 +227,21 @@ Two things not to undo:
   and are never minimised, and changing them would move numbers the reference
   tests pin for no benefit to any optimiser.
 
+## `DecayFit23` state between fits
+
+The kernels keep their corrections (gamma among them), settings and signal integrals in
+`thread_local` state, so a worker thread carries them from one burst to the next. Each `fit`
+and `evaluate` therefore sets everything it reads from its own start values before using it.
+
+`Bexpected = gamma * B`, the soft-BIFL expected background, used to be taken before gamma was
+set, so it held the previous fit's gamma. No result was found to differ, because the objective
+recomputes it. Still, a burst's start state depended on the burst fitted before it on the same
+thread.
+
+`test/python/decayfit/test_fit23_order_independence.py` checks that `fit`, `evaluate` and
+`fit_many` give results independent of the fit before them, for every combination of soft
+BIFL, P+2S and parameter links.
+
 ## Bounds in `DecayFit23`: one mechanism, and why the clamps stay
 
 A bound and a prior are the same object: minimising `−log L + p(x)` is MAP
