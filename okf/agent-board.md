@@ -135,6 +135,15 @@ are still claims and still binding.
 
 ## Open — advertised, unowned
 
+- **T-20261111-02 · [imp.bff] PRD-156 steps 5-6: remove the decay-specific posterior API, build both wheels**
+  - Status: 🆕 open
+  - Owner: —
+  - Opened: 2026-11-11 22:50 · Picked: — · Done: —
+  - Why: tpeulen 2026-11-11 ("BayesianDecayPosterior - I do not like it in bff, change make generic ... bff must be abstract!"). Steps 1-4 landed (T-20261111-01); the decay-only fit, starts, lambda grid and TK functions are now duplicates of the generic graph functions and are to go.
+  - Done when: no public `bayesian_decay_*` posterior/fit/starts/lambda-grid/TK symbol remains (model terms internal to the decay scores); `BayesianDecaySampling.h` replaced by `inference_sampling_target`; test/decay tests ported (parity already shown in `test_inference_laplace.py`) or deleted with what they tested; native cp311/cp312 and Pyodide wheels built; ucfret add-on suite passes on the native wheel (clean venv: the ucfret conda env's own IMP hides the wheel). See okf/prds/prd-156.md.
+  - Touching: include/bayesian/BayesianDecayPosterior.h, include/bayesian/BayesianDecaySampling.h, src/bayesian/BayesianDecayFactorGraph.cpp, test/decay/*. Do not touch examples/spectroscopy/bayesian_decays/cbm56.py (another session's uncommitted edits).
+  - Progress: —
+
 - **T-20261028-PARITY-ULP · [tttrlib] 'bit-identical to scipy' signal/ndimage parity tests fail by 1-few ulp on CI (all OSes)**
   - Status: 🆕 open
   - Owner: —
@@ -1238,6 +1247,15 @@ are still claims and still binding.
   - Progress: chimol `db07093` (reference-viewer arg binding, Python escape, alias, load/fetch); probe 45→22 failing. 12 reference pages + ~140 junk headers in `~/dev/chimol/okf/references/pymol/`. Stopped early (user saving credits). Next: `index.md` "Where to pick this up" there (setting levels first).
 
 ## Resolved
+
+- **T-20261111-01 · [imp.bff][ucfret] PRD-156 steps 1-4: bff as an abstract engine; ucfret loops**
+  - Status: ✅ done
+  - Owner: claude-code-opus-5.5/session_01KK93m7 (for tpeulen)
+  - Opened: 2026-11-11 21:42 · Picked: 2026-11-11 21:42 · Done: 2026-11-11 22:43
+  - Why: tpeulen, answering drieger's F1/F2 (ucfret okf/questions-tpeulen.md): "the loop must be impl in ucfret, bff is the engine the details must be build by the users. bff must be abstract!"; "hyperparameter can be normal paras in factor graph?"
+  - Done when: hyperparameters held as ordinary variables; graph save/load with optional msgpack data; generic curvature/evidence/TK/sampling target equal to the decay-only functions; restart and declared starts as ucfret loops.
+  - Touching: include/fit/, src/fit/, include/internal/Msgpack.h, include/util/MsgpackBytes.h, src/bayesian/BayesianDecayFactorGraph.cpp, pyext/include/IMP_bff.core.i, test/decay/.
+  - Progress: imp.bff 1c1c50418 (PRD-156), 1ae84bd51 (`inference_fitting(..., fixed=[...])`; lambda held = evidence p(y|lambda), 4e-7 nats vs the lambda-fixed graph), 9c76da71f (`graph.save(path, embed_data=True)` msgpack via registry capability `factor_score`, bit-for-bit reload in another process; `inference_hessian/covariance/laplace_evidence/polish/tierney_kadane`, `inference_sampling_target`, all equal to the decay functions), c9fa265ba; pushed to tpeulen/imp.bff dev. ucfret d33c377 (H7(b)-(d): restart 0.01 nats / 5 on, declared starts data + profile modes off; 424 add-on tests pass) -- **not pushed yet**: tpeulen/ucfret dev has drieger's c1252f0 (F1-F12 review questions) which conflicts with the F1/F2 answers in okf/questions-tpeulen.md; waits for tpeulen to say how to merge. Follow-on: T-20261111-02.
 
 - **T-20261028-WIN-TESTS · [tttrlib] Windows pip test: tsne bad input aborts; split-before-fill intensity is garbage**
   - Status: ✅ done 2026-10-28 — 52bbb2210, 31fbb32cb; both tests PASS in Pip Test win py3.12 (run 40720098835)
