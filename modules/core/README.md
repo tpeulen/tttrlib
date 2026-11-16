@@ -74,6 +74,37 @@ a positive offset that exceeds unsigned capacity raises before allocating
 output, instead of overflowing. Neither a getter nor its cached display
 offset modifies stored event times.
 
+## Folding the alternation out of the macro-time clock
+
+`AlternationFold.h` (header-only, std-only) and `TTTR::get_folded_macro_times`
+map every µs-ALEX alternation period onto one excitation slot and overlay the
+slots, so that analyses of photon arrival times do not see the laser
+alternation as a property of the molecule. A photon with alternation phase
+`phi` (the micro time after `alex_to_microtime`) at macro time `t` folds to
+
+```
+psi = (phi - s_0) mod P,   k = slot of psi,   c = t - psi
+t'  = floor(c * L / P) + (psi - (s_k - s_0)) + L
+```
+
+with slot starts `s_k` and the longest slot length `L`. One folded tick is
+`P / L` macro ticks of real time (`get_tick_scale`, 2 for two equal slots).
+`AlternationFold::from_windows(period, [start, stop, ...])` places the slots
+around the excitation windows: equal slots when they fit, otherwise one slot
+boundary in the middle of every gap. `TTTR::get_alternation_period()` reads the
+ALEX-conversion header contract (micro-time resolution equal to the macro-time
+resolution, the period as number of micro-time channels) and returns 0 for
+TCSPC/PIE data; without an explicit fold `get_folded_macro_times` uses two
+equal slots of that period.
+
+The folded clock is meant for photon-by-photon HMMs, BVA/SVA time windows,
+burst-wise PDA windows and correlations at lags below the period. Burst
+search, burst durations and count rates stay on the real clock. The folded
+times are in event order and not sorted within a period; sort per burst. The
+theory and the reasons are in `doc/alex-alternation-fold.rst`; the checks are
+`test/cpp/test_alternation_fold.cpp` and
+`test/python/tttr/test_alternation_fold.py`.
+
 ## Dependencies
 
 - Depends on `util`, `io/base`, `plugin` and the format modules

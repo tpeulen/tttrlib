@@ -138,6 +138,7 @@ def experimental(cls):
 %include "TTTRHeader.i"
 %include "TTTRRange.i"
 %include "TTTRSelection.i"
+%include "AlternationFold.i"
 %include "TTTR.i"
 %include "TTTRMask.i"
 %include "Channel.i"

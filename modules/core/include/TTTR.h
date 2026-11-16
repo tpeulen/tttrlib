@@ -49,6 +49,7 @@
 #include "TTTRRecordReader.h"
 #include "TTTRRecordTypes.h"
 #include "MicrotimeLinearization.h"
+#include "AlternationFold.h"
 #include "info.h"
 
 
@@ -1146,6 +1147,54 @@ public:
      *
      */
     void alex_to_microtime(unsigned long alex_period, int period_shift=0);
+
+    /**
+     * @brief The alternation period the micro times are phases of, or 0.
+     *
+     * After an ALEX conversion (alex_to_microtime plus a header whose micro-time
+     * resolution equals the macro-time resolution and whose number of micro-time
+     * channels is the period, as ChiSurf's ALEX converters write it) the micro
+     * time of every photon is its alternation phase. This reads that contract
+     * from the header: it returns the number of micro-time channels when the two
+     * resolutions agree to 1e-9 relative and there are at least two channels, and
+     * 0 otherwise (TCSPC/PIE data, or no header).
+     */
+    unsigned long get_alternation_period();
+
+    /**
+     * @brief Macro times with the µs-ALEX laser alternation folded out.
+     *
+     * Maps every alternation period onto one excitation slot and overlays the
+     * slots, so that time-resolved analyses (photon-by-photon HMMs, BVA, short
+     * correlation lags, burst-wise time windows) no longer see the alternation as
+     * a property of the molecule. The mapping, its time scale (one folded tick is
+     * AlternationFold::get_tick_scale macro ticks of real time) and what should
+     * and should not be computed on it are described at ::AlternationFold.
+     * Burst search, burst durations and count rates keep the real clock.
+     *
+     * The result is in event order and is not sorted: within one period a late
+     * photon of the first slot folds after an early one of the second. Sort per
+     * burst (stably) where an analysis needs ordered times.
+     *
+     * @param output Folded macro times, one per valid event (numpy array in Python).
+     * @param n_output Number of events.
+     * @param fold Slot layout. A default-constructed (invalid) fold means two equal
+     *        slots starting at phase 0 of ::get_alternation_period, the layout of a
+     *        50/50 duty cycle whose windows do not straddle half a period; pass
+     *        AlternationFold::from_windows with the excitation windows when they
+     *        are known.
+     * @param phase_from_micro_time true: the micro time is the alternation phase
+     *        (data after alex_to_microtime). false: the phase is
+     *        (macro_time - period_shift) mod period.
+     * @param period_shift Phase shift for phase_from_micro_time = false.
+     * @throws std::invalid_argument when no period is known (default fold and
+     *         ::get_alternation_period is 0, or it is odd), or a micro time is
+     *         outside [0, period) with phase_from_micro_time.
+     */
+    void get_folded_macro_times(unsigned long long** output, int* n_output,
+                                AlternationFold fold = AlternationFold(),
+                                bool phase_from_micro_time = true,
+                                long long period_shift = 0);
 
     /*!
      * \brief Appends a single event to the TTTR object.

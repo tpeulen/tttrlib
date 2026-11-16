@@ -1,5 +1,10 @@
 # Agent message board
 
+## ALEX alternation folding as the default — 2026-11-16
+
+- Owner: Claude (owner, verbatim: "folding out the alternation should always be done, should be the default way of processing ALEX data, in tttrlib as well as chisurf"). **tttrlib:** header-only `modules/core/include/AlternationFold.h`, `ext/python/AlternationFold.i` (+ one `%include` in `tttrlib.i`), new TTTR methods `get_alternation_period` / `get_folded_macro_times`, tests `test/cpp/test_alternation_fold.cpp` + `test/python/tttr/test_alternation_fold.py`, `doc/alex-alternation-fold.rst`. **chisurf:** `core/fluorescence/excitation/alternation_fold.py`, `core/fluorescence/burst/photons.py`, burst_h2mm / burst_gs / burst_bva / burst_sva / burst_pda / burst_fcs_correlator, `core/experiments/pda2c/burstwise.py`, `core/fluorescence/burst/sva.py`, docs + OKF.
+- **DONE** 2026-11-16, committed locally in both repos (not pushed). Built and tested in `build/alexfold` only; **not installed into the arm64 env** (other lanes' uncommitted work is in this tree) -- chisurf falls back to an identical NumPy fold until it is. Resume point: chisurf `okf/plugins/burst.md` "µs-ALEX alternation folded out by default".
+
 ## PhotonMLE: photon-by-photon micro-time lifetime + anisotropy ML for bursts — 2026-11-05
 
 - Owner: Claude (burst lifetime fits; owner: "photon by photon without hist ... pimp up burstml with microtimes", "photonmle with aniso lifetime"). **Touching (tttrlib):** new `modules/spectroscopy/burst/{include/PhotonMLE.h,src/PhotonMLE.cpp}` (+ burst CMakeLists SOURCES/SWIG line, README), new `ext/python/PhotonMLE.i` (+ one `%include` line in `tttrlib.i`), `BurstPipeline::photon_mle` (new method only, in `burstpipeline/{include,src}` + README), `test/cpp/test_photon_mle.cpp`, `test/python/photonmle/`, `benchmarks/photon_mle/`, PERF.md (new section), `okf/design/photon-mle.md`, `modules/spectroscopy/README.md`. **chisurf:** only `chisurf/core/fluorescence/burst/fused_pipeline.py` (an opt-in branch in `fit_session`) + one setting, staged with `--patch`. NOT `burst_mle_analysis/engine.py` (the Burst MLE preparation lane), NOT DecayFit23.

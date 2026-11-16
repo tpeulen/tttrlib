@@ -1237,6 +1237,11 @@ jobs:
           c++ -std=c++17 -O1 -Wall -Imodules/streaming/include -o "$out/test_streaming_burst_analyzer" \
             test/cpp/test_streaming_burst_analyzer.cpp
           "$out/test_streaming_burst_analyzer"
+          # the µs-ALEX fold: header-only, core include path
+          echo "== test_alternation_fold"
+          c++ -std=c++17 -O1 -Wall -Imodules/core/include -o "$out/test_alternation_fold" \
+            test/cpp/test_alternation_fold.cpp
+          "$out/test_alternation_fold"
           # also reaches into the decay module's header-only templates
           echo "== test_ad_gradient"
           c++ -std=c++17 -O1 -Wall -I"$M" -I"$D" -o "$out/test_ad_gradient" test/cpp/test_ad_gradient.cpp

@@ -1249,6 +1249,49 @@ void TTTR::alex_to_microtime(unsigned long alex_period, int period_shift) {
     }
 }
 
+unsigned long TTTR::get_alternation_period() {
+    if (header == nullptr) return 0;
+    const double macro = header->get_macro_time_resolution();
+    const double micro = header->get_micro_time_resolution();
+    const unsigned int channels = header->get_number_of_micro_time_channels();
+    if (!(macro > 0.0) || !(micro > 0.0) || channels < 2) return 0;
+    return std::fabs(micro - macro) <= 1e-9 * macro ? channels : 0;
+}
+
+void TTTR::get_folded_macro_times(unsigned long long** output, int* n_output,
+                                  AlternationFold fold, bool phase_from_micro_time,
+                                  long long period_shift) {
+    if (n_output == nullptr || output == nullptr)
+        throw std::invalid_argument("Output pointers must not be null.");
+    if (!fold.is_valid()) {
+        const unsigned long period = get_alternation_period();
+        if (period == 0 || period % 2 != 0)
+            throw std::invalid_argument(
+                "no alternation period: the header does not describe ALEX phases; pass an AlternationFold");
+        fold = AlternationFold::equal_slots(static_cast<long long>(period), 2, 0);
+    }
+    const long long P = fold.get_period();
+    const long long shift = ((period_shift % P) + P) % P;
+    std::vector<unsigned long long> out(n_valid_events);
+    for (size_t i = 0; i < n_valid_events; ++i) {
+        const unsigned long long t = get_macro_time_at(i);
+        long long phase;
+        if (phase_from_micro_time) {
+            phase = get_micro_time_at(i);
+            if (phase >= P)
+                throw std::invalid_argument(
+                    "micro time exceeds the alternation period: the micro times are not alternation phases");
+        } else {
+            phase = static_cast<long long>((t % static_cast<unsigned long long>(P) + P - shift) % P);
+        }
+        out[i] = fold.fold_unchecked(t, phase);
+    }
+    *n_output = static_cast<int>(out.size());
+    *output = static_cast<unsigned long long*>(malloc(std::max<size_t>(out.size(), 1) * sizeof(unsigned long long)));
+    if (*output == nullptr) throw std::bad_alloc();
+    std::copy(out.begin(), out.end(), *output);
+}
+
 void TTTR::read_bh_set_sidecar() {
     // Handed to us -- an embedded .spc has no directory to look in.
     if (!bh_set_text.empty()) {

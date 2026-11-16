@@ -111,6 +111,7 @@ Documentation
    saving-tables
    plugins
    burst-analysis
+   alex-alternation-fold
    hmm-bva
    hmm-state-decoding
    pda-guide

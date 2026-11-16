@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+- **Added: `AlternationFold` and `TTTR.get_folded_macro_times`, folding the µs-ALEX laser
+  alternation out of the macro-time clock.**
+  - Every alternation period is mapped onto one excitation slot and the slots are overlaid, so
+    photon-by-photon HMMs, BVA/SVA windows, burst-wise PDA windows and short-lag correlations no
+    longer see the lasers as a property of the molecule (an H2MM on the raw clock fitted states
+    cycling at the alternation rate).
+  - One folded tick is `get_tick_scale()` = P / L macro ticks of real time (2 for a 50/50 duty
+    cycle). The phase is the micro time after `alex_to_microtime`, so containers whose files start
+    at different phases fold exactly; `fold_macro_times` takes raw macro times and a shift.
+  - `AlternationFold.from_windows(period, [start, stop, ...])` places the slots around the
+    excitation windows and centre-aligns the windows on a common window (`in_common_window`).
+  - `TTTR.get_alternation_period()` reads the ALEX-conversion header contract (0 for TCSPC/PIE).
+  - Burst search, durations and count rates stay on the real clock.
+  - Docs: `doc/alex-alternation-fold.rst`. Tests: `test/cpp/test_alternation_fold.cpp`,
+    `test/python/tttr/test_alternation_fold.py`.
+
 - **Added: `BurstPipeline`, a fused burst analysis in one native pass
   (`modules/spectroscopy/burstpipeline`).**
   - `run(tttr)` does the following in one call, with the configuration given once as JSON:
