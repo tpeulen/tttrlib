@@ -111,6 +111,39 @@ void register_builtin_burst_searches() {
 
     {
         AlgorithmDescriptor d;
+        d.name           = "lee";   // the registry key
+        d.operation_type = "burst_selection";
+        d.capability      = "burst_search";
+        d.display_name    = R"L(Lee-filtered inter-photon times)L";
+        d.dispatch_name   = "burst_search_lee";
+        d.summary         = R"S(Bursts where the Lee-filtered inter-photon time stays below a threshold (the legacy Paris burstwise search).)S";
+        d.description     = R"D(Each inter-photon time is smoothed by a Lee filter over the 2m+1 inter-photon times around it; a burst is a run of smoothed times below the threshold whose core holds at least L photons, widened by plus_minus photons on each side. Reproduces the burstwise search of the legacy Seidel-lab Paris software from the parameters of its Info file (Lee filter m and s0, threshold, min. #, +/- photons; times given there in ms).)D";
+        d.row_grain       = "burst";
+        d.settings_schema = R"SCHEMA({
+          "type": "object",
+          "required": ["L", "m", "threshold", "s0", "plus_minus"],
+          "properties": {
+            "L": {"type": "integer", "title": "Min photons in the core (L)", "default": 60, "minimum": 1, "maximum": 100000,
+                  "description": "Bursts whose core (before plus_minus) has fewer photons are discarded."},
+            "m": {"type": "integer", "title": "Lee window (m)", "default": 30, "minimum": 0, "maximum": 10000,
+                  "description": "Inter-photon times on each side of the filter window (2m+1 in total)."},
+            "threshold": {"type": "number", "title": "Threshold", "default": 0.0001, "minimum": 1e-09, "maximum": 1.0,
+                  "unit": "s", "scale": "log", "description": "A photon is in a burst while the filtered inter-photon time is below this."},
+            "s0": {"type": "number", "title": "Lee s0", "default": 0.01, "minimum": 0.0, "maximum": 10.0, "unit": "s",
+                  "description": "Noise scale of the Lee filter; large values make the filter a running mean."},
+            "plus_minus": {"type": "integer", "title": "+/- photons", "default": 7, "minimum": 0, "maximum": 10000,
+                  "description": "Photons added on each side of a burst."}
+          }
+        })SCHEMA";
+        d.extra_json = R"JSON({"api": ["TTTR.burst_search_lee"]})JSON";
+        register_burst_search(d,
+        [](TTTR& d, int L, int m, double T, double alpha, double beta) {
+            return d.burst_search_lee(L, m, T, alpha, static_cast<int>(beta));
+        });
+    }
+
+    {
+        AlgorithmDescriptor d;
         d.name           = "cusum_sprt";   // the registry key
         d.operation_type = "burst_selection";  // mmfdb term for what it does
         d.capability      = "burst_search";

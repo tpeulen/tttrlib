@@ -90,6 +90,53 @@ std::vector<long long> TTTR::burst_search_sliding_window(int L, int m, double T)
     return bursts;
 }
 
+std::vector<long long> TTTR::burst_search_lee(
+    int L, int m, double threshold, double s0, int plus_minus)
+{
+    const int64_t n = static_cast<int64_t>(size());
+    if (n < 2 || m < 0) {
+        return {};
+    }
+    const double res = header->get_macro_time_resolution();
+    const int64_t nd = n - 1;                       // inter-photon times
+    std::vector<double> dt(static_cast<size_t>(nd));
+    for (int64_t i = 0; i < nd; ++i) {
+        dt[i] = static_cast<double>(get_macro_time_at(i + 1) - get_macro_time_at(i)) * res;
+    }
+    // edge-padded prefix sums of dt and dt^2 for the window mean and variance
+    const int64_t np = nd + 2 * m;
+    std::vector<double> s1(static_cast<size_t>(np + 1), 0.0), s2(static_cast<size_t>(np + 1), 0.0);
+    for (int64_t k = 0; k < np; ++k) {
+        const int64_t j = std::min<int64_t>(std::max<int64_t>(k - m, 0), nd - 1);
+        s1[k + 1] = s1[k] + dt[j];
+        s2[k + 1] = s2[k] + dt[j] * dt[j];
+    }
+    const double w = 2.0 * m + 1.0;
+    const double s0sq = s0 * s0;
+    std::vector<long long> bursts;
+    bursts.reserve(1000);
+    int64_t run_start = -1;
+    auto close_run = [&](int64_t a, int64_t b) {   // dt run a..b-1 -> photons a..b
+        if (b - a + 1 >= L) {
+            bursts.push_back(std::max<int64_t>(a - plus_minus + 1, 0));
+            bursts.push_back(std::min<int64_t>(b + plus_minus + 1, n - 1));
+        }
+    };
+    for (int64_t i = 0; i < nd; ++i) {
+        const double mu = (s1[i + 2 * m + 1] - s1[i]) / w;
+        const double var = std::max((s2[i + 2 * m + 1] - s2[i]) / w - mu * mu, 0.0);
+        const double f = mu + var / (var + s0sq) * (dt[i] - mu);
+        if (f < threshold) {
+            if (run_start < 0) run_start = i;
+        } else if (run_start >= 0) {
+            close_run(run_start, i);
+            run_start = -1;
+        }
+    }
+    if (run_start >= 0) close_run(run_start, nd);
+    return bursts;
+}
+
 std::vector<long long> TTTR::burst_search_cusum_sprt(
     int min_photons, 
     double background_cps, 

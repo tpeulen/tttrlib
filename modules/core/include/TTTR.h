@@ -1243,6 +1243,16 @@ public:
     std::vector<long long> burst_search_sliding_window(
         int L = 20, int m = 10, double T = 5e-4);
 
+    /// Lee-filtered inter-photon-time search (the burstwise search of the legacy
+    /// Seidel-lab "Paris" software). Every inter-photon time is replaced by
+    /// mu + var / (var + s0^2) * (dt - mu), mu and var over the 2m+1 inter-photon
+    /// times around it (edge-padded); a burst is a run of filtered times below
+    /// `threshold`, kept when its core holds at least `L` photons, then widened by
+    /// `plus_minus` photons on each side. `threshold` and `s0` in seconds.
+    std::vector<long long> burst_search_lee(
+        int L = 60, int m = 30, double threshold = 1e-4, double s0 = 1e-2,
+        int plus_minus = 7);
+
     std::vector<long long> burst_search_cusum_sprt(
         int min_photons = 20,
         double background_cps = 0.0,
