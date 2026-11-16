@@ -52,7 +52,9 @@ class TestLeeBurstSearch(unittest.TestCase):
         got = np.asarray(self.tttr.burst_search_lee(**kw), dtype=np.int64).reshape(-1, 2)
         ref = reference(self.seen, **kw)
         np.testing.assert_array_equal(got, ref)
-        self.assertEqual(len(got), 3)                       # the 40-photon burst has a short core
+        covers = lambda i: any(a <= i <= b for a, b in got)
+        self.assertTrue(covers(2075) and covers(15150))     # the 150- and 300-photon bursts
+        self.assertFalse(covers(12020))                     # 40 photons: core below L
 
     def test_registry_entry_and_dispatch_by_name(self):
         self.assertIn("lee", tttrlib.TTTR.burst_search_algorithms())
