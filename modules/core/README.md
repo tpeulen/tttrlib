@@ -91,7 +91,11 @@ with slot starts `s_k` and the longest slot length `L`. One folded tick is
 `P / L` macro ticks of real time (`get_tick_scale`, 2 for two equal slots).
 `AlternationFold::from_windows(period, [start, stop, ...])` places the slots
 around the excitation windows: equal slots when they fit, otherwise one slot
-boundary in the middle of every gap. `TTTR::get_alternation_period()` reads the
+boundary in the middle of every gap. It also centre-aligns the windows on a
+common window of the shortest window's length (`in_common_window`,
+`get_common_window_length`), because gates of unequal length or offset leave
+part of every folded period with one excitation gated, which a photon HMM fits
+as a state. `TTTR::get_alternation_period()` reads the
 ALEX-conversion header contract (micro-time resolution equal to the macro-time
 resolution, the period as number of micro-time channels) and returns 0 for
 TCSPC/PIE data; without an explicit fold `get_folded_macro_times` uses two

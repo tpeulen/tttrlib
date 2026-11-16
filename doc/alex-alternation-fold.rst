@@ -70,6 +70,36 @@ its own slot, those slots are used, with the boundaries centred in the gaps.
 Otherwise every slot boundary is put in the middle of the gap between two
 windows.
 
+Aligned windows and whole periods
+---------------------------------
+
+The detection windows of the two lasers rarely have the same length or the same
+position in their slot (for example 578--3782 and 4278--7762 of an 8000-tick
+period, offsets 578 and 278). A plain overlay then leaves a few microseconds of
+every folded period in which only one excitation is gated. A photon-by-photon
+HMM fits that as a state visited once per period: on simulated static molecules
+an S = 0 state at about :math:`3 \times 10^5` per second. ``from_windows``
+therefore also aligns the windows. The centred common window of length
+:math:`\ell = \min_k(\text{window length}_k)` of every slot is placed at the
+centre of the folded period:
+
+.. math::
+
+   x = \psi - lo_k, \qquad lo_k = a_k + (\text{length}_k - \ell)/2, \qquad
+   t' = \left\lfloor \frac{c L}{P} \right\rfloor + (L - \ell)/2 + x + L
+   \quad (0 \le x < \ell)
+
+``in_common_window(phase)`` tells whether a photon lies inside it. Analyses that
+compare the excitations photon by photon use only those photons; analyses of
+one excitation's photons or of whole periods use all of them.
+
+A burst found on the real clock starts and ends at an arbitrary phase, so its
+first and last periods contain only part of one excitation's window. On the
+folded clock they appear as a short state with S near 0 or 1 at every burst
+edge. The consumers therefore count whole periods: the period index of a photon
+is :math:`(t - \psi) \operatorname{div} P`, and the first and last period of a
+burst are dropped.
+
 Which quantities use the folded clock
 -------------------------------------
 
