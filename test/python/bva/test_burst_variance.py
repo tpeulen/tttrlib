@@ -167,6 +167,58 @@ class TestBurstVariance(unittest.TestCase):
         np.testing.assert_allclose(tttrlib.BurstVariance.shot_noise_sd(p, [10.0]),
                                    np.sqrt(p * (1 - p) / 10))
 
+    def test_anisotropy_statistic(self):
+        g, l1, l2 = 1.1, 0.03, 0.02
+        bv = self._engine()
+        bv.set_statistic(bv.ANISOTROPY, g, l1, l2)
+        bv.compute(self.bounds, bv.PHOTONS, 8, 0.0, 0.0, 0.0, 1, 2, 1)
+        ok = bv.tested
+        owner, a, n = bv.slice_owner, bv.slice_a.astype(float), bv.slice_photons.astype(float)
+        b = n - a
+        r = (a - g * b) / ((1 - 3 * l2) * a + (2 - 3 * l1) * g * b)
+        mean = np.array([r[owner == i].mean() for i in np.flatnonzero(ok)])
+        sd = np.array([r[owner == i].std(ddof=1) for i in np.flatnonzero(ok)])
+        np.testing.assert_allclose(bv.mean[ok], mean, atol=1e-12)
+        np.testing.assert_allclose(bv.sd[ok], sd, atol=1e-12)
+        sa = np.bincount(owner, weights=a)[ok]
+        sb = np.bincount(owner, weights=b)[ok]
+        np.testing.assert_allclose(bv.pooled[ok], (sa - g * sb) / ((1 - 3 * l2) * sa + (2 - 3 * l1) * g * sb),
+                                   atol=1e-12)
+        # static photons: the anisotropy bound covers them at its quantile, too
+        cls = tttrlib.BurstVariance.classify(bv.sd, bv.static_bound(0.9, 400, 11, 1.0, 1))
+        self.assertAlmostEqual((cls[cls >= 0] == 1).mean(), 0.9, delta=0.06)
+
+    def test_slice_durations(self):
+        bv = self._engine()
+        bv.compute(self.bounds, bv.PHOTONS, 5, 0.0, 0.0, 0.0, 1, 2, 1)
+        d = bv.slice_duration
+        self.assertEqual(d.size, bv.slice_photons.size)
+        expected = []
+        for s_, e_ in self.bounds:
+            idx = np.arange(s_, e_ + 1)
+            idx = idx[self.a[idx] | self.b[idx]]
+            k = idx.size // 5
+            if k >= 2:
+                for j in range(k):
+                    t = self.macro[idx[j * 5:(j + 1) * 5]]
+                    expected.append(t.max() - t.min())
+        np.testing.assert_array_equal(d, np.asarray(expected, float))
+        bv.set_time_axis(self.macro)
+        bv.compute(self.bounds, bv.TIME, 0, 50.0, 0.0, 0.0, 1, 2, 1)
+        np.testing.assert_array_equal(bv.slice_duration, 50.0)
+
+    def test_background_widens_the_bound(self):
+        bv = self._engine()
+        bv.compute(self.bounds, bv.PHOTONS, 10, 0.0, 0.0, 0.0, 1, 2, 1)
+        plain = bv.static_bound(0.95, 300, 11, 1.0, 1)
+        none = bv.static_bound(0.95, 300, 11, 1.0, 1, 0.0, 0.0)
+        np.testing.assert_array_equal(plain, none)
+        # background all in B, at a rate comparable to the signal: slices of different length
+        # mix different background fractions, so a static burst scatters more
+        mixed = bv.static_bound(0.95, 300, 11, 1.0, 1, 0.0, 0.2)
+        ok = np.isfinite(plain)
+        self.assertGreater(np.median(mixed[ok] / plain[ok]), 1.0)
+
     def test_rejects_bad_arguments(self):
         bv = self._engine()
         with self.assertRaises(Exception):

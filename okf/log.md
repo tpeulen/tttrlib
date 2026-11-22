@@ -1,5 +1,15 @@
 # Bundle update log
 
+## 2026-11-22 — BurstVariance: anisotropy statistic and background-aware bound
+
+- `BurstVariance.set_statistic(RATIO | ANISOTROPY, G, l1, l2)`: the slice statistic becomes the
+  anisotropy (n_par - G n_perp) / ((1 - 3 l2) n_par + (2 - 3 l1) G n_perp); `get_pooled_statistic`,
+  `get_slice_duration` (photon slices: last - first photon on the time axis; windows: their
+  length); `static_bound(..., background_a, background_b)` mixes a background fraction
+  f = (b_A + b_B) d / N into every simulated slice, with the signal ratio that keeps the pooled
+  ratio. An empty stream no longer throws ("unknown stream 'a'"): every burst is untested. chisurf
+  uses it for anisotropy variance (G|G, R|G, R|R). Tests 11 passed; installed into arm64.
+
 ## 2026-11-22 — BurstVariance: one sub-burst variance engine for BVA and SVA
 
 - New `tttrlib.BurstVariance` (`modules/spectroscopy/burst/{include,src}/BurstVariance.*`,

@@ -99,6 +99,18 @@ TTTRLIB_NOGIL(tttrlib::BurstVariance::static_bound)
         return np.asarray(self.get_slice_owner(), dtype=np.int64)
 
     @property
+    def pooled(self):
+        """Per-burst statistic of the pooled counts (NaN: untested)."""
+        import numpy as np
+        return np.asarray(self.get_pooled_statistic(), dtype=float)
+
+    @property
+    def slice_duration(self):
+        """Duration of every counted slice in time-axis units."""
+        import numpy as np
+        return np.asarray(self.get_slice_duration(), dtype=float)
+
+    @property
     def tested(self):
         """True where a burst has ``min_slices`` counted slices."""
         import numpy as np

@@ -22,7 +22,8 @@ namespace tttrlib {
 /**
  * @brief Sub-burst variance of a two-stream photon ratio — the engine behind BVA and SVA.
  *
- * Burst variance analyses share one computation. Each burst is cut into slices, and for every
+ * Burst variance analyses share one computation (BVA, SVA, and anisotropy variance with
+ * ::set_statistic). Each burst is cut into slices, and for every
  * slice the ratio @f$ r = n_A / (n_A + n_B) @f$ of two photon streams is computed. The burst's
  * scatter of @f$ r @f$ over its slices is compared with the scatter a static molecule produces
  * from shot noise alone. A burst whose scatter is larger changed its ratio within the burst.
@@ -62,6 +63,12 @@ namespace tttrlib {
  */
 class BurstVariance : public BurstFeature {
 public:
+    /// The slice statistic.
+    enum Statistic {
+        RATIO = 0,       ///< n_A / (n_A + n_B)
+        ANISOTROPY = 1   ///< (n_A - G n_B) / ((1 - 3 l2) n_A + (2 - 3 l1) G n_B), A parallel, B perpendicular
+    };
+
     /// How bursts are cut into slices.
     enum SliceMode {
         PHOTONS = 0,  ///< chunks of a fixed number of photons
@@ -103,6 +110,18 @@ public:
     void set_time_axis(long long* time_axis, int n_time_axis);
 
     /**
+     * @brief The slice statistic: ::RATIO (default) or ::ANISOTROPY of A = parallel and
+     *        B = perpendicular photons with the G factor and the l1, l2 polarisation mixing.
+     *
+     * Every statistic is a function of the slice fraction n_A / N, so ::static_bound simulates
+     * the same binomial slices and transforms them. ::get_ratio stays the pooled fraction.
+     */
+    void set_statistic(int statistic, double g_factor = 1.0, double l1 = 0.0, double l2 = 0.0);
+
+    /// The statistic of n_A out of n photons (the configured transform).
+    double transform(double a, double n) const;
+
+    /**
      * @brief Slice every burst and reduce its slices.
      * @param bursts Inclusive photon index ranges as an (n_bursts, 2) array.
      * @param slice_mode ::PHOTONS or ::TIME.
@@ -126,9 +145,9 @@ public:
         int ddof = 1
     );
 
-    /// Mean of the slice ratios per burst (NaN: untested); alias of ::get_result.
+    /// Mean of the slice statistic per burst (NaN: untested); alias of ::get_result.
     const std::vector<double>& get_mean() const { return get_result(); }
-    /// SD of the slice ratios per burst (NaN: untested).
+    /// SD of the slice statistic per burst (NaN: untested).
     const std::vector<double>& get_sd() const { return sd_; }
     /// Pooled ratio sum n_A / sum N per burst (NaN: untested).
     const std::vector<double>& get_ratio() const { return ratio_; }
@@ -142,6 +161,11 @@ public:
     const std::vector<int>& get_slice_photons() const { return slice_photons_; }
     /// Stream-A photon number of every counted slice (aligned with ::get_slice_photons).
     const std::vector<int>& get_slice_a() const { return slice_a_; }
+    /// The statistic of the pooled counts per burst (the ratio itself for ::RATIO; NaN: untested).
+    const std::vector<double>& get_pooled_statistic() const { return pooled_; }
+    /// Duration of every counted slice in time-axis units: last minus first photon of a photon
+    /// slice, the window length of a time window (aligned with ::get_slice_photons).
+    const std::vector<double>& get_slice_duration() const { return slice_duration_; }
     /// Burst index of every counted slice (aligned with ::get_slice_photons).
     const std::vector<int>& get_slice_owner() const { return slice_owner_; }
     /// 1 where a burst is tested (``min_slices`` counted slices), else 0.
@@ -154,11 +178,17 @@ public:
      * @param seed Seed of the counter-based RNG.
      * @param dispersion Shared dispersion phi; the bound is scaled by sqrt(phi).
      * @param ddof Delta degrees of freedom of the simulated SD (use the one of ::compute).
+     * @param background_a, background_b Background rates of A and B in photons per time-axis
+     *        unit. Each slice is then a mixture: a fraction f = (b_A + b_B) d / N of its photons
+     *        is background (A with probability b_A / (b_A + b_B)), the rest signal at the ratio
+     *        that keeps the burst's pooled ratio. A photon slice spans N - 1 intervals, so its
+     *        duration d is scaled by N / (N - 1). 0, 0: the plain binomial.
      * @return One bound per burst (NaN where untested). Requires ::compute.
      */
     std::vector<double> static_bound(
         double quantile = 0.95, int n_mc = 300, unsigned int seed = 11,
-        double dispersion = 1.0, int ddof = 1
+        double dispersion = 1.0, int ddof = 1,
+        double background_a = 0.0, double background_b = 0.0
     ) const;
 
     /// Shot-noise SD of a static ratio: sqrt(phi * p (1 - p) / n), elementwise.
@@ -174,6 +204,13 @@ private:
     static constexpr const char* STREAM_A = "a";
     static constexpr const char* STREAM_B = "b";
 
+    int statistic_ = RATIO;
+    double g_factor_ = 1.0;
+    double l1_ = 0.0;
+    double l2_ = 0.0;
+    int slice_mode_ = PHOTONS;
+    std::vector<double> pooled_;
+    std::vector<double> slice_duration_;
     std::vector<int64_t> time_axis_;
     std::vector<uint8_t> mask_a_;
     std::vector<uint8_t> mask_b_;

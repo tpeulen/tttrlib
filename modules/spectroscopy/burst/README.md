@@ -39,7 +39,10 @@ Algorithms for identifying photon bursts and computing burst metrics in single-m
   masks) over photon slices or (period-aligned) time windows on any per-photon time axis; per
   burst mean, SD (ddof), pooled ratio, binomial chi2, slice photon numbers; a per-burst static
   bound (quantile of binomial simulations of the burst's own slices, counter-based RNG, scaled
-  by sqrt(dispersion)) and the classifier 1 static / 0 dynamic / -1 untested. Example:
+  by sqrt(dispersion), optionally with measured background rates mixed into every slice by its
+  duration) and the classifier 1 static / 0 dynamic / -1 untested. `set_statistic(ANISOTROPY,
+  G, l1, l2)` turns the ratio into the anisotropy of A = parallel, B = perpendicular photons
+  (anisotropy variance, per detector). Example:
   `examples/single_molecule/plot_burst_variance.py`.
 - **`TwoCDE.h` / `TwoCDE.cpp`**: Two-Channel Kernel Density Estimator (2CDE) analysis.
 - **`BurstML.h` / `BurstML.cpp`**: Maximum-likelihood burst analysis with a combined diffusion-kinetics-photon observation model (port of FRET_burstML, `mlhDiffNTRbkg_MT`). The combined evolution operator is eigendecomposed once per parameter set and the log-likelihood of all bursts is maximised via Nelder-Mead. Uses std-only QR eigendecomposition (`modules/math/QREigen.h`) and Nelder-Mead (`modules/math/NelderMead.h`) — no GSL dependency. Verified to recover FRET efficiency on simulated 2-state bursts. See the `BurstML.h` file header for the `5n`/`(4+n)n` parameter layout.
