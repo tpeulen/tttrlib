@@ -102,7 +102,7 @@ def rescale_micro_time_ranges(ranges, from_resolution, to_resolution):
 
 
 def ranges_to_inclusive(ranges):
-    """Half-open ``[start, stop)`` ranges as inclusive ``(start, stop - 1)`` (what BVA, TwoCDE,
+    """Half-open ``[start, stop)`` ranges as inclusive ``(start, stop - 1)`` (what BurstVariance, TwoCDE,
     BurstFeature and CLSMImage.fill take)."""
     return [(int(r[0]), max(int(r[0]), int(r[1]) - 1)) for r in (ranges or []) if len(r) >= 2]
 

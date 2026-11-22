@@ -25,7 +25,7 @@ class BurstFilter;  // forward declaration (BurstFilter.h included in the .cpp)
  * @brief Base class for per-burst *features*.
  *
  * A burst feature reduces every burst of a burst list to one (or a few) scalar
- * quantities — e.g. Burst Variance Analysis (tttrlib::BVA) or the 2CDE dynamics
+ * quantities — e.g. burst variance (tttrlib::BurstVariance) or the 2CDE dynamics
  * filters (tttrlib::TwoCDE).  This differs from tttrlib::BurstFilter, which
  * *detects and selects* bursts; a feature takes an existing burst list
  * (optionally from a BurstFilter) and computes a per-burst quantity, and from

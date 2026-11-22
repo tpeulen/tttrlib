@@ -33,7 +33,6 @@ Algorithms for identifying photon bursts and computing burst metrics in single-m
 - **`RecurrenceAnalysis.h` / `RecurrenceAnalysis.cpp`**: recurrence analysis of
   single particles (RASP) — same-molecule probability from inter-burst gaps and
   the efficiencies of recurring bursts.
-- **`BVA.h` / `BVA.cpp`**: Burst Variance Analysis (BVA).
 - **`BurstVariance.h` / `BurstVariance.cpp`**: the sub-burst variance engine BVA and SVA share —
   the ratio n_A/(n_A+n_B) of any two photon streams (channels + micro-time gates, or per-photon
   masks) over photon slices or (period-aligned) time windows on any per-photon time axis; per

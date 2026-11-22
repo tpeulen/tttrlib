@@ -9,6 +9,7 @@
 #include <thread>
 
 #include "Random.h"
+#include "Registry.h"
 
 namespace tttrlib {
 
@@ -353,6 +354,58 @@ std::vector<int> BurstVariance::classify(const std::vector<double>& sd, const st
         out[i] = sd[i] <= bound[i] ? 1 : 0;
     }
     return out;
+}
+
+// ---- registry("operation") entry ------------------------------------------
+// Burst variance analysis (the proximity ratio of donor and acceptor photons over burst slices)
+// as a pipeline step, next to the class that computes it.
+namespace {
+const char* const kBvaEntry = R"JSON({
+  "name": "bva",
+  "api": ["BurstVariance"],
+  "label": "Burst Variance Analysis",
+  "summary": "BVA (Torella et al. 2011): slices each burst into photon or time windows, computes the proximity ratio per window, reports per burst the mean, the standard deviation and the class against the burst's own static bound (quantile of binomial simulations of its slices).",
+  "operation_type": "burst_variance_analysis",
+  "data_format": "dstore",
+  "row_grain": "burst",
+  "kind": "burst_table",
+  "inputs": {
+    "required": [
+      "tttr_photon_stream",
+      "burst_selection"
+    ],
+    "description": "Photon stream for per-window photon colours, burst indices for slicing."
+  },
+  "outputs": {
+    "columns": [
+      "Proximity Ratio Mean",
+      "SD(Proximity Ratio)",
+      "BVA Class"
+    ]
+  },
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "photons_per_slice": {
+        "type": "integer",
+        "default": 5,
+        "minimum": 1
+      },
+      "quantile": {
+        "type": "number",
+        "default": 0.95,
+        "minimum": 0.5,
+        "maximum": 1.0
+      }
+    }
+  },
+  "can_replay": true
+})JSON";
+}  // namespace
+
+/// Register this operation's registry entry. Idempotent (a duplicate key is refused).
+void register_operation_bva() {
+    register_algorithm_json("operation", "bva", kBvaEntry);
 }
 
 }  // namespace tttrlib

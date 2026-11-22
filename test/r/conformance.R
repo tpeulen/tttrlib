@@ -290,11 +290,12 @@ OPS <- list(
   # -- burst features -----------------------------------------------------------
   # compute_bursts, not compute: SWIG's R overload dispatcher cannot take a
   # matrix (class(matrix) is two values since R 4.0), and compute() is
-  # overloaded. See the note in ext/python/BVA.i.
+  # overloaded. See the note in ext/python/BurstVariance.i.
   "feature.new" = function(on, a) {
-    f <- if (a[[1]] == "bva") BVA(a[[2]]) else TwoCDE(a[[2]])
-    if (a[[1]] == "bva") {
-      BVA_set_donor(f, as.integer(unlist(a[[3]]))); BVA_set_acceptor(f, as.integer(unlist(a[[4]])))
+    f <- if (a[[1]] == "bva") BurstVariance(a[[2]]) else TwoCDE(a[[2]])
+    if (a[[1]] == "bva") {  # the proximity ratio: A = acceptor, B = donor
+      BurstVariance_set_stream_a(f, as.integer(unlist(a[[4]])))
+      BurstVariance_set_stream_b(f, as.integer(unlist(a[[3]])))
     } else {
       TwoCDE_set_donor(f, as.integer(unlist(a[[3]]))); TwoCDE_set_acceptor(f, as.integer(unlist(a[[4]])))
     }
@@ -304,13 +305,13 @@ OPS <- list(
   "feature.compute" = function(on, a) {
     m <- matrix(as.numeric(unlist(a[[1]])), ncol = 2, byrow = TRUE)
     if (identical(attr(on, "kind"), "bva"))
-      BVA_compute_bursts(on, m, as.integer(a[[2]]), as.numeric(a[[3]]))
+      BurstVariance_compute_bursts(on, m, 0L, as.integer(a[[2]]), 0, 0, 0, 1L, 2L, 0L)
     else
       TwoCDE_compute_bursts(on, m, as.numeric(a[[2]]), 0L, 0L)
   },
   "feature.values" = function(on, a)
     if (identical(attr(on, "kind"), "bva"))
-      as.numeric(BVA_get_proximity_ratio_mean(on))
+      as.numeric(BurstVariance_get_mean(on))
     else as.numeric(TwoCDE_get_two_cde(on)),
 
   # -- phasor -------------------------------------------------------------------

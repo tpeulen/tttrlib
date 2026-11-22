@@ -484,9 +484,9 @@ final class ConformanceInterpreter {
                 VectorInt32 don = new VectorInt32(), acc = new VectorInt32();
                 for (double v : numbers(a.get(2))) don.add((int) Math.round(v));
                 for (double v : numbers(a.get(3))) acc.add((int) Math.round(v));
-                if (s(a, 0).equals("bva")) {
-                    BVA f = new BVA((TTTR) a.get(1));
-                    f.set_donor(don); f.set_acceptor(acc);
+                if (s(a, 0).equals("bva")) {  // the proximity ratio: A = acceptor, B = donor
+                    BurstVariance f = new BurstVariance((TTTR) a.get(1));
+                    f.set_stream_a(acc); f.set_stream_b(don);
                     return f;
                 }
                 TwoCDE f = new TwoCDE((TTTR) a.get(1));
@@ -500,13 +500,14 @@ final class ConformanceInterpreter {
                     bursts[k][0] = Math.round(flat[2 * k]);
                     bursts[k][1] = Math.round(flat[2 * k + 1]);
                 }
-                if (on instanceof BVA) ((BVA) on).compute_bursts(bursts, i(a, 1), d(a, 2));
+                if (on instanceof BurstVariance)  // photon slices, >= 2 of them, population SD
+                    ((BurstVariance) on).compute_bursts(bursts, 0, i(a, 1), 0.0, 0.0, 0.0, 1, 2, 0);
                 else ((TwoCDE) on).compute_bursts(bursts, d(a, 1), 0, 0);
                 return null;
             }
             case "feature.values":
-                return on instanceof BVA
-                        ? vectorDoubles(((BVA) on).get_proximity_ratio_mean())
+                return on instanceof BurstVariance
+                        ? vectorDoubles(((BurstVariance) on).get_mean())
                         : vectorDoubles(((TwoCDE) on).get_two_cde());
 
             // -- phasor ---------------------------------------------------------

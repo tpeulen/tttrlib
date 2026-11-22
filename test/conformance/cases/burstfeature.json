@@ -16,7 +16,7 @@
         {"op": "count_gt", "on": "pr", "args": [0], "as": "n_positive"},
         {"op": "max", "on": "pr", "as": "largest"}
       ],
-      "expect": {"n_bursts": 293, "n_positive": 293, "largest": 0.7708333333333334},
+      "expect": {"n_bursts": 293, "n_positive": 293, "largest": 0.875},
       "tolerance": {"largest": 1e-12}
     },
     {

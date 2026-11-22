@@ -69,7 +69,7 @@
 #include "cxxopts.hpp"
 #include "nlohmann/json.hpp"
 
-#include "BVA.h"
+#include "BurstVariance.h"
 #include "DecayFitModel.h"
 #include "DecayFitProblem.h"
 #include "Sha256.h"
@@ -361,7 +361,8 @@ std::string column_unit(const std::string& label) {
         {"Fusion Group Size", "counts"},
         {"Proximity Ratio", "dimensionless"},
         {"Proximity Ratio Mean", "dimensionless"},
-        {"Proximity Ratio Std", "dimensionless"},
+        {"SD(Proximity Ratio)", "dimensionless"},
+        {"BVA Class", "dimensionless"},
         {"Confidence (sigma)", "dimensionless"},
         // A 2CDE value is a score on a fixed scale (~10 for a static burst),
         // not a measurement in anything — dimensionless, which is a different
@@ -1572,7 +1573,7 @@ int tttrlib::cli::cmd_sm(int argc, char** argv) {
             }
         }
 
-        std::vector<double> bva_mean, bva_std, fret_2cde;
+        std::vector<double> bva_mean, bva_std, bva_class, fret_2cde;
         if (donor != nullptr && acceptor != nullptr && n_bursts > 0) {
             std::vector<long long> inclusive;
             inclusive.reserve(n_bursts * 2);
@@ -1582,12 +1583,18 @@ int tttrlib::cli::cmd_sm(int argc, char** argv) {
             }
             progress.set_phase("companions");
             try {
-                tttrlib::BVA bva(data);
-                bva.set_donor(donor->channels, donor->micro_time_ranges);
-                bva.set_acceptor(acceptor->channels, acceptor->micro_time_ranges);
-                bva.compute(inclusive.data(), (int) n_bursts, 2, 5);
-                bva_mean = bva.get_proximity_ratio_mean();
-                bva_std = bva.get_proximity_ratio_std();
+                // BVA: the proximity ratio n_A / (n_A + n_D) over slices of 5 donor + acceptor
+                // photons (population SD), classified against each burst's 95 % static bound
+                tttrlib::BurstVariance bva(data);
+                bva.set_stream_a(acceptor->channels, acceptor->micro_time_ranges);
+                bva.set_stream_b(donor->channels, donor->micro_time_ranges);
+                bva.compute(inclusive.data(), (int) n_bursts, 2, tttrlib::BurstVariance::PHOTONS, 5,
+                            0.0, 0.0, 0.0, 1, 2, 0);
+                bva_mean = bva.get_mean();
+                bva_std = bva.get_sd();
+                const auto classes = tttrlib::BurstVariance::classify(
+                        bva_std, bva.static_bound(0.95, 300, 11, 1.0, 0));
+                bva_class.assign(classes.begin(), classes.end());
             } catch (const std::exception& e) {
                 std::cerr << "warning: BVA skipped: " << e.what() << std::endl;
             }
@@ -1759,10 +1766,13 @@ int tttrlib::cli::cmd_sm(int argc, char** argv) {
                 DataStore bva_store("bva");
                 bva_store.set_n_rows(n_bursts);
                 add_f64(bva_store, "Proximity Ratio Mean", bva_mean);
-                add_f64(bva_store, "Proximity Ratio Std", bva_std);
+                add_f64(bva_store, "SD(Proximity Ratio)", bva_std);
+                if (bva_class.size() == n_bursts) add_f64(bva_store, "BVA Class", bva_class);
                 json s = {{"donor", donor->name},
                           {"acceptor", acceptor->name},
                           {"photons_per_slice", 5},
+                          {"ddof", 0},
+                          {"quantile", 0.95},
                           {"bursts", parent_run}};
                 put_table(pto, "bv4/" + base + ".bv4", bva_store,
                           "burst_variance_analysis", s, "burst",

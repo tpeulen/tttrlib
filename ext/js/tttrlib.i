@@ -39,12 +39,12 @@
 //     libc++abi: terminating due to uncaught exception of type
 //     std::runtime_error: BurstFeature: unknown stream 'donor'
 //
-// which is what `new BVA(bf).compute()` used to do before the streams were
+// which is what `new BurstVariance(bf)` would do before the streams were
 // configured. Python survives the same call because it raises a RuntimeError.
 //
 // The shared fragments do install %exception blocks, but they are scoped: the
 // one in BurstFeatureExtractor.i ends with a bare `%exception;`, and the global
-// one lives in MicrotimeLinearization.i, which is included AFTER BVA.i and
+// one lives in MicrotimeLinearization.i, which is included AFTER BurstVariance.i and
 // TwoCDE.i -- so those two, among others, were left bare.
 //
 // This installs the handler FIRST, so it covers everything that follows. A
@@ -86,7 +86,7 @@
 %include "BurstFilter.i"
 %include "BurstFeatureExtractor.i"
 %include "BurstFeature.i"
-%include "BVA.i"
+%include "BurstVariance.i"
 %include "TwoCDE.i"
 %include "BurstML.i"
 #endif

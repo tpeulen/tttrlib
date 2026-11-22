@@ -1,5 +1,16 @@
 # Bundle update log
 
+## 2026-11-22 — tttrlib.BVA retired: BurstVariance is the burst variance
+
+- `BVA.h`, `BVA.cpp`, `ext/python/BVA.i` and `test/python/bva/test_bva.py` removed (owner: no
+  backward compatibility). `BurstVariance` does it: A = acceptor, B = donor, photon slices of the
+  donor + acceptor photons without the partial last slice, or a fixed time grid; plus the
+  per-burst static bound and the class. The R, Java and JS bindings include `BurstVariance.i`
+  (it carries the burst-array typemap the HMMs use); the registry's `bva` operation names
+  `BurstVariance` (columns Proximity Ratio Mean, SD(Proximity Ratio), BVA Class); `tttr sm`
+  writes those columns. The conformance case's maximum mean is 0.875 now (was 0.770 with the kept
+  remainder slice and slices over all photons); the A/B test pins the new conventions.
+
 ## 2026-11-22 — BurstVariance: anisotropy statistic and background-aware bound
 
 - `BurstVariance.set_statistic(RATIO | ANISOTROPY, G, l1, l2)`: the slice statistic becomes the

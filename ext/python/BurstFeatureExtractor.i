@@ -137,7 +137,7 @@ using json = nlohmann::json;
 //
 // A bare `%exception;` does not "end the scope" -- it removes the handler for
 // EVERYTHING SWIG parses afterwards. The window that opened here ran from
-// BurstFeature.i to the end of the HMMs (BVA, TwoCDE, the HMMs), until
+// BurstFeature.i to the end of the HMMs (BurstVariance, TwoCDE, the HMMs), until
 // MicrotimeLinearization.i happened to install a global one again.
 //
 // Python survived that because SWIG-Python catches std::exception by default.
@@ -145,7 +145,7 @@ using json = nlohmann::json;
 // TERMINATES THE PROCESS --
 //     libc++abi: terminating due to uncaught exception of type
 //     std::runtime_error: BurstFeature: unknown stream 'donor'
-// which is what `new BVA(bf).compute()` did before its streams were set.
+// which is what `new TwoCDE(bf).compute()` did before its streams were set.
 //
 // HistogramNd.i already warns about this: "Adding a duplicate is harmless;
 // ending it with `%exception;` is not."

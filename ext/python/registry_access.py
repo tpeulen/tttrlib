@@ -110,7 +110,7 @@ def resolve(name):
         For a free function, the function. For a method, a ``(class, method
         name)`` pair -- the caller supplies the instance, since only it knows
         which object the step applies to. For an entry whose interface *is* a
-        class (``BVA``, ``Correlator``, ``HMM``), the class: constructing it is
+        class (``BurstVariance``, ``Correlator``, ``HMM``), the class: constructing it is
         how that step is run.
     """
     import inspect as _inspect

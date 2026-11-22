@@ -452,7 +452,7 @@ def _op_csv_read(on, args):
 
 
 def _bursts_2d(flat):
-    """A flat start/stop list as the (n, 2) block BVA and 2CDE take.
+    """A flat start/stop list as the (n, 2) block BurstVariance and 2CDE take.
 
     The vocabulary passes arrays flat and each runner shapes them -- the same
     rule as hist.update and tiff.write_f64.
@@ -462,23 +462,29 @@ def _bursts_2d(flat):
 
 
 def _op_feature_new(on, args):
-    cls = tttrlib.BVA if str(args[0]) == "bva" else tttrlib.TwoCDE
-    f = cls(args[1])
-    f.set_donor(tttrlib.VectorInt32([int(c) for c in args[2]]))
-    f.set_acceptor(tttrlib.VectorInt32([int(c) for c in args[3]]))
+    donor = tttrlib.VectorInt32([int(c) for c in args[2]])
+    acceptor = tttrlib.VectorInt32([int(c) for c in args[3]])
+    if str(args[0]) == "bva":  # the proximity ratio: A = acceptor, B = donor
+        f = tttrlib.BurstVariance(args[1])
+        f.set_stream_a(acceptor)
+        f.set_stream_b(donor)
+        return f
+    f = tttrlib.TwoCDE(args[1])
+    f.set_donor(donor)
+    f.set_acceptor(acceptor)
     return f
 
 
 def _op_feature_compute(on, args):
     bursts = _bursts_2d(args[0])
-    if isinstance(on, tttrlib.BVA):
-        on.compute_bursts(bursts, int(args[1]), float(args[2]))
+    if isinstance(on, tttrlib.BurstVariance):  # photon slices, >= 2 of them, population SD
+        on.compute_bursts(bursts, 0, int(args[1]), 0.0, 0.0, 0.0, 1, 2, 0)
     else:
         on.compute_bursts(bursts, float(args[1]), 0, 0)
 
 
 def _op_feature_values(on, args):
-    v = (on.get_proximity_ratio_mean() if isinstance(on, tttrlib.BVA)
+    v = (on.get_mean() if isinstance(on, tttrlib.BurstVariance)
          else on.get_two_cde())
     return np.asarray(v, dtype=np.float64)
 

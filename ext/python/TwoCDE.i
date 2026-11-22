@@ -4,7 +4,7 @@
 %}
 
 // Burst boundaries arrive as a NumPy int array (Python) / numeric vector (R) /
-// long[] (Java): one buffer conversion, no per-element list boxing. BVA.i
+// long[] (Java): one buffer conversion, no per-element list boxing. BurstVariance.i
 // applies the same typemap earlier; re-apply so this file is self-contained.
 %apply (long long* IN_ARRAY2, int DIM1, int DIM2) {(long long* bursts, int n_bursts, int n_cols)};
 

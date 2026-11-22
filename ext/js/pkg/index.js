@@ -850,9 +850,9 @@ if (native.SimEngine) {
   };
 }
 
-// BVA and TwoCDE both derive from BurstFeature, so `result` is defined once on
+// BurstVariance and TwoCDE both derive from BurstFeature, so `result` is defined once on
 // each -- the prototype chain SWIG builds does not always carry it across.
-for (const cls of ['BVA', 'TwoCDE', 'BurstFeatureExtractor']) {
+for (const cls of ['BurstVariance', 'TwoCDE', 'BurstFeatureExtractor']) {
   const C = native[cls];
   if (!C || typeof C.prototype.get_result !== 'function') continue;
   /** Per-burst feature value, NaN where undefined. Python: `.result`. */
@@ -862,15 +862,15 @@ for (const cls of ['BVA', 'TwoCDE', 'BurstFeatureExtractor']) {
   });
 }
 
-if (native.BVA) {
-  /** Per-burst mean proximity ratio. Python: `.proximity_ratio_mean`. */
-  Object.defineProperty(native.BVA.prototype, 'proximityRatioMean', {
-    get() { return this.get_proximity_ratio_mean(); },
+if (native.BurstVariance) {
+  /** Per-burst mean of the slice statistic. Python: `.mean`. */
+  Object.defineProperty(native.BurstVariance.prototype, 'mean', {
+    get() { return this.get_mean(); },
     configurable: true,
   });
-  /** Per-burst proximity-ratio standard deviation. */
-  Object.defineProperty(native.BVA.prototype, 'proximityRatioStd', {
-    get() { return this.get_proximity_ratio_std(); },
+  /** Per-burst SD of the slice statistic. Python: `.sd`. */
+  Object.defineProperty(native.BurstVariance.prototype, 'sd', {
+    get() { return this.get_sd(); },
     configurable: true,
   });
 }

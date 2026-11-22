@@ -1,16 +1,13 @@
 """A/B of the three burst-dynamics features -- BVA, 2CDE and recurrence
 analysis -- against independent references.
 
-* **BVA** (Torella et al. 2011, Biophys. J. 100, 1568): per burst, the mean and
-  standard deviation of the proximity ratio ``n_A / (n_A + n_D)`` over
-  consecutive slices. Reference: NumPy written from that definition on the
-  photon streams; conventions pinned and documented: slices are cut over *all*
-  photons of the burst (a photon in neither stream still occupies a slot),
-  the incomplete last slice is kept, the standard deviation is the population
-  one, and a time-window slice includes photons up to ``start + window``
-  inclusive. FRETBursts' BVA notebook drops the incomplete last chunk -- the
-  reference is run both ways and the difference is shown to be the remainder
-  only. The static line is ``sqrt(p(1-p)/n)`` (binomial), analytic.
+* **BVA** on ``tttrlib.BurstVariance`` (Torella et al. 2011, Biophys. J. 100, 1568): per burst,
+  the mean and standard deviation of the proximity ratio ``n_A / (n_A + n_D)`` over consecutive
+  slices. Reference: NumPy written from that definition on the photon streams; conventions
+  pinned: slices are cut from the donor and acceptor photons only (a photon in neither stream
+  takes no slot), the incomplete last slice is dropped (as FRETBursts' BVA notebook), the
+  standard deviation is the population one, time windows are a fixed grid from the burst's
+  earliest photon without the partial last window. The shot-noise line is ``sqrt(p(1-p)/n)``.
 
 * **2CDE** (Tomov et al. 2012, Biophys. J. 102, 1163): per burst, KDE-based
   FRET-2CDE ``110 - 100 [(E)_D + (1-E)_A]`` and ALEX-2CDE. Reference: the KDE
@@ -76,48 +73,47 @@ def build_tttr(chan_per_burst, gap=1_000_000, macro_step=1):
 # BVA
 # --------------------------------------------------------------------------
 
-def bva_reference(chan, bounds, donor, acceptor, n_per_slice, keep_remainder=True):
-    """Mean / population-std of the slice proximity ratio, per burst."""
+def bva_reference(chan, bounds, donor, acceptor, n_per_slice):
+    """Mean / population-std of the slice proximity ratio per burst: slices of n consecutive
+    donor + acceptor photons (photons in neither stream take no slot), the incomplete last slice
+    dropped (Torella et al.; FRETBursts' notebook), bursts with fewer than two slices NaN."""
     is_d = np.isin(chan, donor)
     is_a = np.isin(chan, acceptor)
     means, stds = [], []
     for s, e in bounds:
-        d = is_d[s:e + 1]
-        a = is_a[s:e + 1]
-        n = e - s + 1
-        prs = []
-        for k in range(0, n, n_per_slice):
-            if not keep_remainder and k + n_per_slice > n:
-                break
-            dc = d[k:k + n_per_slice].sum()
-            ac = a[k:k + n_per_slice].sum()
-            prs.append(ac / (ac + dc) if (ac + dc) > 0 else 0.0)
-        prs = np.asarray(prs, float)
-        means.append(prs.mean())
-        stds.append(prs.std())
+        idx = np.arange(s, e + 1)
+        idx = idx[is_d[idx] | is_a[idx]]
+        k = idx.size // n_per_slice
+        prs = np.asarray([is_a[idx[j * n_per_slice:(j + 1) * n_per_slice]].mean() for j in range(k)])
+        means.append(prs.mean() if k >= 2 else np.nan)
+        stds.append(prs.std() if k >= 2 else np.nan)
     return np.asarray(means), np.asarray(stds)
 
 
 def bva_reference_time_windows(macro, chan, bounds, donor, acceptor, window):
+    """Abutting windows of *window* ticks from the burst's earliest photon (the trailing
+    partial window dropped), over donor + acceptor photons."""
     is_d = np.isin(chan, donor)
     is_a = np.isin(chan, acceptor)
     means, stds = [], []
     for s, e in bounds:
-        prs = []
-        i = s
-        while i <= e:
-            thr = macro[i] + window
-            j = i
-            while j + 1 <= e and macro[j + 1] <= thr:
-                j += 1
-            dc = is_d[i:j + 1].sum()
-            ac = is_a[i:j + 1].sum()
-            prs.append(ac / (ac + dc) if (ac + dc) > 0 else 0.0)
-            i = j + 1
-        prs = np.asarray(prs, float)
-        means.append(prs.mean())
-        stds.append(prs.std())
+        idx = np.arange(s, e + 1)
+        idx = idx[is_d[idx] | is_a[idx]]
+        t = macro[idx]
+        k = int(np.floor((t.max() - t.min()) / window))
+        w = np.floor((t - t.min()) / window)
+        prs = np.asarray([is_a[idx[w == j]].mean() for j in range(k) if np.any(w == j)])
+        means.append(prs.mean() if prs.size >= 2 else np.nan)
+        stds.append(prs.std() if prs.size >= 2 else np.nan)
     return np.asarray(means), np.asarray(stds)
+
+
+def _bva(d):
+    """The proximity ratio on the burst-variance engine: A = acceptor (1), B = donor (0)."""
+    bv = tttrlib.BurstVariance(d)
+    bv.set_stream_a([1])
+    bv.set_stream_b([0])
+    return bv
 
 
 class TestBvaAgainstTheDefinition(unittest.TestCase):
@@ -137,60 +133,49 @@ class TestBvaAgainstTheDefinition(unittest.TestCase):
             with self.subTest(seed=seed, n_per_slice=n_slice):
                 bursts = self._bursts(seed)
                 d, macro, chan, bounds = build_tttr(bursts)
-                bva = tttrlib.BVA(d)
-                bva.set_donor([0])
-                bva.set_acceptor([1])
-                bva.compute(bounds, n_slice, 0.01)
+                bva = _bva(d)
+                bva.compute(bounds, bva.PHOTONS, n_slice, 0.0, 0.0, 0.0, 1, 2, 0)
                 m_ref, s_ref = bva_reference(chan, bounds, [0], [1], n_slice)
-                np.testing.assert_allclose(bva.proximity_ratio_mean, m_ref, rtol=0, atol=1e-12)
-                np.testing.assert_allclose(bva.proximity_ratio_std, s_ref, rtol=0, atol=1e-12)
+                np.testing.assert_allclose(bva.mean, m_ref, rtol=0, atol=1e-12)
+                np.testing.assert_allclose(bva.sd, s_ref, rtol=0, atol=1e-12)
 
-    def test_slices_are_cut_over_all_photons_of_the_burst(self):
-        """Convention: a photon in neither stream still occupies a slot in the
-        slicing (documented; FRETBursts' notebook slices the selected stream
-        only, which is the same thing whenever every burst photon is D or A)."""
+    def test_photons_in_neither_stream_take_no_slot(self):
+        """Convention: slices are cut from the donor and acceptor photons only (FRETBursts'
+        notebook slices the selected stream too)."""
         bursts = self._bursts(4, extra_channel=True)
         d, macro, chan, bounds = build_tttr(bursts)
-        bva = tttrlib.BVA(d)
-        bva.set_donor([0])
-        bva.set_acceptor([1])
-        bva.compute(bounds, 5, 0.01)
+        bva = _bva(d)
+        bva.compute(bounds, bva.PHOTONS, 5, 0.0, 0.0, 0.0, 1, 2, 0)
         m_ref, s_ref = bva_reference(chan, bounds, [0], [1], 5)
-        np.testing.assert_allclose(bva.proximity_ratio_mean, m_ref, rtol=0, atol=1e-12)
-        np.testing.assert_allclose(bva.proximity_ratio_std, s_ref, rtol=0, atol=1e-12)
+        np.testing.assert_allclose(bva.mean, m_ref, rtol=0, atol=1e-12)
+        np.testing.assert_allclose(bva.sd, s_ref, rtol=0, atol=1e-12)
+        self.assertTrue(np.all(bva.slice_photons == 5))
 
-    def test_remainder_slice_is_kept(self):
-        """Pins the incomplete-last-slice convention against the alternative
-        (FRETBursts notebook: drop it). With 303 photons and n = 5 the two
-        differ; with 300 they coincide."""
+    def test_remainder_slice_is_dropped(self):
+        """With 303 photons and n = 5 the last 3 photons are no slice: every slice holds n."""
         bursts = self._bursts(5, n_ph=303)
         d, macro, chan, bounds = build_tttr(bursts)
-        bva = tttrlib.BVA(d)
-        bva.set_donor([0])
-        bva.set_acceptor([1])
-        bva.compute(bounds, 5, 0.01)
-        m_keep, s_keep = bva_reference(chan, bounds, [0], [1], 5, keep_remainder=True)
-        m_drop, s_drop = bva_reference(chan, bounds, [0], [1], 5, keep_remainder=False)
-        np.testing.assert_allclose(bva.proximity_ratio_std, s_keep, rtol=0, atol=1e-12)
-        self.assertGreater(np.max(np.abs(s_keep - s_drop)), 1e-6)   # the conventions do differ
+        bva = _bva(d)
+        bva.compute(bounds, bva.PHOTONS, 5, 0.0, 0.0, 0.0, 1, 2, 0)
+        np.testing.assert_array_equal(bva.n_slices, 303 // 5)
+        m_ref, s_ref = bva_reference(chan, bounds, [0], [1], 5)
+        np.testing.assert_allclose(bva.sd, s_ref, rtol=0, atol=1e-12)
 
     def test_time_windows_match_numpy(self):
         bursts = self._bursts(6)
         d, macro, chan, bounds = build_tttr(bursts, macro_step=3)
-        bva = tttrlib.BVA(d)
-        bva.set_donor([0])
-        bva.set_acceptor([1])
-        bva.compute(bounds, -1, 20.0)     # window of 20 ticks (resolution 1.0)
+        bva = _bva(d)
+        bva.set_time_axis(np.asarray(macro, np.int64))
+        bva.compute(bounds, bva.TIME, 0, 20.0, 0.0, 0.0, 1, 2, 0)     # windows of 20 ticks
         m_ref, s_ref = bva_reference_time_windows(macro, chan, bounds, [0], [1], 20.0)
-        np.testing.assert_allclose(bva.proximity_ratio_mean, m_ref, rtol=0, atol=1e-12)
-        np.testing.assert_allclose(bva.proximity_ratio_std, s_ref, rtol=0, atol=1e-12)
+        np.testing.assert_allclose(bva.mean, m_ref, rtol=0, atol=1e-12)
+        np.testing.assert_allclose(bva.sd, s_ref, rtol=0, atol=1e-12)
 
-    def test_static_line_is_the_binomial_standard_deviation(self):
+    def test_shot_noise_line_is_the_binomial_standard_deviation(self):
         p = np.linspace(0.05, 0.95, 19)
         for n in (3, 5, 10):
-            mean, std = tttrlib.BVA.compute_static_bva_line(p, n)
-            np.testing.assert_allclose(np.asarray(mean), p, atol=1e-15)
-            np.testing.assert_allclose(np.asarray(std), np.sqrt(p * (1 - p) / n), atol=1e-15)
+            sd = tttrlib.BurstVariance.shot_noise_sd(p, [float(n)])
+            np.testing.assert_allclose(np.asarray(sd), np.sqrt(p * (1 - p) / n), atol=1e-15)
 
     def test_static_species_sits_on_the_line(self):
         """Known answer: binomial slices of a static species average to the
@@ -200,13 +185,11 @@ class TestBvaAgainstTheDefinition(unittest.TestCase):
         p, n = 0.4, 6
         bursts = [(rng.random(600) < p).astype(int) for _ in range(300)]
         d, macro, chan, bounds = build_tttr(bursts)
-        bva = tttrlib.BVA(d)
-        bva.set_donor([0])
-        bva.set_acceptor([1])
-        bva.compute(bounds, n, 0.01)
+        bva = _bva(d)
+        bva.compute(bounds, bva.PHOTONS, n, 0.0, 0.0, 0.0, 1, 2, 0)
         line = np.sqrt(p * (1 - p) / n)
-        self.assertAlmostEqual(np.mean(bva.proximity_ratio_std), line, delta=0.02)
-        self.assertAlmostEqual(np.mean(bva.proximity_ratio_mean), p, delta=0.01)
+        self.assertAlmostEqual(np.mean(bva.sd), line, delta=0.02)
+        self.assertAlmostEqual(np.mean(bva.mean), p, delta=0.01)
 
 
 # --------------------------------------------------------------------------

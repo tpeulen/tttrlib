@@ -387,7 +387,9 @@ def test_companions_are_computed_not_asserted(sim_file, tmp_path):
     # sit where the definitions say they should for static bursts. NaN is a
     # legitimate value here — 2CDE is undefined for a burst missing one of its
     # two streams — so most rows, not all, have to be finite.
-    std = values["Proximity Ratio Std"]
+    std = values["SD(Proximity Ratio)"]
+    classes = values["BVA Class"]
+    assert set(np.unique(classes)) <= {-1.0, 0.0, 1.0} and np.any(classes == 1.0)
     cde = values["FRET 2CDE"]
     assert np.nanstd(std) > 0.0 and np.nanstd(cde) > 0.0
     assert np.isfinite(cde).mean() > 0.9
@@ -496,7 +498,7 @@ def test_columns_carry_their_unit(two_detector):
     assert units["Count Rate (KHz)"] == "kilohertz"
     assert units["Green Count Rate (KHz)"] == "kilohertz"
     assert units["Confidence (sigma)"] == "dimensionless"
-    assert units["Proximity Ratio Std"] == "dimensionless"
+    assert units["SD(Proximity Ratio)"] == "dimensionless"
     assert units["FRET 2CDE"] == "dimensionless"
 
     # The same quantity, qualified by a detector, keeps its unit. Keying the

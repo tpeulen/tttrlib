@@ -57,10 +57,10 @@
 %include "BurstSearchMaxTree.i"
 %include "BurstFilter.i"
 %include "BurstFeatureExtractor.i"
-/* Burst features: BVA and 2CDE. BurstFeature.i first -- BVA and TwoCDE derive
+/* Burst features: BurstVariance and 2CDE. BurstFeature.i first -- BurstVariance and TwoCDE derive
    from it, and its %exception governs both. */
 %include "BurstFeature.i"
-%include "BVA.i"
+%include "BurstVariance.i"
 %include "TwoCDE.i"
 %include "BurstML.i"
 #endif

@@ -9,7 +9,7 @@
 // Base class for per-burst features (named streams + optional KDE machinery).
 // The protected KDE/burst-dispatch helpers are not exposed; only set_stream,
 // get_tttr and get_result are part of the public surface. Must be %included
-// before its subclasses (BVA.i, TwoCDE.i) so SWIG knows the base type.
+// before its subclasses (BurstVariance.i, TwoCDE.i) so SWIG knows the base type.
 %include "BurstFeature.h"
 
 #ifdef SWIGPYTHON

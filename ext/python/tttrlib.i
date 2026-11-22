@@ -148,7 +148,6 @@ def experimental(cls):
 %include "BurstFilter.i"
 %include "BurstFeatureExtractor.i"
 %include "BurstFeature.i"
-%include "BVA.i"
 %include "BurstVariance.i"
 %include "TwoCDE.i"
 %include "BurstML.i"

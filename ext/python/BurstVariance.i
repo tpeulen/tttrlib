@@ -3,8 +3,9 @@
 #include "BurstVariance.h"
 %}
 
-// The burst-array typemap (long long* bursts, int n_bursts, int n_cols) is applied in BVA.i,
-// which is included before this file. The time axis arrives as one NumPy int64 buffer.
+// Burst boundaries arrive as one NumPy int array (Python) / numeric matrix (R) / long[] (Java);
+// the typemap also serves the HMMs (included after this file). The time axis is one int64 buffer.
+%apply (long long* IN_ARRAY2, int DIM1, int DIM2) {(long long* bursts, int n_bursts, int n_cols)};
 %apply (long long* IN_ARRAY1, int DIM1) {(long long* time_axis, int n_time_axis)};
 
 %apply (unsigned char* IN_ARRAY1, int DIM1) {(unsigned char* mask_a, int n_mask_a), (unsigned char* mask_b, int n_mask_b)};

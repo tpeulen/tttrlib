@@ -95,11 +95,11 @@ class TestBurstRangeConvention(unittest.TestCase):
         n = 30
         chans = [[1 if i == n - 1 else 0 for i in range(n)] for _ in range(2)]
         d, bounds = make_tttr([n, n], channels=chans)
-        bva = tttrlib.BVA(d)
-        bva.set_donor([0])
-        bva.set_acceptor([1])
-        bva.compute(bounds, n, 0.01)
-        means = np.asarray(bva.get_proximity_ratio_mean())
+        bva = tttrlib.BurstVariance(d)
+        bva.set_stream_a([1])
+        bva.set_stream_b([0])
+        bva.compute(bounds, bva.PHOTONS, n, 0.0, 0.0, 0.0, 1, 1, 0)  # one slice of n per burst
+        means = bva.mean
         self.assertEqual(len(means), 2)
         np.testing.assert_allclose(means, 1.0 / n, atol=1e-9)
 

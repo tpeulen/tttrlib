@@ -258,12 +258,13 @@ L, m, T = 30, 10, 1e-3  # min photons, window photons, window time [s]
 ranges = tttr.burst_search(L=L, m=m, T=T)  # NumPy int64 array
 bursts = ranges.reshape(-1, 2)  # one [start, stop) row per burst
 
-# Burst variance analysis on the same boundaries (NumPy array in/out)
-bva = tttrlib.BVA(tttr)
-bva.set_donor([0]); bva.set_acceptor([1])
-bva.compute(ranges, 5)  # 5 photons per slice
-pr_mean = bva.proximity_ratio_mean  # NumPy arrays
-pr_std = bva.proximity_ratio_std
+# Burst variance analysis on the same boundaries (NumPy array in/out): the proximity ratio
+# n_A / (n_A + n_D) over slices of 5 photons, classified against each burst's static bound
+bva = tttrlib.BurstVariance(tttr)
+bva.set_stream_a([1]); bva.set_stream_b([0])          # acceptor, donor
+bva.compute(bursts, bva.PHOTONS, 5, 0.0, 0.0, 0.0, 1, 2, 0)
+pr_mean, pr_sd = bva.mean, bva.sd                       # NumPy arrays
+classes = tttrlib.BurstVariance.classify(pr_sd, bva.static_bound())  # 1 / 0 / -1
 ```
 
 For PIE/ALEX data, add channel and micro-time gating before burst search. See

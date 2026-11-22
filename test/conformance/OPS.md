@@ -183,7 +183,7 @@ one language.
 
 | op | on | args | result |
 |---|---|---|---|
-| `feature.new` | — | `[kind, $tttr, [donor], [acceptor]]` | BVA or TwoCDE handle; kind is `"bva"` or `"twocde"` |
+| `feature.new` | — | `[kind, $tttr, [donor], [acceptor]]` | BurstVariance (proximity ratio: A = acceptor, B = donor) or TwoCDE handle; kind is `"bva"` or `"twocde"` |
 | `feature.compute` | feature | `[$bursts, …]` | — |
 | `feature.values` | feature | — | array, one value per burst |
 
@@ -193,8 +193,9 @@ It calls `compute_bursts`, the non-overloaded entry point, because SWIG's R
 overload dispatcher cannot accept a matrix at all (`class(matrix)` is two
 values since R 4.0).
 
-`feature.compute`'s trailing arguments differ by kind: BVA takes
-`[photons_per_slice, minimum_window]`, 2CDE takes `[tau]`.
+`feature.compute`'s trailing arguments differ by kind: BVA takes `[photons_per_slice]` (photon
+slices, at least two per burst, population SD; `feature.values` is the mean per burst, NaN where
+a burst has fewer than two slices), 2CDE takes `[tau]`.
 
 ## `phasor.*`
 
