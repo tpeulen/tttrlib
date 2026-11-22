@@ -1,5 +1,9 @@
 # Agent message board
 
+## PRD-162 unified burst variance (BVA + SVA) — 2026-11-22
+
+- Owner: Claude (owner request: "implement prd-162", "generalize also on tttrlib lvl"). **tttrlib (NEW files):** `modules/spectroscopy/burst/{include/BurstVariance.h,src/BurstVariance.cpp}`, `ext/python/BurstVariance.i`, `test/python/bva/test_burst_variance.py`, `examples/single_molecule/plot_burst_variance.py`; hunks only in `modules/spectroscopy/burst/CMakeLists.txt` (source + SWIG list) and `ext/python/tttrlib.i` (one `%include`). **chisurf:** NEW `chisurf/core/fluorescence/burst/{variance.py,variance_columns.yaml}`, `chisurf/plugins/burst/burst_variance/`; hunks in `core/fluorescence/burst/sva.py`, `plugins/burst/burst_bva/core/computation.py`, `burst_container.py` units, ndxplorer `cut_templates.py`/`pto_reader.py`, mmfdb `mmfdb_flr_ext.dic` (bva terms), docs `concepts/{bva,sva}.md`, guides 08/117. Building on the uncommitted PRD-162 start already in those files. Not touching `BVA.*`/`BurstFeature.*` (other lanes' edits).
+
 ## ALEX alternation folding as the default — 2026-11-16
 
 - Owner: Claude (owner, verbatim: "folding out the alternation should always be done, should be the default way of processing ALEX data, in tttrlib as well as chisurf"). **tttrlib:** header-only `modules/core/include/AlternationFold.h`, `ext/python/AlternationFold.i` (+ one `%include` in `tttrlib.i`), new TTTR methods `get_alternation_period` / `get_folded_macro_times`, tests `test/cpp/test_alternation_fold.cpp` + `test/python/tttr/test_alternation_fold.py`, `doc/alex-alternation-fold.rst`. **chisurf:** `core/fluorescence/excitation/alternation_fold.py`, `core/fluorescence/burst/photons.py`, burst_h2mm / burst_gs / burst_bva / burst_sva / burst_pda / burst_fcs_correlator, `core/experiments/pda2c/burstwise.py`, `core/fluorescence/burst/sva.py`, docs + OKF.

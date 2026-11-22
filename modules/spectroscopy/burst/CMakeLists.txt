@@ -17,11 +17,12 @@ tttrlib_add_module(
              "${CMAKE_CURRENT_SOURCE_DIR}/src/BurstFeature.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/BurstFeatureExtractor.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/BVA.cpp"
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/BurstVariance.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/TwoCDE.cpp"
              "${CMAKE_CURRENT_SOURCE_DIR}/src/BurstML.cpp"
     HEADERS  "${CMAKE_CURRENT_SOURCE_DIR}/include"
     DEPENDS  util math core plugin
     EXTERNAL_DEPS tttrlib::json
-    SWIG_INTERFACES BurstSignificance.i BurstFilter.i BurstFeature.i BurstFeatureExtractor.i BVA.i TwoCDE.i BurstML.i RecurrenceAnalysis.i
+    SWIG_INTERFACES BurstSignificance.i BurstFilter.i BurstFeature.i BurstFeatureExtractor.i BVA.i BurstVariance.i TwoCDE.i BurstML.i RecurrenceAnalysis.i
     TEST_DIR test/python/burstfilter
 )

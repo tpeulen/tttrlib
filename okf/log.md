@@ -1,5 +1,19 @@
 # Bundle update log
 
+## 2026-11-22 — BurstVariance: one sub-burst variance engine for BVA and SVA
+
+- New `tttrlib.BurstVariance` (`modules/spectroscopy/burst/{include,src}/BurstVariance.*`,
+  `ext/python/BurstVariance.i`): the ratio n_A/(n_A+n_B) of two photon streams (channels +
+  micro-time gates, or per-photon masks) over photon slices or (period-aligned) time windows on
+  any per-photon time axis; per burst mean, SD (ddof), pooled ratio, binomial chi2 and the slice
+  photon numbers; `static_bound` (quantile of binomial simulations of the burst's own slices,
+  counter-based RNG, x sqrt(dispersion)) and `classify` (1 static / 0 dynamic / -1 untested).
+  chisurf PRD-162 drives BVA and SVA through it. `tttrlib.BVA` is unchanged. Tests
+  `test/python/bva/test_burst_variance.py` (8 passed, `build/prd162`); example
+  `examples/single_molecule/plot_burst_variance.py` (static 5.0 % / dynamic 100 % flagged at
+  q = 0.95). Not installed into the arm64 env (other lanes' uncommitted work is in this tree):
+  chisurf runs its identical NumPy engine until it is.
+
 ## 2026-10-28 — PTU reader: 32-bit records without the BitsPerRecord tag
 
 - `read_ptu_header` (`modules/io/pq/src/io_pq.cpp`) left
