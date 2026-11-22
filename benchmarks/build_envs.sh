@@ -12,7 +12,10 @@ build () {
   local name="$1"; shift
   local py="$1"; shift
   echo "=== [$name] creating venv (py$py) ==="
-  uv venv --python "$py" "$VENVS/$name" >"$LOGS/$name.log" 2>&1
+  # --managed-python: a uv-managed interpreter, never the conda base `python3`. A venv's
+  # `bin/python` is a symlink to its interpreter; on the base python it silently became 3.14
+  # when the base was upgraded and lost its own 3.10 site-packages ("No module named fretbursts").
+  uv venv --managed-python --python "$py" "$VENVS/$name" >"$LOGS/$name.log" 2>&1
   echo "=== [$name] installing: $* ==="
   VIRTUAL_ENV="$VENVS/$name" uv pip install "$@" >>"$LOGS/$name.log" 2>&1
   local rc=$?
