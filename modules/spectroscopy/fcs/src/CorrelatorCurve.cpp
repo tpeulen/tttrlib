@@ -57,11 +57,22 @@ if (is_verbose()) {
         }
         return;
     }
-    // multi-tau axis: step doubles every n_bins bins.  Computing with bit
-    // shifts instead of std::pow avoids the transcendental per element.
-    uint64_t step = 1;
-    for(size_t j=1; j < size(); j++){
-        x_axis[j] = x_axis[j-1] + step;
-        if (j % settings.n_bins == 0) step <<= 1;
+    // multi-tau axis: n_bins lags per cascade, the spacing doubling from one
+    // cascade to the next. In cascade i the kernel (ccf_wahl_correlate) counts
+    // the pairs of coarse lag d = offset + m, m = 1..n_bins, with the INTEGER
+    // offset = x_axis[i*n_bins] >> i, and those pairs are centred on the true
+    // lag d << i. The labels are therefore (offset + m) << i. Accumulating
+    // x_axis[j-1] + 2^i instead labelled a bin with the exact, non-integer
+    // offset: from the cascade where x_axis[i*n_bins] stops being a multiple
+    // of 2^i (cascade 4 for n_bins = 8) every label sat up to one coarse bin
+    // above the lag it holds -- 6-10 % in lag at n_bins = 8; caught against a
+    // closed-form G(tau) and the legacy Seidel-lab correlator, 2026-11-23.
+    const size_t nb = settings.n_bins;
+    for (size_t j = 1; j < size(); j++) {
+        const size_t i = (j - 1) / nb;           // cascade of bin j
+        if (i == 0) { x_axis[j] = j; continue; }
+        const size_t first = i * nb;             // last bin of the previous cascade
+        const unsigned long long offset = x_axis[first] >> i;
+        x_axis[j] = (offset + (j - first)) << i;
     }
 }

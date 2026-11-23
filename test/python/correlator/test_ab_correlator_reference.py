@@ -50,10 +50,13 @@ Two things this A/B found (2026-08-17), both fixed the same day and pinned:
   ``2**(k-1)`` -- which is what ``ccf_felekyan`` counts and
   ``normalize_ccf_felekyan`` divides by; the analytic bracket below passes.
 
-Also recorded: the ``wahl`` label is the *upper* end of its coarse bin by up to
-one coarse step (``x[c*n_bins] mod 2**c`` is dropped by the integer offset),
-which is why the analytic comparison brackets each estimate between
-``G(x)`` and ``G(x - step)`` instead of demanding ``G(x)`` itself.
+Recorded 2026-08-17, fixed 2026-11-23: the ``wahl`` label was the *upper* end
+of its coarse bin by up to one coarse step (``x[c*n_bins] mod 2**c`` is dropped
+by the integer offset of the kernel while the axis kept it). The axis now labels
+bin ``d`` of cascade ``c`` with the coarse lag it counts,
+``((x[c*n_bins] >> c) + d) << c`` (``wahl_axis`` below), the centre of the
+true-lag distribution of its pairs. The analytic bracket between ``G(x)`` and
+``G(x - step)`` is kept; the estimate now sits at its ``G(x)`` end.
 """
 import json
 import os
@@ -99,8 +102,23 @@ def pairs_at_lag(T1, w1, W2, lag):
     return float(np.sum(w1[m] * W2[idx[m]]))
 
 
+def wahl_axis(n_bins, n_casc):
+    """The wahl labels: bin d of cascade c holds coarse lag (x[c*n_bins] >> c) + d,
+    labelled with that lag in ticks, ((x[c*n_bins] >> c) + d) << c."""
+    n = n_bins * n_casc + 1
+    x = np.zeros(n, dtype=np.uint64)
+    for j in range(1, n):
+        c = (j - 1) // n_bins
+        if c == 0:
+            x[j] = j
+        else:
+            first = c * n_bins
+            x[j] = ((int(x[first]) >> c) + (j - first)) << c
+    return x
+
+
 def wahl_reference(t1, w1, t2, w2, n_bins, n_casc):
-    x = multi_tau_axis(n_bins, n_casc)
+    x = wahl_axis(n_bins, n_casc)
     corr = np.zeros(len(x))
     for c in range(n_casc):
         T1 = t1 >> np.uint64(c)
