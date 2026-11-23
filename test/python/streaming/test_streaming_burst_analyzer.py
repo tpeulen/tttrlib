@@ -137,7 +137,7 @@ def batch_table(macro, micro, ch, setup, windows, L=L, m=M, T=T):
     for wname, kind, lo, hi, period in windows:
         for dname, mask in dm.items():
             f, l, du, mm, nn, rate = span_cols(mask & wm[wname])
-            stream, rng_ = f"S {wname} {dname}", f" | {lo}-{hi}"
+            stream, rng_ = f"S {wname} {dname}", f" | {lo}:{hi}"
             cols[stream + " (kHz)" + rng_] = rate
             cols[stream + " (photons)" + rng_] = nn
             cols[stream + " (ms)" + rng_] = du
@@ -434,5 +434,5 @@ def test_simulated_pie_populations_are_recovered(simulated_pie):
                                 [("prompt", "micro", 0, 2048, 0), ("delayed", "micro", 2048, 4096, 0)],
                                 L=30, m=10, T=5e-4)
     np.testing.assert_array_equal(t["First Photon"], pairs[:, 0])
-    np.testing.assert_array_equal(t["S delayed red (photons) | 2048-4096"],
-                                  ref["S delayed red (photons) | 2048-4096"])
+    np.testing.assert_array_equal(t["S delayed red (photons) | 2048:4096"],
+                                  ref["S delayed red (photons) | 2048:4096"])
