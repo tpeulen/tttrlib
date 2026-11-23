@@ -215,11 +215,16 @@ private:
     size_t photon_count_ = 0;
 
     void build_axis() {
+        // the batch correlator's multi-tau axis (CorrelatorCurve::update_axis):
+        // bin j of level i is labelled with the integer coarse lag it holds,
+        // ((taus[i*n_bins] >> i) + m) << i
         taus_.assign(static_cast<size_t>(n_bins_) * n_casc_ + 1, 0);
-        uint64_t step = 1;
+        const size_t nb = static_cast<size_t>(n_bins_);
         for (size_t j = 1; j < taus_.size(); ++j) {
-            taus_[j] = taus_[j - 1] + step;
-            if (j % static_cast<size_t>(n_bins_) == 0) step <<= 1;
+            const size_t i = (j - 1) / nb;
+            if (i == 0) { taus_[j] = j; continue; }
+            const size_t first = i * nb;
+            taus_[j] = ((taus_[first] >> i) + (j - first)) << i;
         }
     }
 
