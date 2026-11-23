@@ -49,4 +49,7 @@ TTTRLIB_NOGIL(Correlator::species_matrix_correlation)
 %extend CorrelatorCurve{
     %pythoncode "./ext/python/CorrelatorCurve.py"
 }
+// filtered FCS: species filters (FfcsFilter, .ffcs.json, legacy .jef) and the
+// SoftCorr-style species cross-correlation of filtered photon streams
+%pythoncode "./ext/python/FfcsFilter.py"
 #endif
